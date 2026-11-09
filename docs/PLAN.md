@@ -3,10 +3,12 @@
 ## Pipeline
 
 1. **Preserve (no model).** Fetch each queued URL; look up or capture on
-   Wayback; store bytes by SHA-256; extract text (trafilatura for HTML, docling
-   for PDF); detect language per passage (lingua); cut gap-free passages of
+   Wayback; store bytes by SHA-256; extract text (trafilatura for HTML, pdftotext
+   for PDF with page breaks kept, standard library for DOCX); detect language per passage (lingua); cut gap-free passages of
    about 1,500 characters; build FTS5 index. Audio/video go to a transcription
    queue (faster-whisper) with timecodes.
+   Dates come only from explicit page metadata (certainty 'inferred');
+   scanned PDFs are flagged so their OCR text is treated with care.
    Fetching rules: honest User-Agent, one request per host at a time (3 s
    apart, 4 s for the Internet Archive), robots.txt obeyed for live pages,
    no Save Page Now submissions. A blocked, parked or vanished live page

@@ -2,6 +2,7 @@
 
     python -m archive import-queue [--queue PATH] [--db PATH] [--dry-run]
     python -m archive fetch [--limit N] [--kind K ...] [--target ID ...] [--retry-failed]
+    python -m archive index [--limit N] [--retry-failed]
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from . import db, paths, queue_import
 from .acquire import Acquirer, pending_targets
 from .depot import Depot
 from .fetch import Fetcher
+from .index_text import TextIndexer, pending_versions
 
 
 def cmd_import_queue(args: argparse.Namespace) -> int:
@@ -64,6 +66,25 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_index(args: argparse.Namespace) -> int:
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    versions = pending_versions(conn, limit=args.limit, retry_failed=args.retry_failed)
+    print(f"{len(versions)} versions to index", flush=True)
+    indexer = TextIndexer(conn, Depot(paths.data_dir()))
+    tally: Counter = Counter()
+    for number, version in enumerate(versions, 1):
+        result = indexer.index(version)
+        tally[result.status] += 1
+        langs = ",".join(f"{k}:{v}" for k, v in list(result.languages.items())[:3])
+        print(f"[{number}/{len(versions)}] {result.status:7} {result.chars:>8} chars "
+              f"{result.passages:>4} passages  {langs:24} {','.join(result.flags)} "
+              f"{result.error or ''}", flush=True)
+    conn.close()
+    print(json.dumps(dict(tally)))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m archive")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -81,6 +102,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--target", action="append", help="only this target id (repeatable)")
     p.add_argument("--retry-failed", action="store_true", help="also retry targets that failed before")
     p.set_defaults(func=cmd_fetch)
+
+    p = sub.add_parser("index", help="extract text, cut passages, detect language for stored versions")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--limit", type=int)
+    p.add_argument("--retry-failed", action="store_true")
+    p.set_defaults(func=cmd_index)
 
     args = parser.parse_args(argv)
     return args.func(args)

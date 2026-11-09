@@ -8,7 +8,7 @@ description = "Evidence archive of SOGICE material: every fact is a located verb
 readme = "README.md"
 requires-python = ">=3.10"
 dynamic = ["version"]
-dependencies = ["httpx>=0.28"]
+dependencies = ["httpx>=0.28", "trafilatura>=2.0", "lingua-language-detector>=2.0"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
