@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sogice-archive"
+description = "Evidence archive of SOGICE material: every fact is a located verbatim quote in a preserved source."
+readme = "README.md"
+requires-python = ">=3.10"
+dynamic = ["version"]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["archive"]
+
+[tool.setuptools.package-data]
+archive = ["schema.sql"]
+
+[tool.setuptools.dynamic]
+version = { attr = "archive.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

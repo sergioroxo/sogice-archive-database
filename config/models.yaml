@@ -1,0 +1,30 @@
+# Model configuration: the only place model names live (CLAUDE.md).
+#
+# Read by archive/config.py with a small built-in parser, so this file uses a
+# plain YAML subset: nested "key: value" mappings indented with spaces,
+# '#' comments, scalars (text, numbers, true/false, null, quoted strings) and
+# one-line lists like [a, b]. No block lists ("- item"), anchors or
+# multi-line strings. It stays valid YAML for any other tool.
+#
+# The model tags below are placeholders: confirm the exact Ollama tags on the
+# Mac Studio with `ollama list` and edit them here (nowhere else).
+# One resident model at a time (64 GB): run roles in separate batches.
+
+ollama:
+  base_url: http://127.0.0.1:11434
+  timeout_seconds: 600
+
+roles:
+  reading:
+    model: gemma4:12b        # placeholder tag; bulk structured reading
+    description: Bulk reading, one structured call per short document or section
+    temperature: 0
+  audit:
+    model: gemma4:31b        # placeholder tag; hard cases and the audit pass
+    description: Hard cases and the per-source audit verdict
+    temperature: 0
+  embedding:
+    model: embeddinggemma-2  # placeholder tag; confirm name and modalities on the Mac
+    description: Search and attachment suggestions only, never evidence
+    dimensions: 768
+    modalities: [text, image, audio, video]

@@ -1,22 +1,25 @@
-# First Claude Code session — paste this as the opening prompt
+# Next Claude Code session — paste this as the opening prompt
 
-Read `CLAUDE.md`, `docs/PLAN.md` and `docs/PORTING.md`. Then do Phase 0:
+Read `CLAUDE.md`, `docs/PLAN.md` and `docs/PORTING.md`.
 
-1. Create the package layout: `archive/` (Python package), `tests/`,
-   `config/models.yaml`, `data/` (gitignored), `seeds/`, `docs/`.
-2. Port `atomic_io.py`, `citation_units_v2.py`, `quote_locator.py` and
-   `relationship_vocabulary.py` with their tests. Remove dependencies on the
-   old control machinery. Make `pytest` pass.
-3. Write the new SQLite schema (`archive/schema.sql`) for: source, version,
-   section, passage, usage, concept, concept_label, entity, relation, claim,
-   decision, run, release. Base it on the old `knowledge_registry._SCHEMA`;
-   decisions record actor (model or researcher), action, reason, audit verdict
-   and previous state, append-only.
-4. Write `config/models.yaml` with reading (gemma4 12B), hard cases/audit
-   (gemma4 31B) and embeddings (EmbeddingGemma 2), read from one place.
-5. Check Ollama: list installed models; confirm EmbeddingGemma 2 accepts
-   text, image, audio and video inputs; report what works.
-6. Stop and summarise what was built, what failed, and the next step
-   (Phase 1: preserve the corpus from the old `state/source_queue.db`).
+Already done (9 Nov 2026, built in Cowork): package layout, `pyproject.toml`,
+`archive/atomic_io.py`, `archive/passages.py`, `archive/quote_locator.py`,
+`archive/relationship_vocabulary.py`, `archive/schema.sql`, `archive/db.py`,
+`archive/config.py`, `config/models.yaml`; 115 tests passing.
+
+Finish Phase 0 on this Mac:
+
+1. Create a venv, `pip install -e ".[dev]"`, run `pytest`.
+2. Run `ollama list`. Put the exact tags for Gemma 4 12B, Gemma 4 31B and
+   EmbeddingGemma 2 into `config/models.yaml`.
+3. Write `scripts/check_models.py`: send one short text to each reading model
+   (expect JSON back), and embed one text, one image, one short audio clip and
+   one short video with EmbeddingGemma 2. Report which inputs work.
+4. Commit and push to `origin main`.
+
+Then start Phase 1 (preserve the corpus): read the old queue at
+`~/Library/Application Support/SurvivingSOGICE/projects/surviving-sogice/state/source_queue.db`
+(read-only), import its rows into `source`, and port the fetch, Wayback and
+text-extraction code listed in `docs/PORTING.md`. Store data under `data/`.
 
 Work in small commits. Ask before deleting anything outside this repository.
