@@ -251,7 +251,8 @@ CREATE TABLE IF NOT EXISTS source_target (
 CREATE INDEX IF NOT EXISTS idx_source_target_source ON source_target(source_id);
 CREATE INDEX IF NOT EXISTS idx_source_target_kind ON source_target(kind_hint, hold);
 
--- One network request for a target (schema v3). A stored response points to
+-- One request for a target (schema v3), or one researcher file attached to it
+-- (route 'local_file', schema v5). A stored response points to
 -- the source_version it produced (an existing version if the bytes were
 -- already preserved). Transient failures are retried once (attempt 2) in the
 -- same run; then the target counts as failed and the batch moves on.
@@ -261,7 +262,7 @@ CREATE TABLE IF NOT EXISTS fetch_attempt (
   target_id      TEXT NOT NULL REFERENCES source_target(id),
   run_id         TEXT REFERENCES run(id),
   attempt        INTEGER NOT NULL CHECK (attempt IN (1, 2)),
-  route          TEXT NOT NULL CHECK (route IN ('live_fetch', 'wayback')),
+  route          TEXT NOT NULL CHECK (route IN ('live_fetch', 'wayback', 'local_file')),  -- local_file: v5
   requested_url  TEXT NOT NULL,
   final_url      TEXT,
   http_status    INTEGER,

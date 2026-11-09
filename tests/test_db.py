@@ -81,7 +81,7 @@ def test_v1_database_gains_new_tables(conn):
         conn.execute("DROP TABLE source_target")
         conn.execute("DELETE FROM schema_version")
         conn.execute("INSERT INTO schema_version VALUES (1, ?, ?)", (NOW, "0" * 64))
-    assert db.init_db(conn) == db.SCHEMA_VERSION == 4
+    assert db.init_db(conn) == db.SCHEMA_VERSION == 5
     names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"source_target", "fetch_attempt"} <= names
 
@@ -100,10 +100,39 @@ def test_old_database_gains_time_columns(tmp_path):
     assert "time_start" not in {r[1] for r in old.execute("PRAGMA table_info(passage)")}
     old.close()
     conn = db.connect(path)
-    assert db.init_db(conn) == 4
+    assert db.init_db(conn) == 5
     for table in ("section", "passage"):
         assert {"time_start", "time_end"} <= {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
     db.init_db(conn)  # idempotent
+    conn.close()
+
+
+def test_fetch_attempt_rebuilt_for_local_file_route(tmp_path):
+    path = tmp_path / "v4.db"
+    old = db.connect(path)
+    sql = db.schema_sql().replace("CHECK (route IN ('live_fetch', 'wayback', 'local_file'))",
+                                  "CHECK (route IN ('live_fetch', 'wayback'))")
+    old.executescript(sql)
+    with old:
+        old.execute("INSERT INTO source(id, url, created_at) VALUES ('s', 'https://a.org/', ?)", (NOW,))
+        old.execute("INSERT INTO source_target(id, source_id, route, url, created_at)"
+                    " VALUES ('t', 's', 'live_fetch', 'https://a.org/', ?)", (NOW,))
+        old.execute("INSERT INTO fetch_attempt(id, target_id, attempt, route, requested_url, outcome,"
+                    " created_at) VALUES ('f1', 't', 1, 'live_fetch', 'https://a.org/', 'not_found', ?)", (NOW,))
+    with pytest.raises(sqlite3.IntegrityError):
+        with old:
+            old.execute("INSERT INTO fetch_attempt(id, target_id, attempt, route, requested_url, outcome,"
+                        " created_at) VALUES ('f2', 't', 1, 'local_file', 'file:///x.pdf', 'not_found', ?)", (NOW,))
+    old.close()
+    conn = db.connect(path)
+    db.init_db(conn)
+    assert conn.execute("SELECT id FROM fetch_attempt").fetchall()[0][0] == "f1"     # row kept
+    with conn:
+        conn.execute("INSERT INTO fetch_attempt(id, target_id, attempt, route, requested_url, outcome,"
+                     " created_at) VALUES ('f2', 't', 1, 'local_file', 'file:///x.pdf', 'not_found', ?)", (NOW,))
+    names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE tbl_name = 'fetch_attempt'")}
+    assert {"idx_fetch_attempt_target", "idx_fetch_attempt_outcome"} <= names     # indexes recreated
+    db.init_db(conn)                                                               # idempotent
     conn.close()
 
 

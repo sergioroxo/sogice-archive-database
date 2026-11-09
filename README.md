@@ -22,4 +22,5 @@ python scripts/check_models.py          # local Ollama models (docs/MODELS.md)
 python -m archive import-queue          # old source queue -> sources and targets
 python -m archive preserve --limit 50   # fetch, store, extract text, passages, language
 python -m archive report                # gate figure and failures by domain
+python -m archive attach-pdfs ~/sogice-pdfs --dry-run   # match your own PDFs to sources (then without --dry-run)
 ```

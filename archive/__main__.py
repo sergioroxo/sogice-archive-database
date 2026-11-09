@@ -6,6 +6,7 @@
                                [--no-index]
     python -m archive index [--limit N] [--retry-failed]
     python -m archive report
+    python -m archive attach-pdfs FOLDER [--dry-run]
 """
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from . import db, paths, queue_import, report
+from . import attach, db, paths, queue_import, report
 from .depot import Depot
 from .index_text import TextIndexer, pending_versions
 from .acquire import pending_targets
@@ -91,6 +92,28 @@ def cmd_index(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_attach_pdfs(args: argparse.Namespace) -> int:
+    folder = args.folder.expanduser()
+    if not folder.is_dir():
+        print(f"not a folder: {folder}")
+        return 2
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    depot = Depot(paths.data_dir())
+    summary = attach.run_attach(conn, depot, folder, dry_run=args.dry_run,
+                                log=lambda line: print(line, flush=True))
+    if not args.dry_run:
+        indexer = TextIndexer(conn, depot)
+        versions = pending_versions(conn)
+        summary["indexed"] = dict(Counter(indexer.index(v).status for v in versions))
+    conn.close()
+    name = f"attach-{time.strftime('%Y%m%d-%H%M%S')}{'-dry' if args.dry_run else ''}.json"
+    path = queue_import.write_report(summary, paths.reports_dir(), name)
+    print(json.dumps({k: summary[k] for k in ("files", "counts")} | {"indexed": summary.get("indexed")}, indent=2))
+    print(f"{len(summary['review'])} to review, {len(summary['unmatched'])} unmatched; report: {path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m archive")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -126,6 +149,12 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("report", help="gate figure, targets by kind, failures by domain")
     p.add_argument("--db", type=Path, default=paths.database_path())
     p.set_defaults(func=cmd_report)
+
+    p = sub.add_parser("attach-pdfs", help="attach the researcher's own PDFs to their sources")
+    p.add_argument("folder", type=Path, help="folder of PDFs (searched recursively, only read)")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--dry-run", action="store_true", help="show the matches, attach nothing")
+    p.set_defaults(func=cmd_attach_pdfs)
 
     args = parser.parse_args(argv)
     return args.func(args)

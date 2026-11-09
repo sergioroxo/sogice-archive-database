@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -24,7 +25,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
-SCHEMA_VERSION = 4  # v2 source_target; v3 fetch_attempt; v4 time_start/time_end
+SCHEMA_VERSION = 5  # v2 source_target; v3 fetch_attempt; v4 time_start/time_end; v5 local_file route
 
 # Column additions for databases created by an older schema.sql. New tables
 # and indexes need no entry: schema.sql creates them IF NOT EXISTS.
@@ -101,13 +102,54 @@ def init_db(conn: sqlite3.Connection) -> int:
     return current_schema_version(conn)
 
 
+# Tables whose CHECK constraints changed: SQLite cannot alter a CHECK, so the
+# table is rebuilt from schema.sql when its stored definition lacks the marker.
+# (version, table, text the current definition contains)
+REBUILDS = (
+    (5, "fetch_attempt", "'local_file'"),
+)
+
+
+def _create_statement(table: str) -> str:
+    match = re.search(rf"CREATE TABLE IF NOT EXISTS {table} \(.*?\n\);", schema_sql(), re.DOTALL)
+    if not match:
+        raise RuntimeError(f"no CREATE TABLE for {table} in schema.sql")
+    return match.group(0)
+
+
+def _rebuild(conn: sqlite3.Connection, table: str) -> None:
+    """Copy a table into its current definition (same columns), keeping every row."""
+    columns = ", ".join(row[1] for row in conn.execute(f"PRAGMA table_info({table})"))
+    create = _create_statement(table).replace(f"CREATE TABLE IF NOT EXISTS {table} (",
+                                              f"CREATE TABLE {table}__new (", 1)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute(create)
+            conn.execute(f"INSERT INTO {table}__new ({columns}) SELECT {columns} FROM {table}")
+            conn.execute(f"DROP TABLE {table}")
+            conn.execute(f"ALTER TABLE {table}__new RENAME TO {table}")
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
-    """Add columns that an older database lacks (before schema.sql runs)."""
+    """Bring an older database up to schema.sql (before schema.sql runs)."""
     for _version, table, column, definition in MIGRATIONS:
         columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
         if columns and column not in columns:  # table exists, column missing
             with conn:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    for _version, table, marker in REBUILDS:
+        row = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+                           (table,)).fetchone()
+        if row and marker not in row[0]:
+            _rebuild(conn, table)
 
 
 def current_schema_version(conn: sqlite3.Connection) -> int:

@@ -19,7 +19,9 @@
    abstract (Crossref or OpenAlex) and any open-access copy, repository
    copies first. Short landing pages also get the PDF they declare
    (citation_pdf_url). Closed articles get full text from the researcher's
-   own PDFs (attached locally, never published).
+   own PDFs, named after their URLs: `attach-pdfs` matches them by file
+   name, then DOI, then title (doubtful ones go to review), stores them as
+   researcher copies and indexes them. They stay local, never published.
    Fetching rules: honest User-Agent, one request per host at a time (3 s
    apart, 4 s for the Internet Archive), robots.txt obeyed for live pages,
    no Save Page Now submissions. A blocked, parked or vanished live page
