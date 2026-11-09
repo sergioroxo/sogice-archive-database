@@ -10,8 +10,9 @@
    Dates come only from explicit page metadata (certainty 'inferred');
    scanned PDFs are flagged so their OCR text is treated with care.
    YouTube: metadata and description from the watch page (yt-dlp, no
-   media); captions only with --youtube-captions, because YouTube's
-   robots.txt disallows /api/ where caption files live. Direct audio/video
+   media) plus captions in the spoken language (never translations).
+   YouTube's robots.txt disallows /api/, where captions live; Sérgio decided
+   (9 Nov 2026) to fetch them for the selected public videos anyway. Direct audio/video
    files are counted for later transcription, not downloaded.
    Fetching rules: honest User-Agent, one request per host at a time (3 s
    apart, 4 s for the Internet Archive), robots.txt obeyed for live pages,

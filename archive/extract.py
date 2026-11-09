@@ -98,6 +98,31 @@ def _finish(extraction: Extraction) -> Extraction:
 # HTML
 # ---------------------------------------------------------------------------
 
+_EMPTY_CELLS = re.compile(r"\|(?:[ \t]*\|)+")
+_SEPARATOR_LINE = re.compile(r"^[\s|:\-]*$")
+
+
+def clean_table_noise(text: str) -> str:
+    """Drop the empty cells that layout tables leave in trafilatura's text.
+
+    Old sites (1990s-2000s) are built from nested tables; trafilatura renders
+    every cell with '|', which buries the words in '| | | |'. Lines made only
+    of pipes, dashes and spaces are dropped, runs of empty cells become one
+    '|', and pipes at the start or end of a line are removed. A single pipe
+    inside text ("Title | Site") is kept.
+    """
+    out = []
+    for line in text.split("\n"):
+        if "|" in line:
+            if _SEPARATOR_LINE.match(line):
+                continue
+            line = _EMPTY_CELLS.sub("|", line).strip().strip("|").strip()
+            if not line:
+                continue
+        out.append(line)
+    return "\n".join(out)
+
+
 def extract_html(data: bytes, url: str | None = None) -> Extraction:
     import trafilatura
     from trafilatura.metadata import extract_metadata
@@ -124,7 +149,7 @@ def extract_html(data: bytes, url: str | None = None) -> Extraction:
     except Exception:  # noqa: BLE001 - htmldate is best effort
         date = None
     return _finish(Extraction(
-        text=canonicalize(text), tool=tool, flags=flags,
+        text=canonicalize(clean_table_noise(text)), tool=tool, flags=flags,
         title=(meta.title if meta else None) or None, date=date or None,
         author=(meta.author if meta else None) or None,
         sitename=(meta.sitename if meta else None) or None))
@@ -335,9 +360,16 @@ def _new_suffix(previous: str, current: str, min_overlap: int = 3) -> str:
 
 
 def parse_cues(raw: str) -> list[tuple[float, float, str]]:
-    """(start, end, text) per cue, with rolling repeats removed and empty cues dropped."""
+    """(start, end, text) per caption line, repeats removed.
+
+    YouTube auto-captions repeat the previous line at the top of every cue and
+    add 10 ms cues that repeat the line just finished. So lines are compared
+    one by one with the last line kept: an exact repeat is dropped, and a
+    line that starts with the end of the last one keeps only its new words
+    (rolling-window captions; at least three words of overlap).
+    """
     text = raw.replace("\ufeff", "").replace("\r\n", "\n").replace("\r", "\n")
-    cues, previous = [], ""
+    cues, last = [], ""
     for block in re.split(r"\n\s*\n", text.strip()):
         lines = [line.strip() for line in block.splitlines() if line.strip()]
         at = next((i for i, line in enumerate(lines) if "-->" in line), -1)
@@ -348,13 +380,14 @@ def parse_cues(raw: str) -> list[tuple[float, float, str]]:
             start, end = _seconds(left), _seconds(right)
         except ValueError:
             continue
-        cue = _clean_cue(" ".join(lines[at + 1:]))
-        if not cue:
-            continue
-        new = _new_suffix(previous, cue)
-        previous = cue
-        if new:
-            cues.append((start, end, new))
+        for raw_line in lines[at + 1:]:
+            line = _clean_cue(raw_line)
+            if not line or line == last:
+                continue
+            new = _new_suffix(last, line)
+            last = line
+            if new:
+                cues.append((start, end, new))
     return cues
 
 

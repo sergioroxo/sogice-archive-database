@@ -11,6 +11,10 @@ Retry rule (CLAUDE.md): a transient failure (timeout, 5xx, 429) is retried
 once in the same run; then the target is failed and the batch continues.
 Failed targets are skipped by later runs unless ``retry_failed`` is set.
 
+A live page or fallback capture whose HTML yields no text (a script-rendered
+shell) is not stored: it counts as ``empty`` and the fallback continues. A
+Wayback target (a specific capture someone chose) is stored as it is.
+
 Identical bytes are stored once: a second target (or a re-run) that gets the
 same file attaches to the existing source_version.
 """
@@ -22,6 +26,7 @@ from dataclasses import dataclass, field
 
 from .db import canonical_json, utc_now
 from .depot import Depot, sniff_extension
+from .extract import ExtractionError, extract_html
 from .fetch import REFUSED_TYPE_PREFIXES, Capture, FetchResult, Fetcher, capture_time
 from .urls import UrlError, parse_wayback, short_hash, wayback_raw_url
 
@@ -42,6 +47,14 @@ class TargetResult:
     route: str | None = None          # route of the stored attempt
     new_file: bool = False
     outcomes: list = field(default_factory=list)   # every attempt's outcome, in order
+
+
+def _has_text(body: bytes | None, url: str | None) -> bool:
+    """Does this HTML give any text? (A live page or a fallback capture must.)"""
+    try:
+        return "no_text" not in extract_html(body or b"", url).flags
+    except ExtractionError:
+        return False
 
 
 def _is_media(result: FetchResult) -> bool:
@@ -97,11 +110,13 @@ class Acquirer:
                  canonical_json(detail), version_id, result.seconds, utc_now()))
 
     def _store(self, target: sqlite3.Row, route: str, result: FetchResult,
-               flags: list[str]) -> tuple[str | None, bool, str | None]:
+               flags: list[str], require_text: bool = False) -> tuple[str | None, bool, str | None]:
         """Store the body; return (version_id, new_file, refusal reason)."""
         extension = sniff_extension(result.body or b"", result.content_type or "")
         if extension not in STORABLE:
             return None, False, f"not a document type ({extension}, {result.content_type})"
+        if require_text and extension == "html" and not _has_text(result.body, result.final_url):
+            return None, False, "no extractable text (script-rendered or empty page)"
         stored = self.depot.put(result.body, extension)
         if route == "wayback":
             captured, _ = capture_time(result.final_url)
@@ -124,8 +139,8 @@ class Acquirer:
     # -- fetching ----------------------------------------------------------
 
     def _fetch_and_store(self, target: sqlite3.Row, url: str, route: str,
-                         flags: list[str], outcomes: list, extra: dict | None = None
-                         ) -> tuple[str | None, bool, FetchResult]:
+                         flags: list[str], outcomes: list, extra: dict | None = None,
+                         require_text: bool = False) -> tuple[str | None, bool, FetchResult]:
         """Fetch with one retry on a transient failure; store a document if one came back."""
         result = None
         for attempt in (1, 2):
@@ -134,9 +149,10 @@ class Acquirer:
                 self.fetcher.sleep(pause)
             result = self.fetcher.get(url, route=route)
             if result.ok:
-                version_id, new_file, refusal = self._store(target, route, result, flags)
+                version_id, new_file, refusal = self._store(target, route, result, flags, require_text)
                 if refusal:
-                    result.outcome, result.error = "unsupported_type", refusal
+                    result.outcome = "empty" if refusal.startswith("no extractable") else "unsupported_type"
+                    result.error = refusal
                 self._record(target["id"], attempt, route, result, version_id, extra)
                 outcomes.append("stored" if version_id else result.outcome)
                 return version_id, new_file, result
@@ -159,7 +175,7 @@ class Acquirer:
                                 "wayback" if version_id else None, new_file, outcomes)
 
         version_id, new_file, live = self._fetch_and_store(
-            target, target["url"], "live_fetch", [], outcomes)
+            target, target["url"], "live_fetch", [], outcomes, require_text=True)
         if version_id:
             return TargetResult(target["id"], "stored", version_id, "live_fetch", new_file, outcomes)
         if live.outcome not in FALLBACK_AFTER or _is_media(live):
@@ -176,7 +192,8 @@ class Acquirer:
         for capture in captures[:MAX_FALLBACK_CAPTURES]:
             version_id, new_file, _ = self._fetch_and_store(
                 target, capture.raw_url, "wayback", ["wayback_fallback"], outcomes,
-                {"fallback_for": live.outcome, "capture_timestamp": capture.timestamp})
+                {"fallback_for": live.outcome, "capture_timestamp": capture.timestamp},
+                require_text=True)
             if version_id:
                 return TargetResult(target["id"], "stored", version_id, "wayback", new_file, outcomes)
         return TargetResult(target["id"], "failed", outcomes=outcomes)

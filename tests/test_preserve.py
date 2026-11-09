@@ -64,7 +64,7 @@ def test_preserve_end_to_end_and_report(database, tmp_path):
                            video_runner=FakeYtdlp(INFO), log=lines.append)
     assert summary["targets"] == 5                                   # held one excluded
     assert summary["fetch"] == {"stored_live_fetch": 3, "stored_wayback": 1, "failed": 1}
-    assert summary["index"] == {"indexed": 4}
+    assert summary["index"] == {"indexed": 5}                       # 3 pages, description, captions
     conn = db.connect(database)
     assert conn.execute("SELECT COUNT(*) FROM passage").fetchone()[0] >= 4
     run = conn.execute("SELECT * FROM run WHERE id = ?", (summary["run_id"],)).fetchone()
@@ -78,10 +78,33 @@ def test_preserve_end_to_end_and_report(database, tmp_path):
     assert report["failure_first_outcome"] == {"not_found": 1}
     assert report["failure_final_outcome"] == {"no_capture": 1}
     assert report["failures_by_domain"] == [{"domain": "b.org", "failed": 1, "outcomes": {"not_found": 1}}]
-    assert report["youtube"] == {"description:stored": 1, "captions:robots_disallowed": 1}
+    assert report["youtube"] == {"description:stored": 1, "captions:stored": 1}
     markdown = to_markdown(report)
     assert "**Gate:** 3 of 4 text sources" in markdown and "| b.org | 1 | not_found 1 |" in markdown
 
     again = run_preserve(database, tmp_path, fetcher=fetcher, log=lines.append)
     assert again["targets"] == 0 and again["index"] == {}
     conn.close()
+
+
+def test_pilot_sample_is_stratified_and_deterministic():
+    from archive.preserve import pilot_sample
+    rows = []
+    for i in range(300):
+        rows.append({"id": f"w{i:03d}", "kind_hint": "webpage", "route": "live_fetch", "url": f"https://site{i}.org/p"})
+    for i in range(40):
+        rows.append({"id": f"b{i:03d}", "kind_hint": "webpage", "route": "wayback",
+                     "url": f"https://web.archive.org/web/2009/http://old{i % 10}.org/p{i}"})
+    for i in range(30):
+        rows.append({"id": f"p{i:03d}", "kind_hint": "pdf", "route": "live_fetch", "url": f"https://same.org/{i}.pdf"})
+    rows.append({"id": "y1", "kind_hint": "youtube", "route": "live_fetch", "url": "https://www.youtube.com/watch?v=1"})
+    sample = pilot_sample(rows, 50, seed=3)
+    assert len(sample) == 50 and sample == pilot_sample(rows, 50, seed=3)
+    kinds = {}
+    for row in sample:
+        kinds[(row["kind_hint"], row["route"])] = kinds.get((row["kind_hint"], row["route"]), 0) + 1
+    assert kinds[("webpage", "wayback")] == 6                  # quota met from 10 distinct old sites
+    assert kinds[("pdf", "live_fetch")] == 1                   # one per domain
+    assert kinds[("youtube", "live_fetch")] == 1
+    assert kinds[("webpage", "live_fetch")] == 42              # shortfalls filled with live pages
+    assert sample != pilot_sample(rows, 50, seed=4)

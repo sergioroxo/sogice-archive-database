@@ -187,3 +187,27 @@ def test_media_file_does_not_fall_back(conn, tmp_path):
     assert not any("web.archive.org" in url for url in seen)
     from archive.report import build_report
     assert build_report(conn)["media_files_for_transcription"] == 1
+
+
+def test_script_only_live_page_falls_back(conn, tmp_path):
+    shell = ("<html><head><script src='/app.js'></script>" + "<script>var x = 1;</script>" * 6000
+             + "</head><body><div id='root'></div></body></html>")
+    cdx_rows = [["timestamp", "original", "mimetype", "statuscode"],
+                ["20150101000000", "http://a.org/p", "text/html", "200"]]
+
+    def handler(request):
+        url = str(request.url)
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if url.startswith("https://web.archive.org/cdx/"):
+            return httpx.Response(200, text=json.dumps(cdx_rows))
+        if url.startswith("https://web.archive.org/web/20150101000000id_/"):
+            return PAGE
+        return httpx.Response(200, headers={"content-type": "text/html"}, text=shell)
+
+    fetcher, _, _ = make_fetcher({})
+    fetcher.client._transport = httpx.MockTransport(handler)
+    result = Acquirer(conn, fetcher, Depot(tmp_path)).acquire(target(conn, "t_live"))
+    assert result.outcomes == ["empty", "stored"] and result.route == "wayback"
+    first = attempts(conn, "t_live")[0]
+    assert json.loads(first["detail"])["error"].startswith("no extractable text")

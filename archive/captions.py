@@ -13,9 +13,11 @@ No video or audio is downloaded here.
   ``captions_auto``); the indexer keeps their timecodes.
 
 YouTube's robots.txt allows /watch but disallows /api/, where caption files
-live. Captions are therefore fetched only when ``captions=True`` (decision
-for the researcher); otherwise a ``robots_disallowed`` attempt records that
-they were skipped. Channels and playlists are not expanded.
+live. Decision (Sérgio, 9 Nov 2026): fetch the captions of the selected
+public videos anyway, as research use of single items, not crawling. With
+``captions=False`` a ``robots_disallowed`` attempt records the skipped track
+instead, and ``caption_backlog`` finds those targets later. Channels and
+playlists are not expanded.
 
 One video at a time on youtube.com (``Fetcher.paced``); a transient failure
 is retried once.
@@ -76,6 +78,20 @@ def choose_track(info: dict) -> tuple[str, str] | None:
     return None
 
 
+def caption_backlog(conn: sqlite3.Connection, limit: int | None = None) -> list[sqlite3.Row]:
+    """YouTube targets whose captions were skipped and never stored since."""
+    sql = """
+        SELECT t.* FROM source_target t WHERE t.kind_hint = 'youtube' AND t.hold IS NULL
+        AND EXISTS (SELECT 1 FROM fetch_attempt a WHERE a.target_id = t.id
+                    AND json_extract(a.detail, '$.part') = 'captions' AND a.outcome = 'robots_disallowed')
+        AND NOT EXISTS (SELECT 1 FROM fetch_attempt a WHERE a.target_id = t.id
+                        AND json_extract(a.detail, '$.part') = 'captions' AND a.outcome = 'stored')
+        ORDER BY t.id"""
+    if limit:
+        sql += f" LIMIT {int(limit)}"
+    return conn.execute(sql).fetchall()
+
+
 def upload_date_iso(value: str | None) -> str | None:
     if value and re.fullmatch(r"\d{8}", value):
         return f"{value[:4]}-{value[4:6]}-{value[6:]}"
@@ -84,9 +100,11 @@ def upload_date_iso(value: str | None) -> str | None:
 
 class VideoAcquirer:
     def __init__(self, conn: sqlite3.Connection, fetcher: Fetcher, depot: Depot, *,
-                 run_id: str | None = None, captions: bool = False, runner=subprocess.run):
+                 run_id: str | None = None, captions: bool = True, captions_only: bool = False,
+                 runner=subprocess.run):
         self.conn, self.fetcher, self.depot = conn, fetcher, depot
         self.run_id, self.captions, self.runner = run_id, captions, runner
+        self.captions_only = captions_only  # backlog: description already stored
 
     # -- yt-dlp -----------------------------------------------------------------
 
@@ -206,7 +224,7 @@ class VideoAcquirer:
 
         stored_any, new_file, first_version = False, False, None
         description = (info.get("description") or "").strip()
-        if description:
+        if description and not self.captions_only:
             version_id, created = self._version(source_id, description.encode("utf-8"), "txt",
                                                 "text/plain", ["video_description"])
             self._record(url, 1, FetchResult(url, "ok", http_status=200, content_type="text/plain"),

@@ -11,6 +11,7 @@ connection (WAL mode).
 """
 from __future__ import annotations
 
+import random
 import threading
 import uuid
 from collections import Counter, defaultdict, deque
@@ -20,7 +21,7 @@ from typing import Callable
 
 from . import db
 from .acquire import VIDEO_KINDS, Acquirer, pending_targets
-from .captions import VideoAcquirer
+from .captions import VideoAcquirer, caption_backlog
 from .depot import Depot
 from .fetch import Fetcher
 from .index_text import TextIndexer, pending_versions
@@ -50,22 +51,73 @@ def interleave_by_host(targets: list) -> list:
     return order
 
 
+# Pilot sample: every kind represented, roughly in proportion to the queue,
+# with Wayback captures among the web pages. Sums to 50.
+PILOT_QUOTAS = {("webpage", "live_fetch"): 16, ("webpage", "wayback"): 6, ("pdf", None): 8,
+                ("docx", None): 3, ("social", None): 3, ("video", None): 6, ("youtube", None): 5,
+                ("audio", None): 2, ("unknown", None): 1}
+
+
+def pilot_sample(targets: list, size: int = 50, seed: int = 1) -> list:
+    """Stratified random sample: kind (and route for web pages) quotas, one per domain.
+
+    Quotas are scaled to ``size``; places a kind cannot fill go to live web
+    pages. Deterministic for a given seed and queue.
+    """
+    rng = random.Random(seed)
+    total = sum(PILOT_QUOTAS.values())
+    quotas = {key: max(1, round(n * size / total)) for key, n in PILOT_QUOTAS.items()}
+    pools: dict[tuple, list] = defaultdict(list)
+    for target in sorted(targets, key=lambda row: row["id"]):
+        route = target["route"] if target["kind_hint"] == "webpage" else None
+        pools[(target["kind_hint"], route)].append(target)
+    for pool in pools.values():
+        rng.shuffle(pool)
+    chosen: list = []
+    chosen_ids: set = set()
+    domains: set = set()
+
+    def take(pool: list, want: int) -> None:
+        for target in pool:
+            if want <= 0 or len(chosen) >= size:
+                return
+            url = target["url"]
+            ref = parse_wayback(url) if target["route"] == "wayback" else None
+            domain = host_of(ref.original_url) if ref else target_host(url)
+            if target["id"] in chosen_ids or domain in domains:
+                continue
+            chosen.append(target)
+            chosen_ids.add(target["id"])
+            domains.add(domain)
+            want -= 1
+
+    for key, want in quotas.items():
+        take(pools.get(key, []), want)
+    take(pools.get(("webpage", "live_fetch"), []), size - len(chosen))
+    return chosen
+
+
 def run_preserve(db_path: str | Path, data_dir: str | Path, *, limit: int | None = None,
                  kinds: list[str] | None = None, target_ids: list[str] | None = None,
-                 retry_failed: bool = False, workers: int = 6, youtube_captions: bool = False,
+                 retry_failed: bool = False, workers: int = 6, youtube_captions: bool = True,
+                 captions_backlog: bool = False, targets: list | None = None,
                  index: bool = True, fetcher: Fetcher | None = None, video_runner=None,
                  log: Callable[[str], None] = print) -> dict:
     conn = db.connect(db_path)
     db.init_db(conn)
-    targets = interleave_by_host(pending_targets(conn, limit=limit, kinds=kinds,
-                                                 target_ids=target_ids, retry_failed=retry_failed))
+    if targets is None:
+        targets = (caption_backlog(conn, limit) if captions_backlog else
+                   pending_targets(conn, limit=limit, kinds=kinds, target_ids=target_ids,
+                                   retry_failed=retry_failed))
+    targets = interleave_by_host(targets)
     run_id = f"run_{uuid.uuid4().hex}"
     with conn:
         conn.execute("INSERT INTO run(id, role, inputs, started_at) VALUES (?, 'other', ?, ?)",
                      (run_id, db.canonical_json({
                          "job": "preserve", "targets": len(targets), "kinds": kinds, "limit": limit,
                          "retry_failed": retry_failed, "workers": workers,
-                         "youtube_captions": youtube_captions}), db.utc_now()))
+                         "youtube_captions": youtube_captions,
+                         "captions_backlog": captions_backlog}), db.utc_now()))
     log(f"{len(targets)} targets, {workers} workers; run {run_id}")
 
     depot = Depot(data_dir)
@@ -86,7 +138,8 @@ def run_preserve(db_path: str | Path, data_dir: str | Path, *, limit: int | None
         if target["kind_hint"] in VIDEO_KINDS:
             extra = {"runner": video_runner} if video_runner else {}
             acquirer = VideoAcquirer(local.conn, fetcher, depot, run_id=run_id,
-                                     captions=youtube_captions, **extra)
+                                     captions=youtube_captions, captions_only=captions_backlog,
+                                     **extra)
         else:
             acquirer = Acquirer(local.conn, fetcher, depot, run_id=run_id)
         return target, acquirer.acquire(target)

@@ -2,7 +2,8 @@
 
     python -m archive import-queue [--queue PATH] [--db PATH] [--dry-run]
     python -m archive preserve [--limit N] [--kind K ...] [--target ID ...] [--retry-failed]
-                               [--workers N] [--youtube-captions] [--no-index]
+                               [--workers N] [--no-youtube-captions] [--captions-backlog]
+                               [--no-index]
     python -m archive index [--limit N] [--retry-failed]
     python -m archive report
 """
@@ -18,7 +19,8 @@ from pathlib import Path
 from . import db, paths, queue_import, report
 from .depot import Depot
 from .index_text import TextIndexer, pending_versions
-from .preserve import run_preserve
+from .acquire import pending_targets
+from .preserve import pilot_sample, run_preserve
 
 
 def cmd_import_queue(args: argparse.Namespace) -> int:
@@ -39,9 +41,16 @@ def cmd_import_queue(args: argparse.Namespace) -> int:
 
 
 def cmd_preserve(args: argparse.Namespace) -> int:
-    summary = run_preserve(args.db, paths.data_dir(), limit=args.limit, kinds=args.kind,
+    targets = None
+    if args.pilot:
+        conn = db.connect(args.db)
+        db.init_db(conn)
+        targets = pilot_sample(pending_targets(conn, kinds=args.kind), args.pilot, args.seed)
+        conn.close()
+    summary = run_preserve(args.db, paths.data_dir(), targets=targets, limit=args.limit, kinds=args.kind,
                            target_ids=args.target, retry_failed=args.retry_failed,
-                           workers=args.workers, youtube_captions=args.youtube_captions,
+                           workers=args.workers, youtube_captions=not args.no_youtube_captions,
+                           captions_backlog=args.captions_backlog,
                            index=not args.no_index, log=lambda line: print(line, flush=True))
     print(json.dumps(summary, indent=2))
     return 0
@@ -99,9 +108,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--target", action="append", help="only this target id (repeatable)")
     p.add_argument("--retry-failed", action="store_true", help="also retry targets that failed before")
     p.add_argument("--workers", type=int, default=6)
-    p.add_argument("--youtube-captions", action="store_true",
-                   help="download YouTube captions (served from /api/, which robots.txt disallows)")
+    p.add_argument("--no-youtube-captions", action="store_true",
+                   help="skip YouTube captions (served from /api/, which robots.txt disallows)")
+    p.add_argument("--captions-backlog", action="store_true",
+                   help="only fetch YouTube captions that earlier runs skipped")
     p.add_argument("--no-index", action="store_true", help="fetch only")
+    p.add_argument("--pilot", type=int, metavar="N", help="a stratified sample of N pending targets")
+    p.add_argument("--seed", type=int, default=1, help="random seed for --pilot")
     p.set_defaults(func=cmd_preserve)
 
     p = sub.add_parser("index", help="extract text, cut passages, detect language for stored versions")

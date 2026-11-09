@@ -158,3 +158,46 @@ def test_scanned_pdf_flag(monkeypatch):
     monkeypatch.setattr(module, "_run", lambda cmd, timeout=180: listing.splitlines()[0] if cmd[0] == "pdfimages"
                         else real_run(cmd, timeout))
     assert "scanned" not in extract_pdf(make_pdf(["Born-digital page one.", "Page two."])).flags
+
+
+YOUTUBE_AUTO = """WEBVTT
+Kind: captions
+Language: en
+
+00:06:44.720 --> 00:06:46.230 align:start position:0%
+didn't want to talk.
+It<00:06:45.120><c> was</c>
+
+00:06:46.230 --> 00:06:46.240 align:start position:0%
+It was
+
+00:06:46.240 --> 00:06:49.000 align:start position:0%
+It was
+you<00:06:46.600><c> know,</c><00:06:47.000><c> the</c><00:06:47.500><c> most</c><00:06:48.000><c> unhealthy</c>
+
+00:06:49.000 --> 00:06:49.010 align:start position:0%
+you know, the most unhealthy
+
+00:06:49.010 --> 00:06:51.000 align:start position:0%
+you know, the most unhealthy
+environment<00:06:49.500><c> that</c><00:06:50.000><c> I</c>
+"""
+
+
+def test_youtube_auto_caption_repeats_removed():
+    from archive.extract import extract_captions, parse_cues
+    cues = parse_cues(YOUTUBE_AUTO)
+    assert [c[2] for c in cues] == ["didn't want to talk.", "It was", "you know, the most unhealthy",
+                                    "environment that I"]
+    assert cues[1][0] == 404.72 and cues[2][0] == 406.24
+    result = extract_captions(YOUTUBE_AUTO.encode())
+    assert result.text == "didn't want to talk.\nIt was\nyou know, the most unhealthy\nenvironment that I"
+    assert result.time_of(result.text.index("environment")) == (409.01, 411.0)
+
+
+def test_clean_table_noise():
+    from archive.extract import clean_table_noise
+    raw = ("|  | |  | |  | The Ministry\n| | |\n|---|---|\nHome | | Who We Are | | Contact Us\n"
+           "Formation | 2009\nHuffPost | Latest News")
+    assert clean_table_noise(raw) == ("The Ministry\nHome | Who We Are | Contact Us\n"
+                                      "Formation | 2009\nHuffPost | Latest News")

@@ -76,10 +76,10 @@ def test_upload_date():
     assert upload_date_iso("20190314") == "2019-03-14" and upload_date_iso("2019") is None
 
 
-def test_default_stores_description_and_skips_captions(setup):
+def test_captions_off_stores_description_and_records_skip(setup):
     conn, depot, fetcher, _ = setup
     fake = FakeYtdlp(INFO)
-    result = VideoAcquirer(conn, fetcher, depot, runner=fake).acquire(target(conn))
+    result = VideoAcquirer(conn, fetcher, depot, runner=fake, captions=False).acquire(target(conn))
     assert result.status == "stored" and result.outcomes == ["stored", "captions_skipped"]
     assert len(fake.calls) == 1 and "-J" in fake.calls[0]                   # no caption download
     rows = attempts(conn)
@@ -93,12 +93,20 @@ def test_default_stores_description_and_skips_captions(setup):
     assert (source["published_date"], source["published_date_certainty"]) == ("2019-03-14", "exact")
     version = conn.execute("SELECT * FROM source_version").fetchone()
     assert json.loads(version["quality_flags"]) == ["video_description"]
+    from archive.captions import caption_backlog
+    assert [t["id"] for t in caption_backlog(conn)] == ["t1"]
+    # the backlog run fetches only the captions
+    backlog = VideoAcquirer(conn, fetcher, depot, runner=fake, captions_only=True).acquire(target(conn))
+    assert backlog.outcomes == ["stored"]
+    assert [json.loads(r["detail"]).get("part") for r in attempts(conn)][-1] == "captions"
+    assert conn.execute("SELECT COUNT(*) FROM source_version").fetchone()[0] == 2
+    assert caption_backlog(conn) == []
 
 
 def test_captions_when_enabled_are_indexed_with_times(setup):
     conn, depot, fetcher, _ = setup
     fake = FakeYtdlp(INFO)
-    result = VideoAcquirer(conn, fetcher, depot, runner=fake, captions=True).acquire(target(conn))
+    result = VideoAcquirer(conn, fetcher, depot, runner=fake).acquire(target(conn))  # default: on
     assert result.outcomes == ["stored", "stored"]
     assert "--write-auto-subs" in fake.calls[1] and "en-orig" in fake.calls[1]
     vtt = conn.execute("SELECT * FROM source_version WHERE mime_type='text/vtt'").fetchone()
