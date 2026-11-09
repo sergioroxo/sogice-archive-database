@@ -78,6 +78,16 @@ Lexicon · Catalogue/wiki (via Sanity) · 2D network (Sigma.js) · WebXR scene
 (50–300 nodes, Quest + projector) · Archive search (FTS5 + vectors) ·
 Documentary packets (timecoded clips). Dataset deposit with DOI per release.
 
+## Researcher interface (internal)
+
+A visual layer where Sérgio works on the data directly: fix mistakes,
+settle review lists (doubtful PDF and title matches, failed sources),
+attach his own files to sources, correct metadata, confirm or reject AI
+decisions. Every action is recorded as a researcher decision and can be
+undone. Until it exists, review lists are written as JSON reports; every
+matching step keeps candidates, scores, rule and reason so the interface can
+show them.
+
 ## Schedule and gates
 
 | Phase | Dates | Gate |
