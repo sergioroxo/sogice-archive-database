@@ -251,6 +251,33 @@ CREATE TABLE IF NOT EXISTS source_target (
 CREATE INDEX IF NOT EXISTS idx_source_target_source ON source_target(source_id);
 CREATE INDEX IF NOT EXISTS idx_source_target_kind ON source_target(kind_hint, hold);
 
+-- One network request for a target (schema v3). A stored response points to
+-- the source_version it produced (an existing version if the bytes were
+-- already preserved). Transient failures are retried once (attempt 2) in the
+-- same run; then the target counts as failed and the batch moves on.
+-- detail holds response headers, redirects and error text as JSON.
+CREATE TABLE IF NOT EXISTS fetch_attempt (
+  id             TEXT PRIMARY KEY,
+  target_id      TEXT NOT NULL REFERENCES source_target(id),
+  run_id         TEXT REFERENCES run(id),
+  attempt        INTEGER NOT NULL CHECK (attempt IN (1, 2)),
+  route          TEXT NOT NULL CHECK (route IN ('live_fetch', 'wayback')),
+  requested_url  TEXT NOT NULL,
+  final_url      TEXT,
+  http_status    INTEGER,
+  content_type   TEXT,
+  outcome        TEXT NOT NULL CHECK (outcome IN (
+                   'stored', 'blocked', 'not_found', 'gone', 'http_error', 'robots_disallowed',
+                   'too_large', 'unsupported_type', 'empty', 'no_capture', 'network_error')),
+  detail         TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(detail) AND json_type(detail) = 'object'),
+  version_id     TEXT REFERENCES source_version(id),
+  seconds        REAL CHECK (seconds IS NULL OR seconds >= 0),
+  created_at     TEXT NOT NULL,
+  CHECK ((outcome = 'stored') = (version_id IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS idx_fetch_attempt_target ON fetch_attempt(target_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_fetch_attempt_outcome ON fetch_attempt(outcome);
+
 -- Structural sections of a version. type separates article body from site
 -- furniture so repeated navigation/promotional blocks are counted apart.
 CREATE TABLE IF NOT EXISTS section (

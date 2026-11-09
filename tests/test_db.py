@@ -71,18 +71,19 @@ EXPECTED_TABLES = {
     "schema_version", "source", "source_version", "section", "passage", "passage_fts",
     "usage", "concept", "concept_label", "concept_relation", "entity", "entity_variant",
     "relation", "relation_usage", "claim", "claim_usage", "decision", "run",
-    "release", "release_record", "source_target",
+    "release", "release_record", "source_target", "fetch_attempt",
 }
 
 
-def test_v1_database_gains_source_target(conn):
+def test_v1_database_gains_new_tables(conn):
     with conn:
+        conn.execute("DROP TABLE fetch_attempt")
         conn.execute("DROP TABLE source_target")
         conn.execute("DELETE FROM schema_version")
         conn.execute("INSERT INTO schema_version VALUES (1, ?, ?)", (NOW, "0" * 64))
-    assert db.init_db(conn) == 2
+    assert db.init_db(conn) == db.SCHEMA_VERSION == 3
     names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert "source_target" in names
+    assert {"source_target", "fetch_attempt"} <= names
 
 
 def test_source_target_rules(conn):

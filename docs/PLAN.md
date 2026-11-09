@@ -7,6 +7,11 @@
    for PDF); detect language per passage (lingua); cut gap-free passages of
    about 1,500 characters; build FTS5 index. Audio/video go to a transcription
    queue (faster-whisper) with timecodes.
+   Fetching rules: honest User-Agent, one request per host at a time (3 s
+   apart, 4 s for the Internet Archive), robots.txt obeyed for live pages,
+   no Save Page Now submissions. A blocked, parked or vanished live page
+   falls back to the newest usable Wayback capture (flagged). Transient
+   failures are retried once, then the target is marked failed.
 2. **Match (no model).** Search every seed concept variant and entity name
    across all passages. Each hit is a usage marked `exact_match`. Count
    repeated navigation/promotional blocks separately.
