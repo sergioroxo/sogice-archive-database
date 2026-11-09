@@ -114,3 +114,26 @@ def test_empty_text_has_no_passages(setup):
     assert "no_text" in result.flags and "needs_ocr" in result.flags
     row = conn.execute("SELECT * FROM source_version WHERE id='ver_blank'").fetchone()
     assert row["text_path"] is None and row["text_sha256"] is not None
+
+
+ROLLING_VTT = "WEBVTT\n\n" + "\n\n".join(
+    f"00:{i // 60:02d}:{i % 60:02d}.000 --> 00:{(i + 1) // 60:02d}:{(i + 1) % 60:02d}.000\n"
+    + ("" if i == 0 else f"line number {i - 1} of the testimony\n") + f"line number {i} of the testimony"
+    for i in range(0, 200))
+
+
+def test_captions_get_timecodes(setup):
+    from archive.extract import parse_cues
+    cues = parse_cues(ROLLING_VTT)
+    assert [c[2] for c in cues[:2]] == ["line number 0 of the testimony", "line number 1 of the testimony"]
+    conn, depot = setup
+    version = add_version(conn, depot, "ver_vtt", ROLLING_VTT.encode(), "vtt")
+    result = TextIndexer(conn, depot).index(version)
+    assert result.status == "indexed" and result.passages > 2
+    rows = passages(conn, "ver_vtt")
+    assert rows[0]["time_start"] == 0.0 and rows[0]["page_start"] is None
+    assert rows[-1]["time_end"] == 200.0
+    for before, after in zip(rows, rows[1:]):
+        assert before["time_start"] < after["time_start"] and before["time_end"] <= after["time_end"]
+    section = conn.execute("SELECT time_start, time_end FROM section WHERE version_id='ver_vtt'").fetchone()
+    assert (section["time_start"], section["time_end"]) == (0.0, 200.0)

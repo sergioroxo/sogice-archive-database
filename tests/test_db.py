@@ -81,9 +81,30 @@ def test_v1_database_gains_new_tables(conn):
         conn.execute("DROP TABLE source_target")
         conn.execute("DELETE FROM schema_version")
         conn.execute("INSERT INTO schema_version VALUES (1, ?, ?)", (NOW, "0" * 64))
-    assert db.init_db(conn) == db.SCHEMA_VERSION == 3
+    assert db.init_db(conn) == db.SCHEMA_VERSION == 4
     names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"source_target", "fetch_attempt"} <= names
+
+
+def test_old_database_gains_time_columns(tmp_path):
+    path = tmp_path / "old.db"
+    old = db.connect(path)
+    sql = db.schema_sql()
+    for line in ("  time_start        REAL CHECK (time_start IS NULL OR time_start >= 0),  -- seconds (v4)\n",
+                 "  time_end          REAL CHECK (time_end IS NULL OR time_end >= 0),\n",
+                 "  time_start          REAL CHECK (time_start IS NULL OR time_start >= 0),  -- seconds into audio/video (v4)\n",
+                 "  time_end            REAL CHECK (time_end IS NULL OR time_end >= 0),\n"):
+        assert line in sql
+        sql = sql.replace(line, "", 1)
+    old.executescript(sql)
+    assert "time_start" not in {r[1] for r in old.execute("PRAGMA table_info(passage)")}
+    old.close()
+    conn = db.connect(path)
+    assert db.init_db(conn) == 4
+    for table in ("section", "passage"):
+        assert {"time_start", "time_end"} <= {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+    db.init_db(conn)  # idempotent
+    conn.close()
 
 
 def test_source_target_rules(conn):

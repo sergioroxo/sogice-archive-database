@@ -294,6 +294,8 @@ CREATE TABLE IF NOT EXISTS section (
   page_start        INTEGER CHECK (page_start IS NULL OR page_start >= 1),
   page_end          INTEGER,
   created_at        TEXT NOT NULL,
+  time_start        REAL CHECK (time_start IS NULL OR time_start >= 0),  -- seconds (v4)
+  time_end          REAL CHECK (time_end IS NULL OR time_end >= 0),
   CHECK (char_end IS NULL OR (char_start IS NOT NULL AND char_end >= char_start)),
   CHECK (page_end IS NULL OR (page_start IS NOT NULL AND page_end >= page_start)),
   CHECK (parent_id IS NULL OR parent_id <> id),
@@ -323,6 +325,8 @@ CREATE TABLE IF NOT EXISTS passage (
   language            TEXT CHECK (language IS NULL OR language GLOB '[a-z][a-z]*'),
   language_confidence REAL CHECK (language_confidence IS NULL OR (language_confidence >= 0 AND language_confidence <= 1)),
   created_at          TEXT NOT NULL,
+  time_start          REAL CHECK (time_start IS NULL OR time_start >= 0),  -- seconds into audio/video (v4)
+  time_end            REAL CHECK (time_end IS NULL OR time_end >= 0),
   CHECK (char_end > char_start),
   CHECK (length(text) = char_end - char_start),
   CHECK (page_end IS NULL OR (page_start IS NOT NULL AND page_end >= page_start)),

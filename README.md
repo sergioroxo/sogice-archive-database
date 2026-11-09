@@ -9,4 +9,17 @@ archive search and documentary research packets.
 
 Researcher: Sérgio Galvão Roxo, University of Bergen.
 
-Status: setting up (November 2026). See `docs/PLAN.md`.
+Status: Phase 1, preserving the corpus (November 2026). See `docs/PLAN.md`.
+
+## Running it
+
+Source files, the database and reports live in `data/` (never committed).
+
+```bash
+python3.14 -m venv .venv && . .venv/bin/activate && pip install -e ".[dev]"
+pytest
+python scripts/check_models.py          # local Ollama models (docs/MODELS.md)
+python -m archive import-queue          # old source queue -> sources and targets
+python -m archive preserve --limit 50   # fetch, store, extract text, passages, language
+python -m archive report                # gate figure and failures by domain
+```

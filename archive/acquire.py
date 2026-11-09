@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 
 from .db import canonical_json, utc_now
 from .depot import Depot, sniff_extension
-from .fetch import Capture, FetchResult, Fetcher, capture_time
+from .fetch import REFUSED_TYPE_PREFIXES, Capture, FetchResult, Fetcher, capture_time
 from .urls import UrlError, parse_wayback, short_hash, wayback_raw_url
 
 STORABLE = {"html", "pdf", "txt", "docx", "doc"}
@@ -31,7 +31,7 @@ FALLBACK_AFTER = {"blocked", "not_found", "gone", "http_error", "robots_disallow
 MAX_FALLBACK_CAPTURES = 3   # newest captures of a dead site are often the parking page
 RETRY_PAUSE = 10.0
 MAX_RETRY_PAUSE = 60.0
-SKIPPED_KINDS = ("youtube",)  # captions come later (Phase 1 step 6)
+VIDEO_KINDS = ("youtube",)  # handled by archive.captions, not fetched as pages
 
 
 @dataclass
@@ -42,6 +42,12 @@ class TargetResult:
     route: str | None = None          # route of the stored attempt
     new_file: bool = False
     outcomes: list = field(default_factory=list)   # every attempt's outcome, in order
+
+
+def _is_media(result: FetchResult) -> bool:
+    """A live audio/video/image file: no Wayback copy will be a text document either."""
+    return (result.outcome == "unsupported_type"
+            and (result.content_type or "").lower().startswith(REFUSED_TYPE_PREFIXES))
 
 
 def pending_targets(conn: sqlite3.Connection, *, limit: int | None = None,
@@ -57,9 +63,6 @@ def pending_targets(conn: sqlite3.Connection, *, limit: int | None = None,
     if target_ids:
         sql.append(f"AND t.id IN ({','.join('?' for _ in target_ids)})")
         params += target_ids
-    else:
-        sql.append(f"AND t.kind_hint NOT IN ({','.join('?' for _ in SKIPPED_KINDS)})")
-        params += list(SKIPPED_KINDS)
     if kinds:
         sql.append(f"AND t.kind_hint IN ({','.join('?' for _ in kinds)})")
         params += kinds
@@ -159,7 +162,7 @@ class Acquirer:
             target, target["url"], "live_fetch", [], outcomes)
         if version_id:
             return TargetResult(target["id"], "stored", version_id, "live_fetch", new_file, outcomes)
-        if live.outcome not in FALLBACK_AFTER:
+        if live.outcome not in FALLBACK_AFTER or _is_media(live):
             return TargetResult(target["id"], "failed", outcomes=outcomes)
 
         captures, lookup = self.fetcher.wayback_captures(target["url"], limit=8)

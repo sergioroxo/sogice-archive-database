@@ -43,8 +43,8 @@ def attempts(conn, target_id):
         "SELECT * FROM fetch_attempt WHERE target_id = ? ORDER BY created_at, attempt", (target_id,))]
 
 
-def test_pending_targets_skips_held_and_youtube(conn):
-    assert [t["id"] for t in pending_targets(conn)] == ["t_live", "t_pdf", "t_wb"]
+def test_pending_targets_skips_held(conn):
+    assert [t["id"] for t in pending_targets(conn)] == ["t_live", "t_pdf", "t_wb", "t_yt"]
     assert [t["id"] for t in pending_targets(conn, kinds=["pdf"])] == ["t_pdf"]
     assert [t["id"] for t in pending_targets(conn, target_ids=["t_yt"])] == ["t_yt"]
 
@@ -169,3 +169,21 @@ def test_parked_live_page_skips_parked_captures(conn, tmp_path):
     assert result.outcomes == ["gone", "gone", "stored"]
     version = conn.execute("SELECT * FROM source_version").fetchone()
     assert version["captured_at"] == "2010-01-01T00:00:00Z"
+
+
+def test_media_file_does_not_fall_back(conn, tmp_path):
+    seen = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        return httpx.Response(200, headers={"content-type": "audio/mpeg"}, content=b"ID3...")
+
+    fetcher, _, _ = make_fetcher({})
+    fetcher.client._transport = httpx.MockTransport(handler)
+    result = Acquirer(conn, fetcher, Depot(tmp_path)).acquire(target(conn, "t_pdf"))
+    assert result.outcomes == ["unsupported_type"]
+    assert not any("web.archive.org" in url for url in seen)
+    from archive.report import build_report
+    assert build_report(conn)["media_files_for_transcription"] == 1

@@ -9,6 +9,10 @@
    queue (faster-whisper) with timecodes.
    Dates come only from explicit page metadata (certainty 'inferred');
    scanned PDFs are flagged so their OCR text is treated with care.
+   YouTube: metadata and description from the watch page (yt-dlp, no
+   media); captions only with --youtube-captions, because YouTube's
+   robots.txt disallows /api/ where caption files live. Direct audio/video
+   files are counted for later transcription, not downloaded.
    Fetching rules: honest User-Agent, one request per host at a time (3 s
    apart, 4 s for the Internet Archive), robots.txt obeyed for live pages,
    no Save Page Now submissions. A blocked, parked or vanished live page

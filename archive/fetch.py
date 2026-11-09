@@ -29,6 +29,7 @@ import ssl
 import threading
 import time
 import urllib.robotparser
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit
 
@@ -49,7 +50,7 @@ REQUEST_TIMEOUT = 30.0
 TOTAL_SECONDS = 180.0
 MAX_REDIRECTS = 8
 DEFAULT_DELAY = 3.0
-HOST_DELAYS = {"web.archive.org": 4.0, "archive.org": 4.0}
+HOST_DELAYS = {"web.archive.org": 4.0, "archive.org": 4.0, "youtube.com": 8.0}
 CDX_URL = "https://web.archive.org/cdx/search/cdx"
 
 SECRET_PARAMS = {"token", "access_token", "api_key", "apikey", "key", "password", "secret",
@@ -303,6 +304,13 @@ class Fetcher:
             if wait > 0:
                 self.sleep(wait)
         self._last[host] = self.clock()
+
+    @contextmanager
+    def paced(self, host: str):
+        """Hold a host's turn for work done outside this client (e.g. yt-dlp)."""
+        with self._host_lock(host):
+            self._pace(host)
+            yield
 
     # -- one request -------------------------------------------------------
 

@@ -24,7 +24,17 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
-SCHEMA_VERSION = 3  # v2: source_target; v3: fetch_attempt (new tables only; no ALTER needed)
+SCHEMA_VERSION = 4  # v2 source_target; v3 fetch_attempt; v4 time_start/time_end
+
+# Column additions for databases created by an older schema.sql. New tables
+# and indexes need no entry: schema.sql creates them IF NOT EXISTS.
+# (version, table, column, definition)
+MIGRATIONS = (
+    (4, "section", "time_start", "REAL CHECK (time_start IS NULL OR time_start >= 0)"),
+    (4, "section", "time_end", "REAL CHECK (time_end IS NULL OR time_end >= 0)"),
+    (4, "passage", "time_start", "REAL CHECK (time_start IS NULL OR time_start >= 0)"),
+    (4, "passage", "time_end", "REAL CHECK (time_end IS NULL OR time_end >= 0)"),
+)
 GENESIS_HASH = "0" * 64
 
 # Columns that make up a decision event (hashed), in table order.
@@ -48,15 +58,17 @@ def canonical_json(value: Any) -> str:
                       separators=(",", ":"), allow_nan=False)
 
 
-def connect(path: str | Path) -> sqlite3.Connection:
+def connect(path: str | Path, *, check_same_thread: bool = True) -> sqlite3.Connection:
     """Open the database with foreign keys on and WAL journaling.
 
     Rows come back as ``sqlite3.Row``. ``":memory:"`` is accepted (WAL is then
-    silently not used, which is fine for tests).
+    silently not used, which is fine for tests). ``check_same_thread=False``
+    lets another thread close a worker's connection (each is still used by
+    one thread only).
     """
     if str(path) != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
+    conn = sqlite3.connect(str(path), check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
@@ -79,6 +91,7 @@ def init_db(conn: sqlite3.Connection) -> int:
     schema_sha = hashlib.sha256(sql.encode("utf-8")).hexdigest()
     if conn.in_transaction:
         conn.commit()
+    _migrate(conn)
     conn.executescript(sql)  # every statement is CREATE ... IF NOT EXISTS
     with conn:
         conn.execute(
@@ -86,6 +99,15 @@ def init_db(conn: sqlite3.Connection) -> int:
             (SCHEMA_VERSION, utc_now(), schema_sha),
         )
     return current_schema_version(conn)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns that an older database lacks (before schema.sql runs)."""
+    for _version, table, column, definition in MIGRATIONS:
+        columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if columns and column not in columns:  # table exists, column missing
+            with conn:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def current_schema_version(conn: sqlite3.Connection) -> int:

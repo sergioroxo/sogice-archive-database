@@ -54,6 +54,7 @@ class Extraction:
     tool: str
     flags: list = field(default_factory=list)
     page_starts: list | None = None     # PDF: offset where each page starts (page 1 = index 0)
+    cues: list | None = None            # captions: (char_start, seconds_start, seconds_end) per cue
     title: str | None = None
     date: str | None = None             # as found in the file's metadata
     author: str | None = None
@@ -64,6 +65,14 @@ class Extraction:
         if not self.page_starts:
             return None
         return bisect.bisect_right(self.page_starts, offset)
+
+    def time_of(self, offset: int) -> tuple[float, float] | None:
+        """(start, end) seconds of the caption cue holding ``offset`` (None if not timed)."""
+        if not self.cues:
+            return None
+        index = bisect.bisect_right([cue[0] for cue in self.cues], offset) - 1
+        _, start, end = self.cues[max(index, 0)]
+        return start, end
 
 
 def canonicalize(text: str) -> str:
@@ -276,7 +285,97 @@ def extract_txt(data: bytes) -> Extraction:
     return _finish(Extraction(text=canonicalize(text), tool="plain text", flags=flags))
 
 
-EXTRACTORS = {"html": extract_html, "pdf": extract_pdf, "docx": extract_docx,
+# ---------------------------------------------------------------------------
+# Captions (WebVTT / SRT)
+# ---------------------------------------------------------------------------
+
+_TIMESTAMP = re.compile(r"(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{1,3})")
+
+
+def _seconds(stamp: str) -> float:
+    match = _TIMESTAMP.search(stamp)
+    if not match:
+        raise ValueError(f"bad timestamp {stamp!r}")
+    hours, minutes, seconds, millis = match.groups()
+    return int(hours or 0) * 3600 + int(minutes) * 60 + int(seconds) + int(millis.ljust(3, "0")) / 1000
+
+
+def _clean_cue(text: str) -> str:
+    text = re.sub(r"<[^>]+>", "", text)            # <c>, <00:00:01.000>, <i>...
+    text = re.sub(r"\{\\.*?\}", "", text)
+    text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&nbsp;", " ")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _tokens(text: str) -> list[tuple[str, int]]:
+    out = []
+    for match in re.finditer(r"\S+", text):
+        word = re.sub(r"(^[^\w]+|[^\w]+$)", "", match.group(0).lower())
+        if word:
+            out.append((word, match.start()))
+    return out
+
+
+def _new_suffix(previous: str, current: str, min_overlap: int = 3) -> str:
+    """Drop the head of ``current`` that repeats the tail of ``previous`` (rolling auto-captions).
+
+    Ported from the old transcripts.deoverlap_caption_chunks.
+    """
+    if not previous:
+        return current
+    before, now = _tokens(previous), _tokens(current)
+    if not before or not now:
+        return current
+    if [w for w, _ in now] == [w for w, _ in before]:
+        return ""
+    for size in range(min(len(before), len(now)), min_overlap - 1, -1):
+        if [w for w, _ in before[-size:]] == [w for w, _ in now[:size]]:
+            return "" if size >= len(now) else current[now[size][1]:].strip()
+    return current
+
+
+def parse_cues(raw: str) -> list[tuple[float, float, str]]:
+    """(start, end, text) per cue, with rolling repeats removed and empty cues dropped."""
+    text = raw.replace("\ufeff", "").replace("\r\n", "\n").replace("\r", "\n")
+    cues, previous = [], ""
+    for block in re.split(r"\n\s*\n", text.strip()):
+        lines = [line.strip() for line in block.splitlines() if line.strip()]
+        at = next((i for i, line in enumerate(lines) if "-->" in line), -1)
+        if at < 0:
+            continue                                  # header, NOTE, STYLE, bare numbers
+        left, _, right = lines[at].partition("-->")
+        try:
+            start, end = _seconds(left), _seconds(right)
+        except ValueError:
+            continue
+        cue = _clean_cue(" ".join(lines[at + 1:]))
+        if not cue:
+            continue
+        new = _new_suffix(previous, cue)
+        previous = cue
+        if new:
+            cues.append((start, end, new))
+    return cues
+
+
+def extract_captions(data: bytes) -> Extraction:
+    """Caption text, one cue per line, with a cue map for timecodes."""
+    cues = parse_cues(data.decode("utf-8", "replace"))
+    parts, spans, offset = [], [], 0
+    for start, end, cue in cues:
+        cue = canonicalize(cue)
+        if not cue:
+            continue
+        if parts:
+            parts.append("\n")
+            offset += 1
+        spans.append((offset, start, end))
+        parts.append(cue)
+        offset += len(cue)
+    return _finish(Extraction(text="".join(parts), tool="webvtt (stdlib)", cues=spans or None))
+
+
+EXTRACTORS = {"vtt": extract_captions, "srt": extract_captions, "html": extract_html, "pdf": extract_pdf, "docx": extract_docx,
               "doc": extract_doc, "txt": extract_txt}
 
 

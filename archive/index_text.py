@@ -7,6 +7,7 @@ For each version that has bytes but no text yet:
 2. cut sections (~16,000 characters, type 'body') and, inside each section,
    passages (~1,500 characters) with ``archive.passages`` — gap-free, so the
    passages of a version join back to its exact text;
+   Caption passages also get time_start/time_end (seconds) from their cues;
 3. detect the language of every passage with lingua ('und' when a passage
    has too few letters), with the top confidence value;
 4. write sections and passages in one transaction (the passage_fts index is
@@ -80,6 +81,11 @@ def pending_versions(conn: sqlite3.Connection, *, limit: int | None = None,
     return conn.execute(sql).fetchall()
 
 
+def _times(extraction: Extraction, start: int, end: int) -> tuple[float | None, float | None]:
+    first, last = extraction.time_of(start), extraction.time_of(end - 1)
+    return (first[0] if first else None, last[1] if last else None)
+
+
 def _extension(path: str) -> str:
     return path.rsplit(".", 1)[-1].lower()
 
@@ -131,10 +137,12 @@ class TextIndexer:
         for sequence, (section_seq, start, end, passage_text) in enumerate(passages, 1):
             language, confidence = detect_language(passage_text)
             language_chars[language] += len(passage_text)
+            time_start, time_end = _times(extraction, start, end)
             rows.append((f"psg_{version_id[4:]}_{sequence:05d}", version_id,
                          f"sec_{version_id[4:]}_{section_seq:03d}", sequence, start, end,
                          extraction.page_of(start), extraction.page_of(end - 1), passage_text,
-                         sha256_text(passage_text), language, confidence, now))
+                         sha256_text(passage_text), language, confidence, now,
+                         time_start, time_end))
         result.languages = dict(language_chars.most_common())
 
         with self.conn:
@@ -147,14 +155,15 @@ class TextIndexer:
                 end = section.char_end
                 self.conn.execute(
                     "INSERT INTO section(id, version_id, sequence, type, char_start, char_end,"
-                    " page_start, page_end, created_at) VALUES (?,?,?, 'body', ?,?,?,?,?)",
+                    " page_start, page_end, created_at, time_start, time_end)"
+                    " VALUES (?,?,?, 'body', ?,?,?,?,?,?,?)",
                     (f"sec_{version_id[4:]}_{section.sequence:03d}", version_id, section.sequence,
                      section.char_start, end, extraction.page_of(section.char_start),
-                     extraction.page_of(end - 1), now))
+                     extraction.page_of(end - 1), now, *_times(extraction, section.char_start, end)))
             self.conn.executemany(
                 "INSERT INTO passage(id, version_id, section_id, sequence, char_start, char_end,"
                 " page_start, page_end, text, text_sha256, language, language_confidence,"
-                " created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+                " created_at, time_start, time_end) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
             self._fill_source(version["source_id"], extraction, language_chars)
         return result
 
