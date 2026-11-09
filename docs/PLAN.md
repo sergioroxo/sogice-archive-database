@@ -14,6 +14,12 @@
    YouTube's robots.txt disallows /api/, where captions live; Sérgio decided
    (9 Nov 2026) to fetch them for the selected public videos anyway. Direct audio/video
    files are counted for later transcription, not downloaded.
+   Academic articles (URL holds a DOI, ~210 targets): registered title,
+   journal and date from Crossref; when the publisher blocks us, the
+   abstract (Crossref or OpenAlex) and any open-access copy, repository
+   copies first. Short landing pages also get the PDF they declare
+   (citation_pdf_url). Closed articles get full text from the researcher's
+   own PDFs (attached locally, never published).
    Fetching rules: honest User-Agent, one request per host at a time (3 s
    apart, 4 s for the Internet Archive), robots.txt obeyed for live pages,
    no Save Page Now submissions. A blocked, parked or vanished live page

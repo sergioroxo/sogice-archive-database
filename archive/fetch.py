@@ -61,10 +61,14 @@ CHALLENGE_TEXT = re.compile(
     r"just a moment\.\.\.|checking your browser|verify you are human|"
     r"enable javascript and cookies to continue|cf-browser-verification|cf_chl_opt|"
     r"cdn-cgi/challenge-platform|please complete the security check|"
-    r"attention required.{0,40}cloudflare|ddos protection by",
+    r"attention required.{0,40}cloudflare|ddos protection by|"
+    r"preparing to download \.\.\.|pow_challenge|proof.of.work",
     re.IGNORECASE)
-CHALLENGE_SCAN_CHARS = 12_000
 CHALLENGE_MAX_BODY = 60_000   # real challenge pages are small; long pages are content
+CHALLENGE_LARGE_BODY = 2_000_000
+CHALLENGE_VISIBLE_CHARS = 2_000
+_INVISIBLE_TEXT = re.compile(r"<(script|style|noscript|template)\b.*?</\1\s*>|<!--.*?-->|<[^>]+>",
+                             re.IGNORECASE | re.DOTALL)
 KEEP_HEADERS = ("content-type", "content-length", "content-encoding", "last-modified", "etag",
                 "server", "cf-ray", "cf-mitigated", "retry-after", "location",
                 "x-archive-src", "memento-datetime", "link")
@@ -213,8 +217,13 @@ def classify_challenge(status: int | None, headers: dict, body: bytes | None) ->
     if status in CHALLENGE_STATUSES and is_cloudflare:
         return f"cloudflare_http:{status}"
     if body and len(body) <= CHALLENGE_MAX_BODY:
-        text = body[:CHALLENGE_SCAN_CHARS].decode("utf-8", "replace")
+        text = body.decode("utf-8", "replace")   # the message can sit after long inline scripts
         if CHALLENGE_TEXT.search(text):
+            return "blocker_text"
+    elif body and len(body) <= CHALLENGE_LARGE_BODY:
+        # Big pages can still be challenges padded with inline scripts: judge the visible text.
+        visible = re.sub(r"\s+", " ", _INVISIBLE_TEXT.sub(" ", body.decode("utf-8", "replace"))).strip()
+        if len(visible) < CHALLENGE_VISIBLE_CHARS and CHALLENGE_TEXT.search(visible):
             return "blocker_text"
     return None
 

@@ -235,3 +235,22 @@ def test_parked_and_stub_pages_are_not_ok():
     parked = fetcher.get("https://exodus.org/")
     assert parked.outcome == "gone" and parked.error == "domain-parking page" and parked.body is None
     assert fetcher.get("https://spa.org/").outcome == "empty"
+
+
+def test_large_challenge_page_with_inline_scripts():
+    from archive.fetch import classify_challenge
+    page = ("<html><head><script>" + "var a=1;" * 20000 + "</script></head><body>"
+            "<p>Checking your browser before accessing pmc.ncbi.nlm.nih.gov ...</p></body></html>").encode()
+    assert len(page) > 60_000
+    assert classify_challenge(200, {}, page) == "blocker_text"
+    article = ("<html><body><p>Checking your browser is a phrase in this article. " + "Text. " * 2000
+               + "</p></body></html>").encode()
+    assert classify_challenge(200, {}, article * 6) is None
+
+
+def test_small_challenge_page_message_after_scripts():
+    from archive.fetch import classify_challenge
+    page = ("<html><head><script>" + "x();" * 4000 + "</script></head><body>Checking your browser before "
+            "accessing pmc.ncbi.nlm.nih.gov ...</body></html>").encode()
+    assert 12_000 < len(page) < 60_000
+    assert classify_challenge(200, {}, page) == "blocker_text"

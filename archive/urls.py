@@ -74,6 +74,24 @@ def identity_key(url: str) -> str:
     return urlunsplit(("", host, path, query, "")).lstrip("/")
 
 
+_OLD_PMC = re.compile(r"^https?://(?:www\.)?ncbi\.nlm\.nih\.gov/pmc/articles/(?:PMC)?(\d+)/?(.*)$",
+                      re.IGNORECASE)
+
+
+def current_url(url: str) -> str:
+    """Where a moved site now serves the same page (fetch this, keep the original).
+
+    PubMed Central moved from www.ncbi.nlm.nih.gov/pmc/ to pmc.ncbi.nlm.nih.gov
+    (2024); the old host's robots.txt disallows /pmc/, the new one allows
+    /articles/.
+    """
+    match = _OLD_PMC.match(url or "")
+    if match:
+        rest = match.group(2)
+        return f"https://pmc.ncbi.nlm.nih.gov/articles/PMC{match.group(1)}/{rest}"
+    return url
+
+
 def short_hash(text: str, length: int = 16) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:length]
 
