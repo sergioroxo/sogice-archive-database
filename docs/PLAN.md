@@ -41,6 +41,14 @@
    audio/video clips (≤ 5 min, with timecodes) and concept descriptions. Used
    for search and for suggesting concept attachments. Never evidence.
 
+Phase 2 as built (9 Nov 2026): `archive/seeds.py` loads the Lexicon,
+tactic tree, practices, functions, Entity Registry and GOV.UK glossary;
+the April glossary goes through `seeds/merge_map_2026-11-09.json`
+(model decisions with reasons, recorded and undoable). `archive/match.py`
+turns every exact label hit into a usage; `seeds/match_rules.json` lists
+labels left for context reading (ordinary words, identity words, short
+acronyms). Reference terms are matched but do not count for the gate.
+
 ## The local–Claude loop
 
 1. Local model processes a batch overnight.

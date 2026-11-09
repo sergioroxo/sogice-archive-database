@@ -23,4 +23,6 @@ python -m archive import-queue          # old source queue -> sources and target
 python -m archive preserve --limit 50   # fetch, store, extract text, passages, language
 python -m archive report                # gate figure and failures by domain
 python -m archive attach-pdfs ~/sogice-pdfs --dry-run   # match your own PDFs to sources (then without --dry-run)
+python -m archive seed                  # load seed vocabularies, entities, merge decisions
+python -m archive match                 # find every seed label in every passage (usages)
 ```

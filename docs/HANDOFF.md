@@ -12,7 +12,8 @@ https://claude.ai/artifact/Birwc68ZN83XGaFgzuVaqV
 | Code | `archive/atomic_io.py`, `passages.py` (gap-free citation units), `quote_locator.py`, `relationship_vocabulary.py` (20 types), `schema.sql` (20 tables, FTS5), `db.py` (connect, init, hash-chained decisions), `config.py` + `config/models.yaml` |
 | Tests | 115 passing on Python 3.10 (standard library only) |
 | Done 9 Nov (evening) | Venv (Python 3.14), exact Ollama tags, `archive/ollama.py`, `scripts/check_models.py`, results in `docs/MODELS.md` |
-| Not yet done | Everything from Phase 1 on |
+| Done 9 Nov (night) | Phase 1 code (import, fetch, Wayback, DOI, captions, extraction, passages, language, attach-pdfs); full preservation run started; Phase 2 seeds and exact matching, gate passed (60 English concepts in 3+ sources) |
+| Not yet done | Phase 3 on; garbled-OCR detection; researcher interface |
 | Old system | Retired. Its UI on :8503 and LiteLLM gateway may still run; do not depend on them |
 
 ## 2. Environment facts

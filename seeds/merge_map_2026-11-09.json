@@ -1,0 +1,612 @@
+{
+  "about": "Merge decisions for seeds/sogice_glossary_2026-04-03.json (210 terms). Terms not listed here attach automatically when their wording equals an existing label (after case, spacing, dash and quote folding); otherwise they become proposed concepts. Each 'label_of' and 'new' below is recorded as a model decision in the database (actor, run, prompt version, reason) and can be undone. Review and edit freely: the loader is re-run from this file.",
+  "decided_by": "claude-opus-5-5 (Claude Code session, 9 Nov 2026)",
+  "prompt_version": "seed-merge-v1",
+  "new_concepts": {
+    "term:same-sex-behaviour": {
+      "pref_label": "Same-Sex Behaviour",
+      "alt": [
+        "SSB"
+      ],
+      "reason": "Recurring item in the multilingual glossary block (SSB in 9 languages); distinct from attraction (SSA)."
+    },
+    "term:opposite-sex-attraction": {
+      "pref_label": "Opposite-Sex Attraction",
+      "alt": [
+        "OSA"
+      ],
+      "reason": "Recurring item in the multilingual block (OSA in 9 languages)."
+    },
+    "term:aversive-coercive-shaming-treatments": {
+      "pref_label": "Aversive, Coercive or Shaming Treatments",
+      "alt": [],
+      "reason": "The multilingual block lists aversive, coercive and shaming treatments together in every language; kept as one concept as the source does. Related to Aversion Therapy, not merged with it."
+    },
+    "term:electroshock": {
+      "pref_label": "Electroshock (ES/ECS)",
+      "alt": [
+        "electroshock",
+        "electroconvulsive shock"
+      ],
+      "reason": "Recurring item in the multilingual block (ES/ECS in 9 languages)."
+    },
+    "term:sexual-fluidity": {
+      "pref_label": "Sexual Fluidity",
+      "alt": [],
+      "reason": "Recurring item (hu, tr, uk) in the multilingual block."
+    },
+    "term:gender-incongruence": {
+      "pref_label": "Gender Incongruence",
+      "alt": [],
+      "reason": "Recurring item (pl, uk); ICD-11 category name."
+    },
+    "term:ex-gay-protected-status": {
+      "pref_label": "Ex-Gay as Protected Status",
+      "alt": [],
+      "reason": "The glossary entry 'Former-LGBT / Ex-gay as Protected Status' is one legal claim, not two terms; the slash must not split it."
+    }
+  },
+  "entries": {
+    "SSA (same‑sex attraction) / pociąg do osób tej samej płci": {
+      "action": "label_of",
+      "concept": "term:ssa",
+      "reason": "Polish rendering of SSA in the multilingual block."
+    },
+    "SSA – Hemcinsinden Etkilenme (Same-Sex Attraction)": {
+      "action": "label_of",
+      "concept": "term:ssa",
+      "reason": "Turkish rendering of SSA."
+    },
+    "SSA – потяги до своєї статі": {
+      "action": "label_of",
+      "concept": "term:ssa",
+      "reason": "Ukrainian rendering of SSA."
+    },
+    "SSA – Anziehung zum eigenen Geschlecht / gleichgeschlechtliche Anziehung": {
+      "action": "label_of",
+      "concept": "term:ssa",
+      "reason": "German rendering of SSA."
+    },
+    "SSA – azonos nemhez vonzódás": {
+      "action": "label_of",
+      "concept": "term:ssa",
+      "reason": "Hungarian rendering of SSA."
+    },
+    "SSA – attrazioni per persone dello stesso sesso (same‑sex attraction)": {
+      "action": "label_of",
+      "concept": "term:ssa",
+      "reason": "Italian rendering of SSA."
+    },
+    "SSA – ġibdiet lejn l-istess sess (same‑sex attraction)": {
+      "action": "label_of",
+      "concept": "term:ssa",
+      "reason": "Maltese rendering of SSA."
+    },
+    "SSA – príťažlivosť k rovnakému pohlaviu": {
+      "action": "label_of",
+      "concept": "term:ssa",
+      "reason": "Slovak rendering of SSA."
+    },
+    "SSA – έλξη προς το ίδιο φύλο": {
+      "action": "label_of",
+      "concept": "term:ssa",
+      "reason": "Greek rendering of SSA."
+    },
+    "AHND – attirance homosexuelle non désirée": {
+      "action": "label_of",
+      "concept": "term:ussa",
+      "reason": "French 'unwanted homosexual attraction' is the USSA item of the block (the French version renders SSA as unwanted)."
+    },
+    "SSB (same‑sex behavior) / zachowania homoseksualne": {
+      "action": "label_of",
+      "concept": "term:same-sex-behaviour",
+      "reason": "Polish SSB."
+    },
+    "SSB – Eşcinsel Davranışlar (Same-Sex Behaviour)": {
+      "action": "label_of",
+      "concept": "term:same-sex-behaviour",
+      "reason": "Turkish SSB."
+    },
+    "SSB – одностатева поведінка": {
+      "action": "label_of",
+      "concept": "term:same-sex-behaviour",
+      "reason": "Ukrainian SSB."
+    },
+    "SSB – gleichgeschlechtlich ausgerichtetes Verhalten": {
+      "action": "label_of",
+      "concept": "term:same-sex-behaviour",
+      "reason": "German SSB."
+    },
+    "SSB – az azonos nemmel folytatott szexuális magatartás/viselkedés": {
+      "action": "label_of",
+      "concept": "term:same-sex-behaviour",
+      "reason": "Hungarian SSB."
+    },
+    "SSB – comportamenti sessuali verso persone dello stesso sesso (same‑sex behaviour)": {
+      "action": "label_of",
+      "concept": "term:same-sex-behaviour",
+      "reason": "Italian SSB."
+    },
+    "SSB – imġieba sesswali lejn l-istess sess (same‑sex behaviour)": {
+      "action": "label_of",
+      "concept": "term:same-sex-behaviour",
+      "reason": "Maltese SSB."
+    },
+    "SSB – správanie k rovnakému pohlaviu": {
+      "action": "label_of",
+      "concept": "term:same-sex-behaviour",
+      "reason": "Slovak SSB."
+    },
+    "SSB – συμπεριφορά προς το ίδιο φύλο": {
+      "action": "label_of",
+      "concept": "term:same-sex-behaviour",
+      "reason": "Greek SSB."
+    },
+    "CH – comportement homosexuel": {
+      "action": "label_of",
+      "concept": "term:same-sex-behaviour",
+      "reason": "French SSB item."
+    },
+    "GD (gender dysphoria) / dysforia płciowa": {
+      "action": "label_of",
+      "concept": "term:gender-dysphoria",
+      "reason": "Polish GD."
+    },
+    "GD – Cinsiyet Disforisi (Gender Dysphoria)": {
+      "action": "label_of",
+      "concept": "term:gender-dysphoria",
+      "reason": "Turkish GD."
+    },
+    "ГД – гендерна дисфорія": {
+      "action": "label_of",
+      "concept": "term:gender-dysphoria",
+      "reason": "Ukrainian GD."
+    },
+    "GD – Geschlechtsdysphorie": {
+      "action": "label_of",
+      "concept": "term:gender-dysphoria",
+      "reason": "German GD."
+    },
+    "GD – nemi diszfória": {
+      "action": "label_of",
+      "concept": "term:gender-dysphoria",
+      "reason": "Hungarian GD."
+    },
+    "GD – disforia di genere": {
+      "action": "label_of",
+      "concept": "term:gender-dysphoria",
+      "reason": "Italian GD."
+    },
+    "GD – disforija tal-ġeneru": {
+      "action": "label_of",
+      "concept": "term:gender-dysphoria",
+      "reason": "Maltese GD."
+    },
+    "GD – rodová dysfória": {
+      "action": "label_of",
+      "concept": "term:gender-dysphoria",
+      "reason": "Slovak GD."
+    },
+    "GD – δυσφορία φύλου": {
+      "action": "label_of",
+      "concept": "term:gender-dysphoria",
+      "reason": "Greek GD."
+    },
+    "DG – dysphorie de genre": {
+      "action": "label_of",
+      "concept": "term:gender-dysphoria",
+      "reason": "French GD."
+    },
+    "OSA (opposite‑sex attracted) / osoba heteroseksualna": {
+      "action": "label_of",
+      "concept": "term:opposite-sex-attraction",
+      "reason": "Polish OSA."
+    },
+    "OSA – Karşı Cinsten Etkilenme (Opposite-Sex Attracted)": {
+      "action": "label_of",
+      "concept": "term:opposite-sex-attraction",
+      "reason": "Turkish OSA."
+    },
+    "OSA – потяг до протилежної статі": {
+      "action": "label_of",
+      "concept": "term:opposite-sex-attraction",
+      "reason": "Ukrainian OSA."
+    },
+    "OSA – Anziehung zum anderen Geschlecht / gegengeschlechtliche Anziehung": {
+      "action": "label_of",
+      "concept": "term:opposite-sex-attraction",
+      "reason": "German OSA."
+    },
+    "OSA – ellenkező neműhöz vonzódás": {
+      "action": "label_of",
+      "concept": "term:opposite-sex-attraction",
+      "reason": "Hungarian OSA."
+    },
+    "OSA – attrazioni per il sesso opposto (opposite‑sex attraction)": {
+      "action": "label_of",
+      "concept": "term:opposite-sex-attraction",
+      "reason": "Italian OSA."
+    },
+    "OSA – ġibdiet lejn is-sess oppost (opposite‑sex attraction)": {
+      "action": "label_of",
+      "concept": "term:opposite-sex-attraction",
+      "reason": "Maltese OSA."
+    },
+    "OSA – príťažlivosť k opačnému pohlaviu": {
+      "action": "label_of",
+      "concept": "term:opposite-sex-attraction",
+      "reason": "Slovak OSA."
+    },
+    "OSA – έλξη προς το αντίθετο φύλο": {
+      "action": "label_of",
+      "concept": "term:opposite-sex-attraction",
+      "reason": "Greek OSA."
+    },
+    "AESO – attirance envers le sexe opposé": {
+      "action": "label_of",
+      "concept": "term:opposite-sex-attraction",
+      "reason": "French OSA."
+    },
+    "CT (conversion therapy) / terapia konwersyjna": {
+      "action": "label_of",
+      "concept": "term:conversion-therapy",
+      "reason": "Polish CT."
+    },
+    "CT – Dönüşüm Terapisi (Conversion Therapy)": {
+      "action": "label_of",
+      "concept": "term:conversion-therapy",
+      "reason": "Turkish CT."
+    },
+    "КТ – конверсійна терапія": {
+      "action": "label_of",
+      "concept": "term:conversion-therapy",
+      "reason": "Ukrainian CT."
+    },
+    "KT – Konversionstherapie": {
+      "action": "label_of",
+      "concept": "term:conversion-therapy",
+      "reason": "German CT."
+    },
+    "CT – konverziós terápia": {
+      "action": "label_of",
+      "concept": "term:conversion-therapy",
+      "reason": "Hungarian CT."
+    },
+    "CT – terapia di conversione": {
+      "action": "label_of",
+      "concept": "term:conversion-therapy",
+      "reason": "Italian CT."
+    },
+    "CT / TK – ‘terapija ta’ konverżjoni’": {
+      "action": "label_of",
+      "concept": "term:conversion-therapy",
+      "reason": "Maltese CT."
+    },
+    "CT – konverzná terapia": {
+      "action": "label_of",
+      "concept": "term:conversion-therapy",
+      "reason": "Slovak CT."
+    },
+    "CT – «θεραπεία μετατροπής»": {
+      "action": "label_of",
+      "concept": "term:conversion-therapy",
+      "reason": "Greek CT."
+    },
+    "CT – thérapie de conversion": {
+      "action": "label_of",
+      "concept": "term:conversion-therapy",
+      "reason": "French CT."
+    },
+    "poradnictwo duszpasterskie": {
+      "action": "label_of",
+      "concept": "term:pastoral-support",
+      "reason": "Polish pastoral counselling item of the block; same family as the Lexicon's Pastoral Support."
+    },
+    "pastoral yardım / pastoral konuşmalar": {
+      "action": "label_of",
+      "concept": "term:pastoral-support",
+      "reason": "Turkish pastoral help / conversations."
+    },
+    "Seelsorgerliche Unterstützung / seelsorgerliche Gespräche": {
+      "action": "label_of",
+      "concept": "term:pastoral-support",
+      "reason": "German pastoral support / conversations."
+    },
+    "lelkigondozói beszélgetés / lelkigondozói segítség": {
+      "action": "label_of",
+      "concept": "term:pastoral-support",
+      "reason": "Hungarian pastoral conversation / help."
+    },
+    "conversazioni/sostegno pastorale": {
+      "action": "label_of",
+      "concept": "term:pastoral-support",
+      "reason": "Italian pastoral conversations / support. Labels written out in full: the source shares one noun across the list.",
+      "labels": [
+        "conversazioni pastorali",
+        "sostegno pastorale"
+      ]
+    },
+    "konversazzjonijiet pastorali / għajnuna pastorali": {
+      "action": "label_of",
+      "concept": "term:pastoral-support",
+      "reason": "Maltese pastoral conversations / help."
+    },
+    "pastoračné rozhovory / pastoračná pomoc": {
+      "action": "label_of",
+      "concept": "term:pastoral-support",
+      "reason": "Slovak pastoral conversations / help."
+    },
+    "ποιμαντικές συνομιλίες / ποιμαντική βοήθεια": {
+      "action": "label_of",
+      "concept": "term:pastoral-support",
+      "reason": "Greek pastoral conversations / help."
+    },
+    "conversations/aidé pastoral": {
+      "action": "label_of",
+      "concept": "term:pastoral-support",
+      "reason": "French pastoral conversations / help. Labels written out in full: the source shares one noun across the list.",
+      "labels": [
+        "conversations pastorales",
+        "aide pastorale"
+      ]
+    },
+    "terapie awersyjne": {
+      "action": "label_of",
+      "concept": "term:aversion-therapy",
+      "reason": "Polish 'aversion therapies' = Aversion Therapy (glossary, English)."
+    },
+    "Aversionstherapien / erzwungene Therapien / auf Beschämung beruhende Therapien": {
+      "action": "label_of",
+      "concept": "term:aversive-coercive-shaming-treatments",
+      "reason": "German aversive / coercive / shaming item. Labels written out in full: the source shares one noun across the list.",
+      "labels": [
+        "Aversionstherapien",
+        "erzwungene Therapien",
+        "auf Beschämung beruhende Therapien"
+      ]
+    },
+    "averziós / kényszerítő / megszégyenítő kezelések": {
+      "action": "label_of",
+      "concept": "term:aversive-coercive-shaming-treatments",
+      "reason": "Hungarian item. Labels written out in full: the source shares one noun across the list.",
+      "labels": [
+        "averziós kezelések",
+        "kényszerítő kezelések",
+        "megszégyenítő kezelések"
+      ]
+    },
+    "aversion therapies / trattamenti coercitivi o che producono vergogna": {
+      "action": "label_of",
+      "concept": "term:aversive-coercive-shaming-treatments",
+      "reason": "Italian item (first part left in English by the source). Labels written out in full: the source shares one noun across the list.",
+      "labels": [
+        "trattamenti coercitivi o che producono vergogna"
+      ]
+    },
+    "trattamenti avversivi / koerċittivi / imbarazzanti": {
+      "action": "label_of",
+      "concept": "term:aversive-coercive-shaming-treatments",
+      "reason": "Maltese item. Labels written out in full: the source shares one noun across the list.",
+      "labels": [
+        "trattamenti avversivi",
+        "trattamenti koerċittivi",
+        "trattamenti imbarazzanti"
+      ]
+    },
+    "averzívna / donucovacia / zahanbujúca liečba": {
+      "action": "label_of",
+      "concept": "term:aversive-coercive-shaming-treatments",
+      "reason": "Slovak item. Labels written out in full: the source shares one noun across the list.",
+      "labels": [
+        "averzívna liečba",
+        "donucovacia liečba",
+        "zahanbujúca liečba"
+      ]
+    },
+    "αποτρεπτικές / καταναγκαστικές / ντροπιαστικές θεραπείες": {
+      "action": "label_of",
+      "concept": "term:aversive-coercive-shaming-treatments",
+      "reason": "Greek item. Labels written out in full: the source shares one noun across the list.",
+      "labels": [
+        "αποτρεπτικές θεραπείες",
+        "καταναγκαστικές θεραπείες",
+        "ντροπιαστικές θεραπείες"
+      ]
+    },
+    "traitements aversifs / coercitifs / honteux": {
+      "action": "label_of",
+      "concept": "term:aversive-coercive-shaming-treatments",
+      "reason": "French item. Labels written out in full: the source shares one noun across the list.",
+      "labels": [
+        "traitements aversifs",
+        "traitements coercitifs",
+        "traitements honteux"
+      ]
+    },
+    "elektrowstrząsy (ES) / elektrowstrząsy konwulsyjne (ECS) / terapia elektrowstrząsowa (ECT)": {
+      "action": "label_of",
+      "concept": "term:electroshock",
+      "reason": "Polish ES/ECS."
+    },
+    "elektro-şok (ES) / elektrokonvülsif şok (ECS)": {
+      "action": "label_of",
+      "concept": "term:electroshock",
+      "reason": "Turkish ES/ECS."
+    },
+    "Elektroschocktherapie (ES) / Elektrokrampftherapie (ECS)": {
+      "action": "label_of",
+      "concept": "term:electroshock",
+      "reason": "German ES/ECS."
+    },
+    "elektrosokk (ES) / elektrokonvulzív sokk (ECS)": {
+      "action": "label_of",
+      "concept": "term:electroshock",
+      "reason": "Hungarian ES/ECS."
+    },
+    "elettroshock (ES) / shock elettroconvulsivo (ECS)": {
+      "action": "label_of",
+      "concept": "term:electroshock",
+      "reason": "Italian ES/ECS."
+    },
+    "elettro‑xokk (EX) / xokk elettro‑konvulsiv (XEK)": {
+      "action": "label_of",
+      "concept": "term:electroshock",
+      "reason": "Maltese ES/ECS."
+    },
+    "elektrošok (ES) / elektrošoková terapia (ECS)": {
+      "action": "label_of",
+      "concept": "term:electroshock",
+      "reason": "Slovak ES/ECS."
+    },
+    "ηλεκτροσόκ (ES) / ηλεκτροσπασμωδικό σοκ (ECS)": {
+      "action": "label_of",
+      "concept": "term:electroshock",
+      "reason": "Greek ES/ECS."
+    },
+    "électrochoc (ES) / thérapies par chocs électroconvulsifs (ECS)": {
+      "action": "label_of",
+      "concept": "term:electroshock",
+      "reason": "French ES/ECS."
+    },
+    "szexualitás fluid / szexuális fluiditás": {
+      "action": "label_of",
+      "concept": "term:sexual-fluidity",
+      "reason": "Hungarian sexual fluidity."
+    },
+    "cinsel değişkenlik": {
+      "action": "label_of",
+      "concept": "term:sexual-fluidity",
+      "reason": "Turkish 'sexual variability' item = sexual fluidity in the block."
+    },
+    "сексуальна флюїдність": {
+      "action": "label_of",
+      "concept": "term:sexual-fluidity",
+      "reason": "Ukrainian sexual fluidity."
+    },
+    "niezgodność płciowa (gender incongruence)": {
+      "action": "label_of",
+      "concept": "term:gender-incongruence",
+      "reason": "Polish gender incongruence."
+    },
+    "гендерна неконгруентність": {
+      "action": "label_of",
+      "concept": "term:gender-incongruence",
+      "reason": "Ukrainian gender incongruence."
+    },
+    "prawo wyboru terapii": {
+      "action": "label_of",
+      "concept": "term:therapeutic-choice",
+      "reason": "Polish 'right to choose therapy' renders the therapeutic-choice argument."
+    },
+    "zmiana pociągu seksualnego / redukcja SSA": {
+      "action": "label_of",
+      "concept": "term:sexual-orientation-change",
+      "reason": "Polish 'change of sexual attraction / SSA reduction'."
+    },
+    "struggling with same-sex attraction": {
+      "action": "label_of",
+      "concept": "term:struggling-with-ssa",
+      "reason": "Expanded form of 'Struggling with SSA'."
+    },
+    "sexual addictions": {
+      "action": "label_of",
+      "concept": "term:sexual-addiction-framework",
+      "reason": "Surface form of the Lexicon's Sexual Addiction Framework."
+    },
+    "sexual orientation change effort": {
+      "action": "label_of",
+      "concept": "term:soce",
+      "reason": "Singular of 'sexual orientation change efforts' (SOCE)."
+    },
+    "SOGI change efforts": {
+      "action": "label_of",
+      "concept": "term:sogice",
+      "reason": "Short form of SOGICE."
+    },
+    "transekskluderende radikalfeminister": {
+      "action": "label_of",
+      "concept": "term:terf",
+      "reason": "Norwegian expansion of TERF."
+    },
+    "Gender Ideology / Gender Theory": {
+      "action": "label_of",
+      "concept": "term:gender-ideology",
+      "reason": "'Gender Theory' used as a synonym of Gender Ideology in the source."
+    },
+    "affirmation-only care": {
+      "action": "label_of",
+      "concept": "term:affirmation-only-approach",
+      "reason": "Variant wording of the Lexicon's Affirmation-Only Approach."
+    },
+    "Former-LGBT / Ex-gay as Protected Status": {
+      "action": "label_of",
+      "concept": "term:ex-gay-protected-status",
+      "labels": [
+        "ex-gay as protected status",
+        "former-LGBT as protected status"
+      ],
+      "reason": "One legal claim; see new concept."
+    },
+    "OS – протилежна стать": {
+      "action": "skip",
+      "reason": "'Opposite sex' alone is ordinary language, not change-effort vocabulary."
+    },
+    "drittijiet u libertajiet tal-bniedem": {
+      "action": "skip",
+      "reason": "'Human rights and freedoms' is too general to match."
+    },
+    "mowa nienawiści (homotransfobiczna)": {
+      "action": "skip",
+      "reason": "'Hate speech' is a general category, not a term of the discourse studied."
+    },
+    "self-centered way": {
+      "action": "skip",
+      "reason": "Fragment of a testimony sentence saved as a term by the old parser."
+    },
+    "safe and I'm home": {
+      "action": "skip",
+      "reason": "Fragment of a testimony sentence saved as a term by the old parser."
+    },
+    "Faith and Sexuality Survey (Ozanne) critique": {
+      "action": "skip",
+      "reason": "Names a critique of a publication, not a term; the survey can become an entity later."
+    },
+    "Modern Homophobia Scale (MHS)": {
+      "action": "skip",
+      "reason": "Research instrument, not a term of the discourse; can become an entity later."
+    },
+    "R‑SOCCS (Revised Sexual Orientation Counselor Competency Scale)": {
+      "action": "skip",
+      "reason": "Research instrument, not a term of the discourse; can become an entity later."
+    },
+    "ICD‑11 Declassification (Gender Incongruence outside Mental Disorders)": {
+      "action": "skip",
+      "reason": "A policy event, not a term; Gender Incongruence is kept as a concept."
+    },
+    "X-Out-Loud": {
+      "action": "skip",
+      "reason": "Organisation, already in the Entity Registry."
+    },
+    "Therapeutic Fraud Prevention Act": {
+      "action": "entity",
+      "kind": "law",
+      "country": "US",
+      "reason": "A US bill, not a term."
+    },
+    "Cass Review implementation": {
+      "action": "entity",
+      "kind": "publication",
+      "label": "Cass Review",
+      "country": "GB",
+      "reason": "The Cass Review is a publication; 'implementation' is context."
+    }
+  },
+  "extra_labels": {
+    "term:gender-identity-change-efforts": {
+      "labels": [
+        "GICE"
+      ],
+      "reason": "Acronym of Gender Identity Change Efforts (GOV.UK reference concept); counterpart of SOCE."
+    }
+  }
+}

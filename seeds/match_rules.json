@@ -1,0 +1,33 @@
+{
+  "about": "Rules for exact matching (archive/match.py). Exact matching finds a label's words in a passage; it cannot read context. Labels listed under context_required are not matched automatically: they are too short, too common or ambiguous, and wait for the Phase 3 reading, which sees the context. Acronyms of three characters or fewer are skipped unless allowed below; acronyms are always matched with their capital letters. Edit freely; re-run 'python -m archive match'.",
+  "decided_by": "claude-opus-5-5 (Claude Code session, 9 Nov 2026)",
+  "allowed_short_acronyms": {
+    "SSA": "Core euphemism of the field; other meanings (Social Security Administration, sub-Saharan Africa) are rare in this corpus and show up in samples.",
+    "SGA": "LDS variant of SSA.",
+    "AGP": "Blanchard's autogynephilia; distinctive in this corpus.",
+    "GID": "Gender Identity Disorder, obsolete DSM category, common in older sources."
+  },
+  "context_required": {
+    "gay": "Identity word (GOV.UK reference list); everywhere in the corpus.",
+    "lesbian": "Identity word.", "bisexual": "Identity word.", "heterosexual": "Identity word.",
+    "homosexual": "Identity word; used by all sides.", "queer": "Identity word.", "transgender": "Identity word.",
+    "intersex": "Identity word.", "pansexual": "Identity word.", "asexual": "Identity word.",
+    "cisgender": "Identity word.", "non binary": "Identity word.", "lgbtq+": "Umbrella acronym.",
+    "sex": "Ordinary word.", "passing": "Ordinary word.", "bent": "Ordinary word.", "invert": "Ordinary word.",
+    "woke": "Ordinary word.", "degeneracy": "Ordinary word.", "fatherless": "Ordinary word.",
+    "desistance": "Ordinary research word.", "desisting": "Ordinary word.", "overcomer": "Ordinary Christian word.",
+    "hon": "Ordinary word in several languages.", "loca": "Ordinary Spanish word.", "hueco": "Ordinary Spanish word.",
+    "fag": "Also British slang for cigarette.", "poof": "Also an interjection.",
+    "seelsorge": "Ordinary German word for pastoral care; the loophole sense needs context.",
+    "self determination": "Ordinary word (Section 11 row).", "selbstbestimmung": "Ordinary word.",
+    "selvbestemmelse": "Ordinary word.", "autodeterminazione": "Ordinary word.", "autodétermination": "Ordinary word.",
+    "autodeterminación": "Ordinary word.", "samostanowienie": "Ordinary word.", "itsemääräämisoikeus": "Ordinary word.",
+    "självbestämmande": "Ordinary word.", "önrendelkezés": "Ordinary word.",
+    "vindecare": "Ordinary Romanian word for healing.",
+    "map": "Ordinary word; the 'minor attracted person' sense needs context.",
+    "osa": "Also obstructive sleep apnoea.", "ssb": "Also sugar-sweetened beverages.",
+    "apa": "Also APA citation style and other associations.", "gate": "Ordinary word.", "hug": "Ordinary word.",
+    "knus": "Ordinary Danish word (hug).", "pip": "Ordinary word.", "stonewall": "The riots, the UK charity and the verb.",
+    "niki": "Also a first name.", "galop": "Also a dance.", "groomer": "Ordinary word (pet grooming)."
+  }
+}

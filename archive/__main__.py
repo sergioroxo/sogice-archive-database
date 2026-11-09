@@ -7,6 +7,8 @@
     python -m archive index [--limit N] [--retry-failed]
     python -m archive report
     python -m archive attach-pdfs FOLDER [--dry-run]
+    python -m archive seed
+    python -m archive match
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from . import attach, db, paths, queue_import, report
+from . import attach, db, match, paths, queue_import, report, seeds
 from .depot import Depot
 from .index_text import TextIndexer, pending_versions
 from .acquire import pending_targets
@@ -114,6 +116,33 @@ def cmd_attach_pdfs(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_seed(args: argparse.Namespace) -> int:
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    result = seeds.load_all(conn)
+    conn.close()
+    path = queue_import.write_report(result, paths.reports_dir(), f"seed-{time.strftime('%Y%m%d-%H%M%S')}.json")
+    print(json.dumps(result["stats"], indent=2))
+    print(f"placeholder concepts (cross-references without an entry): {result['placeholders']}")
+    print(f"report: {path}")
+    return 0
+
+
+def cmd_match(args: argparse.Namespace) -> int:
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    data = match.run_match(conn, log=lambda line: print(line, flush=True))
+    conn.close()
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    folder = paths.reports_dir()
+    queue_import.write_report(data, folder, f"match-{stamp}.json")
+    markdown = match.to_markdown(data)
+    (folder / f"match-{stamp}.md").write_text(markdown, encoding="utf-8")
+    print(markdown[:3000])
+    print(f"report: {folder / f'match-{stamp}.md'}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m archive")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -155,6 +184,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--db", type=Path, default=paths.database_path())
     p.add_argument("--dry-run", action="store_true", help="show the matches, attach nothing")
     p.set_defaults(func=cmd_attach_pdfs)
+
+    p = sub.add_parser("seed", help="load seed vocabularies, entities and merge decisions")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.set_defaults(func=cmd_seed)
+
+    p = sub.add_parser("match", help="exact matching of seed labels across all passages")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.set_defaults(func=cmd_match)
 
     args = parser.parse_args(argv)
     return args.func(args)
