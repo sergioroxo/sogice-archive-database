@@ -32,6 +32,8 @@
 ## Data model
 
 Source → Version → Section → Passage → Usage → (Concept | Entity) → Relation;
+Source → Target (what to fetch: the live URL and each Wayback capture; a
+fetched target becomes a Version);
 plus Claim, Decision (AI or researcher), Run, Release. Every record keeps
 evidence state, review state and visibility separate.
 

@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # v2: source_target (new table only; no ALTER needed)
 GENESIS_HASH = "0" * 64
 
 # Columns that make up a decision event (hashed), in table order.

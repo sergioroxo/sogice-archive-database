@@ -71,8 +71,33 @@ EXPECTED_TABLES = {
     "schema_version", "source", "source_version", "section", "passage", "passage_fts",
     "usage", "concept", "concept_label", "concept_relation", "entity", "entity_variant",
     "relation", "relation_usage", "claim", "claim_usage", "decision", "run",
-    "release", "release_record",
+    "release", "release_record", "source_target",
 }
+
+
+def test_v1_database_gains_source_target(conn):
+    with conn:
+        conn.execute("DROP TABLE source_target")
+        conn.execute("DELETE FROM schema_version")
+        conn.execute("INSERT INTO schema_version VALUES (1, ?, ?)", (NOW, "0" * 64))
+    assert db.init_db(conn) == 2
+    names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "source_target" in names
+
+
+def test_source_target_rules(conn):
+    add_source(conn)
+    insert = ("INSERT INTO source_target(id, source_id, route, url, created_at)"
+              " VALUES (?, 'src1', ?, ?, ?)")
+    with conn:
+        conn.execute(insert, ("t1", "live_fetch", "https://example.org/a", NOW))
+        conn.execute(insert, ("t2", "wayback", "https://web.archive.org/web/2009/http://example.org/a", NOW))
+    with pytest.raises(sqlite3.IntegrityError):  # a wayback target must be a Wayback URL
+        with conn:
+            conn.execute(insert, ("t3", "wayback", "https://example.org/a", NOW))
+    with pytest.raises(sqlite3.IntegrityError):  # same route + url twice
+        with conn:
+            conn.execute(insert, ("t4", "live_fetch", "https://example.org/a", NOW))
 
 
 def test_schema_creates_all_tables(conn):

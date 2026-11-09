@@ -229,6 +229,28 @@ CREATE TABLE IF NOT EXISTS source_version (
 );
 CREATE INDEX IF NOT EXISTS idx_source_version_sha ON source_version(sha256);
 
+-- What to fetch for a source (schema v2). One source (an original URL) can
+-- have several targets: the live page and any number of Wayback captures
+-- from different dates. Each target that is fetched becomes a source_version.
+-- Rows imported from the old queue keep their old ids and hints here.
+CREATE TABLE IF NOT EXISTS source_target (
+  id                TEXT PRIMARY KEY,
+  source_id         TEXT NOT NULL REFERENCES source(id),
+  route             TEXT NOT NULL CHECK (route IN ('live_fetch', 'wayback', 'local_file')),
+  url               TEXT NOT NULL,      -- what to fetch: live URL, Wayback URL or file:// URI
+  capture_timestamp TEXT CHECK (capture_timestamp IS NULL OR capture_timestamp GLOB '[0-9]*'),
+  kind_hint         TEXT NOT NULL DEFAULT 'unknown' CHECK (kind_hint IN (
+                      'webpage', 'pdf', 'docx', 'video', 'youtube', 'audio', 'social', 'unknown')),
+  hold              TEXT,               -- reason not to fetch (e.g. 'legacy_priority_skip'); NULL = fetch
+  legacy_refs       TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(legacy_refs) AND json_type(legacy_refs) = 'array'),
+  legacy_hints      TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(legacy_hints) AND json_type(legacy_hints) = 'object'),
+  created_at        TEXT NOT NULL,
+  CHECK (route <> 'wayback' OR url LIKE 'http%://web.archive.org/web/%'),
+  UNIQUE (route, url)
+);
+CREATE INDEX IF NOT EXISTS idx_source_target_source ON source_target(source_id);
+CREATE INDEX IF NOT EXISTS idx_source_target_kind ON source_target(kind_hint, hold);
+
 -- Structural sections of a version. type separates article body from site
 -- furniture so repeated navigation/promotional blocks are counted apart.
 CREATE TABLE IF NOT EXISTS section (
