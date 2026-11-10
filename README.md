@@ -29,5 +29,7 @@ python -m archive seed                  # load seed vocabularies, entities, merg
 python -m archive match                 # find every seed label in every passage (usages)
 python -m archive testset prepare       # queue, attach and index the 20 test-set sources
 python -m archive testset show fr-4501 --grep "Torrents"   # read an entry's passages with pages/times
+python -m archive read --testset --split dev             # Phase 3: local reading (docs/READING.md)
+python -m archive read --status                          # runs in progress; exit 1 if one has stalled
 python -m archive testset score         # check expectations and the Phase 3 gate
 ```

@@ -23,6 +23,8 @@ roles:
     temperature: 0
     num_predict: 4096
     num_ctx: 32768
+    keep_alive: 10m          # stays loaded between sections of a batch; unloaded when the batch ends
+    seconds_per_1000_chars: 10  # time budget; a source past 3x its budget is stopped (archive/read.py)
   audit:
     model: gemma4:31b-mlx    # digest 637cc0ff1570; hard cases and the audit pass
     description: Hard cases and the per-source audit verdict

@@ -175,7 +175,7 @@ class EntryView:
 
     @property
     def read(self) -> bool:
-        return any(r["role"] == "reading" for r in self.runs)
+        return any(r["role"] == "reading" and r["outcome"] == "succeeded" for r in self.runs)
 
     def find(self, anchor: str) -> list[Located]:
         target = norm(anchor)
@@ -225,16 +225,22 @@ def entry_view(conn: sqlite3.Connection, entry: dict) -> EntryView:
     view.usages = conn.execute(
         f"""SELECT u.*, p.page_start, p.page_end, p.text_sha256 AS passage_sha, v.source_id
             FROM usage u JOIN passage p ON p.id = u.passage_id JOIN source_version v ON v.id = p.version_id
-            WHERE v.source_id IN ({marks}) AND u.found_by = 'model'""", sources).fetchall()
+            WHERE v.source_id IN ({marks}) AND u.found_by = 'model'
+            AND u.review_state NOT IN ('superseded', 'rejected')""", sources).fetchall()
     view.usages += conn.execute(  # unlocated quotes have no passage; the run names the source
         f"""SELECT u.*, NULL AS page_start, NULL AS page_end, NULL AS passage_sha,
                    json_extract(r.inputs, '$.source_id') AS source_id
             FROM usage u JOIN run r ON r.id = u.run_id
-            WHERE u.passage_id IS NULL AND json_extract(r.inputs, '$.source_id') IN ({marks})""",
+            WHERE u.passage_id IS NULL AND json_extract(r.inputs, '$.source_id') IN ({marks})
+            AND u.review_state NOT IN ('superseded', 'rejected')""",
         sources).fetchall()
+    # The current reading of each source: its latest succeeded run (earlier ones are superseded).
     view.runs = conn.execute(
-        f"""SELECT * FROM run WHERE role IN ('reading', 'audit')
-            AND json_extract(inputs, '$.source_id') IN ({marks})""", sources).fetchall()
+        f"""SELECT * FROM run r WHERE role IN ('reading', 'audit') AND outcome = 'succeeded'
+            AND json_extract(inputs, '$.source_id') IN ({marks})
+            AND NOT EXISTS (SELECT 1 FROM run later WHERE later.role = r.role AND later.outcome = 'succeeded'
+                            AND json_extract(later.inputs, '$.source_id') = json_extract(r.inputs, '$.source_id')
+                            AND later.started_at > r.started_at)""", sources).fetchall()
     usage_ids = [u["id"] for u in view.usages]
     pages = {u["id"]: view.page_of(u) for u in view.usages}
     if usage_ids:
@@ -423,19 +429,30 @@ def score(conn: sqlite3.Connection, data: dict, judgements: dict | None = None,
           split: str | None = None) -> dict:
     judgements = judgements or {}
     gate = data.get("gate", {})
-    results, all_usages, seconds = [], [], {}
+    results, all_usages, seconds, chars = [], [], {}, {}
     for entry in data["entries"]:
         if split and entry["split"] != split:
             continue
         view = entry_view(conn, entry)
         all_usages += view.usages
         seconds[entry["key"]] = sum(r["seconds"] or 0 for r in view.runs)
+        read_chars = [json.loads(r["inputs"]).get("chars") for r in view.runs if r["role"] == "reading"]
+        chars[entry["key"]] = (sum(read_chars) if read_chars and None not in read_chars
+                               else sum(len(p["text"]) for p in view.passages))
         for exp in entry.get("expect", []):
             status, detail = check(conn, view, exp, judgements)
             results.append({"entry": entry["key"], "split": entry["split"], "id": exp["id"],
                             "case": exp.get("case", ""), "check": exp["check"],
                             "status": status, "detail": detail})
     located = [u for u in all_usages if u["evidence_state"] != "unlocated"]
+    statements = [u for u in located if u["entity_id"] is None]
+    # Time scales with length: the gate is seconds per 1,000 characters read (a fixed limit per
+    # source is kept for old test-set files that still give one).
+    rates = {k: round(1000 * seconds[k] / chars[k], 2) for k in seconds if chars.get(k) and seconds[k]}
+    if "seconds_per_1000_chars" in gate:
+        over_time = [k for k, r in rates.items() if r > gate["seconds_per_1000_chars"]]
+    else:
+        over_time = [k for k, s in seconds.items() if s > gate.get("seconds_per_source", 300)]
 
     def share(rows, test):
         return round(sum(1 for r in rows if test(r)) / len(rows), 3) if rows else None
@@ -443,10 +460,13 @@ def score(conn: sqlite3.Connection, data: dict, judgements: dict | None = None,
     metrics = {
         "model_usages": len(all_usages),
         "quotes_located": share(all_usages, lambda u: u["evidence_state"] != "unlocated"),
-        "speaker_filled": share(located, lambda u: norm(u["speaker"]) not in UNFILLED_SPEAKERS),
-        "stance_filled": share(located, lambda u: u["stance"] != "unknown"),
+        # Speaker and stance are measured on statements; an entity mention (a name) has no voice of its own.
+        "speaker_filled": share(statements, lambda u: norm(u["speaker"]) not in UNFILLED_SPEAKERS),
+        "stance_filled": share(statements, lambda u: u["stance"] != "unknown"),
+        "entity_mentions": len(located) - len(statements),
         "max_seconds_per_source": max(seconds.values()) if seconds else None,
-        "sources_over_time": sorted(k for k, s in seconds.items() if s > gate.get("seconds_per_source", 300)),
+        "max_seconds_per_1000_chars": max(rates.values()) if rates else None,
+        "sources_over_time": sorted(over_time),
     }
     counts = Counter(r["status"] for r in results)
     checks = []
@@ -468,7 +488,9 @@ def to_markdown(report: dict) -> str:
              f"- Quotes located: {m['quotes_located']} (gate {report['gate'].get('quotes_located')})",
              f"- Speaker filled: {m['speaker_filled']} (gate {report['gate'].get('speaker_filled')})",
              f"- Stance filled: {m['stance_filled']} (gate {report['gate'].get('stance_filled')})",
-             f"- Slowest source: {m['max_seconds_per_source']} s; over limit: {m['sources_over_time'] or 'none'}",
+             f"- Slowest source: {m['max_seconds_per_source']} s; slowest per 1,000 characters: "
+             f"{m.get('max_seconds_per_1000_chars')} s (gate {report['gate'].get('seconds_per_1000_chars')});"
+             f" over limit: {m['sources_over_time'] or 'none'}",
              f"- Expectations: {report['counts']}", "",
              "| Entry | Expectation | Case | Status | Detail |", "|---|---|---|---|---|"]
     for r in report["results"]:

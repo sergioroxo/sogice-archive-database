@@ -27,7 +27,7 @@ def entry(**extra):
 
 def make_set(*expectations, entries=None):
     return {"version": "t", "gate": {"quotes_located": 0.9, "speaker_filled": 0.9, "stance_filled": 0.9,
-                                     "seconds_per_source": 300},
+                                     "seconds_per_1000_chars": 10},
             "entries": entries or [entry(expect=list(expectations))]}
 
 
@@ -57,11 +57,14 @@ def conn(tmp_path):
     connection.close()
 
 
-def read(connection, source_url=URL_A, run="r1", seconds=30.0):
+def read(connection, source_url=URL_A, run="r1", seconds=30.0, chars=None):
+    inputs = {"source_id": source_id_for(source_url)}
+    if chars is not None:
+        inputs["chars"] = chars
     with connection:
         connection.execute("INSERT INTO run(id, role, model, inputs, seconds, outcome, started_at)"
                            " VALUES (?, 'reading', 'm', ?, ?, 'succeeded', ?)",
-                           (run, json.dumps({"source_id": source_id_for(source_url)}), seconds, NOW))
+                           (run, json.dumps(inputs), seconds, NOW))
 
 
 def usage(connection, uid, quote, *, passage="p11", run="r1", located=True, **fields):
@@ -202,7 +205,7 @@ def test_duplicate_furniture_and_failure_cases(conn):
 
 
 def test_judgements_and_metrics(conn):
-    read(conn, seconds=400.0)
+    read(conn, seconds=400.0, chars=20_000)                # 20 s per 1,000 characters: over the gate
     usage(conn, "u1", "guérir les blessures de l’âme", speaker="Petit", stance="criticizes")
     usage(conn, "u2", "60 à 90 %", speaker="unknown", stance="unknown")
     usage(conn, "u3", "a quote the model invented", located=False)
@@ -261,3 +264,21 @@ def test_shipped_testset_is_valid_and_quotes_stay_short():
     anchors = [a for e in data["entries"] for x in e["expect"]
                for a in ([x["anchor"]] if "anchor" in x else x.get("anchors", []))]
     assert anchors and max(len(a.split()) for a in anchors) <= 12
+
+
+def test_time_gate_scales_with_length(conn):
+    read(conn, seconds=900.0, chars=150_000)               # a long report: 6 s per 1,000 characters
+    report = score(conn, make_set())
+    assert report["metrics"]["max_seconds_per_1000_chars"] == 6.0
+    assert report["metrics"]["sources_over_time"] == []
+
+
+def test_speaker_is_measured_on_statements_not_entity_mentions(conn):
+    read(conn, chars=1000)
+    with conn:
+        conn.execute("INSERT INTO entity(id, kind, label, normalized_label, created_at)"
+                     " VALUES ('e1', 'person', 'Petit', 'petit', ?)", (NOW,))
+    usage(conn, "u1", "guérir les blessures de l’âme", speaker="Petit", stance="criticizes")
+    usage(conn, "u2", "60 à 90 %", entity_id="e1", stance="not_applicable")   # a name, no voice
+    m = score(conn, make_set())["metrics"]
+    assert m["speaker_filled"] == 1.0 and m["entity_mentions"] == 1

@@ -17,7 +17,8 @@ https://claude.ai/artifact/Birwc68ZN83XGaFgzuVaqV
 | Done 10 Nov | Work keys and `dedupe` (22 duplicate groups merged); bot-check `recheck` (7 flagged); thin-page and quarantined-file review lists |
 | Done 10 Nov | Phase 1 complete: 93.4% of 5,062 text sources with text (gate 90%); 0 pending. Phase 2 rerun: 105 English concepts in 3+ sources, 151,262 usages |
 | Done 10 Nov | Exodus apology ("I Am Sorry"): the 22 Jun 2013 capture was quarantined by Defender; the 14 Jul 2013 capture (same text, 8,865 chars; no `cdn.widgetserver.com` script) stored and indexed; the report marks the old copy as replaced. loveinaction.org still on the review list |
-| Not yet done | Phase 3 reading prompt and runner (must skip merged sources and `challenge_page` versions); garbled-OCR detection; researcher interface |
+| Done 10 Nov | Phase 3 reader (`archive/read.py`, `docs/READING.md`): prompt read-v3 (one list per passage), gap pass, cut-off salvage, supersede on re-read, heartbeat + `read --status`, time gate 10 s per 1,000 chars. Dev entries (short sources): 12B fails 15 expectations, 31B fails 3; 12B ≈ 7 s and 31B ≈ 13 s per 1,000 chars (English corpus ≈ 215 h vs ≈ 390 h) |
+| Not yet done | Choose the bulk reading model (Sérgio); read the long dev sources and the holdout; audit pass; garbled-OCR detection; researcher interface |
 | Old system | Retired. Its UI on :8503 and LiteLLM gateway may still run; do not depend on them |
 
 ## 2. Environment facts

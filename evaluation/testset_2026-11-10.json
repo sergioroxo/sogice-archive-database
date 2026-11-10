@@ -2,7 +2,7 @@
   "name": "phase3-reading-testset",
   "version": "2026-11-10",
   "description": "20 entries for scoring Phase 3 reading. Anchors are short phrases from the sources (never full texts). Pages are PDF page numbers. Holdout entries are scored but must not be shown to whoever tunes prompts.",
-  "gate": {"quotes_located": 0.9, "speaker_filled": 0.9, "stance_filled": 0.9, "seconds_per_source": 300},
+  "gate": {"quotes_located": 0.9, "speaker_filled": 0.9, "stance_filled": 0.9, "seconds_per_1000_chars": 10},
   "entries": [
     {
       "key": "fr-4501",

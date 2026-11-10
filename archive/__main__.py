@@ -9,6 +9,9 @@
     python -m archive attach-pdfs FOLDER [--dry-run]
     python -m archive seed
     python -m archive match
+    python -m archive read [--source ID ...] [--testset [--split dev] [--entry KEY ...]]
+                           [--prompt read-v3] [--chunk-chars N] [--again] [--dry-run]
+    python -m archive read --status
 """
 from __future__ import annotations
 
@@ -19,7 +22,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from . import attach, db, dedupe, match, paths, queue_import, report, seeds, testset
+from . import attach, db, dedupe, match, paths, queue_import, read, report, seeds, testset
 from .depot import Depot
 from .index_text import TextIndexer, pending_versions
 from .acquire import pending_targets, recheck_stored
@@ -227,6 +230,62 @@ def cmd_testset(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_read(args: argparse.Namespace) -> int:
+    from .config import load_models_config
+    from .ollama import OllamaClient
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    conn.execute("PRAGMA busy_timeout = 30000")
+    if args.status:
+        rows = read.run_status(conn)
+        for r in rows:
+            p = r["progress"] or {}
+            print(f"{r['id']} {r['source_id']}: section {p.get('sections_done', 0)}/{p.get('sections', '?')}, "
+                  f"last progress {r['minutes_since_heartbeat']} min ago" + ("  STALLED" if r["stalled"] else ""))
+        print(f"{len(rows)} reading run(s) in progress")
+        return 1 if any(r["stalled"] for r in rows) else 0
+    sources = list(args.source or [])
+    if args.testset:
+        data = testset.load_testset(args.file)
+        for entry in data["entries"]:
+            if args.split and entry["split"] != args.split:
+                continue
+            if args.entry and entry["key"] not in args.entry:
+                continue
+            sources += testset.entry_sources(entry)
+    if not sources:
+        print("nothing to read: give --source or --testset", file=sys.stderr)
+        return 2
+    prompt = read.load_prompt(args.prompt)
+    if args.dry_run:
+        for requested in sources:
+            sid = read.keeper(conn, requested)
+            units, skipped = read.source_units(conn, sid)
+            chunks = read.make_chunks(units, args.chunk_chars)
+            print(f"{sid}: {len(units)} passages, {len(chunks)} sections, "
+                  f"{sum(len(u['text']) for u in units)} chars; skipped {skipped}")
+        if chunks:
+            messages, _ = read.build_messages(prompt, read.source_header(conn, sid), chunks[0], None,
+                                              (1, len(chunks)))
+            print("\n--- first section of the last source ---\n" + messages[1]["content"][:3000])
+        return 0
+    cfg = load_models_config()
+    role = cfg.role("reading")
+    if args.model_role != "reading":  # another role's model with the reading settings (comparisons)
+        import dataclasses
+        role = dataclasses.replace(role, model=cfg.model_for(args.model_role))
+    client = OllamaClient(cfg.base_url, cfg.timeout_seconds)
+    results = read.read_sources(conn, client, role, sources, prompt=prompt, chunk_chars=args.chunk_chars,
+                                again=args.again, log=lambda line: print(line, flush=True))
+    conn.close()
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    queue_import.write_report({"prompt": prompt.version, "model": role.model, "results": results},
+                              paths.reports_dir(), f"read-{stamp}.json")
+    outcomes = Counter(r["outcome"] for r in results)
+    print(json.dumps(dict(outcomes)))
+    return 1 if outcomes.get("failed") else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m archive")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -302,6 +361,22 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--split", choices=["dev", "holdout"], help="score: one split only")
     p.add_argument("--judgements", type=Path, help="score: verdicts for judged expectations (JSON)")
     p.set_defaults(func=cmd_testset)
+
+    p = sub.add_parser("read", help="Phase 3: local model reads sources; software locates the quotes")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--source", action="append", help="source id (repeatable)")
+    p.add_argument("--testset", action="store_true", help="read the test-set sources")
+    p.add_argument("--file", type=Path, default=paths.REPO_ROOT / "evaluation" / "testset_2026-11-10.json")
+    p.add_argument("--split", choices=["dev", "holdout"], help="with --testset: one split only")
+    p.add_argument("--entry", action="append", help="with --testset: only this entry key (repeatable)")
+    p.add_argument("--prompt", default=read.DEFAULT_PROMPT, help="prompt version (file in prompts/)")
+    p.add_argument("--chunk-chars", type=int, default=read.DEFAULT_CHUNK_CHARS)
+    p.add_argument("--again", action="store_true", help="read even if already read with this prompt")
+    p.add_argument("--dry-run", action="store_true", help="show sections and the first prompt; no model call")
+    p.add_argument("--status", action="store_true", help="show runs in progress; exit 1 if one has stalled")
+    p.add_argument("--model-role", default="reading", choices=["reading", "audit"],
+                   help="use this role's model (from config/models.yaml) with the reading settings")
+    p.set_defaults(func=cmd_read)
 
     args = parser.parse_args(argv)
     return args.func(args)

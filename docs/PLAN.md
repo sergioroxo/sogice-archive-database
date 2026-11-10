@@ -45,6 +45,16 @@
    harm from the facet lists; claims; relations from the closed vocabulary.
    Software locates quotes, drops what it cannot find, resolves endpoints.
    A local audit pass records a verdict per source.
+   Completeness: the model receives every passage of every readable copy,
+   in order, in sections of about 6,000 characters (a cut-off reply is read
+   again as two halves, never shortened). Left out on purpose: blocks
+   repeated on 3+ sources (furniture), word-for-word repeated passages,
+   bot-check and quarantined copies. The model still chooses what to quote,
+   so each run records the passages it quoted nothing from; long gaps are
+   for review or a second pass. Text lost earlier, at extraction
+   (JavaScript-drawn pages, two-column PDFs, chart data), is on the
+   preservation report's review lists, not recovered by reading. The full
+   text always stays stored and searchable; reading only adds to it.
 4. **Suggest (embeddings).** EmbeddingGemma 2 over passages, page images,
    audio/video clips (≤ 5 min, with timecodes) and concept descriptions. Used
    for search and for suggesting concept attachments. Never evidence.
@@ -115,7 +125,7 @@ show them.
 | 0 Repo and setup | 10–27 Nov | Repo, model config, backup working |
 | 1 Preserve corpus | 16 Nov–23 Dec | 90% of text sources stored with text, language, passages |
 | 2 Seed and match | 30 Nov–18 Dec | 20 English concepts with usages from ≥ 3 sources |
-| 3 Local reading, English | 7 Dec–22 Jan | 20-source test set: 90% quotes located; speaker/stance filled; package test cases pass; ≤ 5 min/source |
+| 3 Local reading, English | 7 Dec–22 Jan | 20-source test set: 90% quotes located; speaker/stance filled; package test cases pass; ≤ 10 s per 1,000 characters (decided 10 Nov: time scales with length) |
 | 4 Audit, samples, lexicon | 11 Jan–12 Feb | Sample error rate measured; lexicon v0.1 deposited with DOI |
 | 5 Network and search | 25 Jan–26 Feb | No edge without a located quote; co-mention its own layer |
 | PT/ES runs | 1 Feb–12 Mar | — |

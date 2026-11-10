@@ -390,6 +390,8 @@ CREATE TABLE IF NOT EXISTS run (
   error          TEXT,
   started_at     TEXT NOT NULL,
   finished_at    TEXT,
+  progress       TEXT CHECK (progress IS NULL OR json_valid(progress)),  -- v7: sections done so far
+  heartbeat_at   TEXT,                -- v7: last progress; a running run with an old heartbeat has stalled
   CHECK (role NOT IN ('reading', 'audit', 'embedding') OR model IS NOT NULL)
 );
 CREATE INDEX IF NOT EXISTS idx_run_role ON run(role, outcome);
