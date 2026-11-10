@@ -16,6 +16,7 @@ https://claude.ai/artifact/Birwc68ZN83XGaFgzuVaqV
 | Done 10 Nov | Phase 3 test set: 20 entries, expectations, scorer (`docs/TESTSET.md`) |
 | Done 10 Nov | Work keys and `dedupe` (22 duplicate groups merged); bot-check `recheck` (7 flagged); thin-page and quarantined-file review lists |
 | Done 10 Nov | Phase 1 complete: 93.4% of 5,062 text sources with text (gate 90%); 0 pending. Phase 2 rerun: 105 English concepts in 3+ sources, 151,262 usages |
+| Done 10 Nov | Exodus apology ("I Am Sorry"): the 22 Jun 2013 capture was quarantined by Defender; the 14 Jul 2013 capture (same text, 8,865 chars; no `cdn.widgetserver.com` script) stored and indexed; the report marks the old copy as replaced. loveinaction.org still on the review list |
 | Not yet done | Phase 3 reading prompt and runner (must skip merged sources and `challenge_page` versions); garbled-OCR detection; researcher interface |
 | Old system | Retired. Its UI on :8503 and LiteLLM gateway may still run; do not depend on them |
 

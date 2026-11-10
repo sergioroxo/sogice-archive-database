@@ -106,7 +106,11 @@ def build_report(conn: sqlite3.Connection) -> dict:
         WHERE v.mime_type LIKE '%html%' AND v.byte_size > {THIN_PAGE_BYTES}
         GROUP BY v.id HAVING text_chars < {THIN_PAGE_CHARS} ORDER BY s.url""")]
     unreadable = [dict(r) for r in conn.execute("""
-        SELECT v.id AS version_id, s.url, j.value AS flag FROM source_version v
+        SELECT v.id AS version_id, s.url, j.value AS flag,
+               (SELECT o.id FROM source_version o WHERE o.source_id = v.source_id AND o.id != v.id
+                AND EXISTS (SELECT 1 FROM passage p WHERE p.version_id = o.id)
+                ORDER BY o.captured_at LIMIT 1) AS replaced_by
+        FROM source_version v
         JOIN source s ON s.id = v.source_id, json_each(v.quality_flags) j
         WHERE j.value IN ('missing_object', 'unreadable_object', 'corrupt_object') ORDER BY s.url""")]
     return {
@@ -167,7 +171,9 @@ def to_markdown(report: dict) -> str:
         lines += ["", f"## Stored files removed or unreadable ({len(report['unreadable_files'])}, review list)", "",
                   "Usually quarantined by antivirus (Wayback pages with injected scripts); not fetched again "
                   "automatically.", ""]
-        lines += [f"- {row['url']} ({row['flag']})" for row in report["unreadable_files"]]
+        lines += [f"- {row['url']} ({row['flag']}" + ("; another stored copy has the text)"
+                                                      if row.get("replaced_by") else ")")
+                  for row in report["unreadable_files"]]
     if report.get("thin_pages"):
         lines += ["", f"## Large pages with little text ({len(report['thin_pages'])}, review list)", "",
                   "Over 150 KB of HTML but under 800 characters extracted: usually text rendered by JavaScript.", ""]

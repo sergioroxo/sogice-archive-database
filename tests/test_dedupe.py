@@ -191,3 +191,24 @@ def test_unreadable_file_is_flagged(conn, tmp_path, monkeypatch):
         conn.execute("DELETE FROM passage")
     results = [TextIndexer(conn, depot).index(v) for v in pending_versions(conn)]
     assert results and all(r.status == "failed" and "unreadable_object" in r.flags for r in results)
+
+
+def test_report_notes_a_removed_file_replaced_by_another_copy(conn):
+    from archive.report import build_report, to_markdown
+    gone = source_id_for("https://example.org/a")
+    with conn:
+        conn.execute("UPDATE source_version SET quality_flags = '[\"missing_object\"]' WHERE source_id = ?", (gone,))
+        conn.execute("DELETE FROM passage WHERE version_id = ?", ("v_" + gone,))
+        alone = add_source(conn, "https://example.org/b", "text")
+        conn.execute("UPDATE source_version SET quality_flags = '[\"missing_object\"]' WHERE source_id = ?", (alone,))
+        conn.execute("DELETE FROM passage WHERE version_id = ?", ("v_" + alone,))
+        conn.execute("INSERT INTO source_version(id, source_id, sha256, path, mime_type, acquisition_route,"
+                     " quality_flags, byte_size, created_at) VALUES ('w2', ?, ?, 'y', 'text/html', 'wayback', '[]',"
+                     " 100, ?)", (gone, sha256_text("w2"), NOW))
+        conn.execute("INSERT INTO passage(id, version_id, sequence, char_start, char_end, text, text_sha256, language,"
+                     " created_at) VALUES ('pw2', 'w2', 1, 0, 4, 'same', ?, 'en', ?)", (sha256_text("same"), NOW))
+    rows = {r["url"]: r for r in build_report(conn)["unreadable_files"]}
+    assert rows["https://example.org/a"]["replaced_by"] == "w2"
+    assert rows["https://example.org/b"]["replaced_by"] is None
+    markdown = to_markdown(build_report(conn))
+    assert "example.org/a (missing_object; another stored copy has the text)" in markdown
