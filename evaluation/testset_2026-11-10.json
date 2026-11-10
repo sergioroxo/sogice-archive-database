@@ -232,9 +232,9 @@
     },
     {
       "key": "apa-consumers-report",
-      "title": "Shidlo & Schroeder, Changing sexual orientation: A consumers' report (2002), abstract only",
+      "title": "Shidlo & Schroeder, Changing sexual orientation: A consumers' report (2002): APA abstract page, merged with a full-text PDF copy (Ovid) by DOI",
       "split": "holdout",
-      "roles": ["academic", "abstract_only", "doi_route"],
+      "roles": ["academic", "doi_route", "merged_copies"],
       "urls": ["https://psycnet.apa.org/doiLanding?doi=10.1037%2F0735-7028.33.3.249"],
       "expect": [
         {"id": "apa-language", "check": "language", "code": "en"},

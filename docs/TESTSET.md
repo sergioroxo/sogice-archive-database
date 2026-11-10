@@ -30,7 +30,7 @@ can change any of them: edit the file, run `score`, commit.
 | christianconcern-exgay | Ban opponent quoting an ex-gay man; scare quotes |
 | beyondexgay-rick | Survivor narrative (holdout) |
 | exodus-moving-on | Exodus ministry page, 2008 Wayback capture |
-| apa-consumers-report | Academic abstract only, via the DOI route (holdout) |
+| apa-consumers-report | Academic article: APA abstract page merged by DOI with a full-text PDF copy (holdout) |
 | davidson-therapeutic-choice | Long interview with a practitioner; manual captions |
 | genspect-irish-mou | Critic of the Irish MoU; stance nuance (holdout) |
 | stoptheban-testimonies | Testimonies relayed by a campaign site |
