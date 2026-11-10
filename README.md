@@ -25,4 +25,7 @@ python -m archive report                # gate figure and failures by domain
 python -m archive attach-pdfs ~/sogice-pdfs --dry-run   # match your own PDFs to sources (then without --dry-run)
 python -m archive seed                  # load seed vocabularies, entities, merge decisions
 python -m archive match                 # find every seed label in every passage (usages)
+python -m archive testset prepare       # queue, attach and index the 20 test-set sources
+python -m archive testset show fr-4501 --grep "Torrents"   # read an entry's passages with pages/times
+python -m archive testset score         # check expectations and the Phase 3 gate
 ```

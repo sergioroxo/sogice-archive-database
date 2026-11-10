@@ -1,0 +1,303 @@
+{
+  "name": "phase3-reading-testset",
+  "version": "2026-11-10",
+  "description": "20 entries for scoring Phase 3 reading. Anchors are short phrases from the sources (never full texts). Pages are PDF page numbers. Holdout entries are scored but must not be shown to whoever tunes prompts.",
+  "gate": {"quotes_located": 0.9, "speaker_filled": 0.9, "stance_filled": 0.9, "seconds_per_source": 300},
+  "entries": [
+    {
+      "key": "fr-4501",
+      "title": "Assemblée nationale, rapport n° 4501 (2021), commission hearing on the conversion-practices bill",
+      "split": "dev",
+      "roles": ["transfer_case", "non_english", "pdf_pages", "cross_page_turn", "speaker_turns"],
+      "urls": ["https://www.assemblee-nationale.fr/dyn/15/rapports/cion_lois/l15b4501_rapport-fond.pdf"],
+      "package_files": [{"path": "baseline_replay/sources/assemblee-nationale-rapport-4501.txt", "sha256": "fb14119bc6e690bb2a6079f1740b2effcb944c38926b1a717963bc7783637a1f", "use": "reference"}],
+      "expect": [
+        {"id": "fr-language", "check": "language", "code": "fr"},
+        {"id": "fr-pages", "check": "pages"},
+        {"id": "fr-p42-petit-quotes-tdv", "case": "French p. 42", "check": "usage", "page": 42, "anchor": "guérir les blessures de l’âme", "where": {"speaker_any": ["Petit"], "quoted_party_any": ["Torrents de Vie"]}, "note": "Valérie Petit quotes the Torrents de Vie representatives; she is the speaker, they are the quoted party."},
+        {"id": "fr-p42-tdv-not-speaker", "case": "French p. 42", "check": "usage", "page": 42, "must": "none", "anchor": "guérir les blessures de l’âme", "where": {"speaker_any": ["Torrents de Vie"]}, "note": "The ministry's words reach the report only through Petit: never make Torrents de Vie the speaker."},
+        {"id": "fr-p42-no-authorship", "case": "French p. 42", "check": "no_relation", "pages": [42, 43], "types": ["authored_by", "published_by", "affiliated_with", "co_signatory_of"]},
+        {"id": "fr-p43-turn-continues", "case": "French pp. 42–43", "check": "usage", "page": 43, "anchor": "ces alinéas risquent en réalité de réduire le champ", "window": 150, "where": {"speaker_any": ["Petit"]}, "note": "Petit's turn runs across the page break; the next speaker (the rapporteure) starts after it."},
+        {"id": "fr-p48-menard-prudence", "case": "French pp. 48–49", "check": "usage", "page": 48, "anchor": "Les médecins peuvent être dans leur rôle quand ils agissent avec prudence", "where": {"speaker_any": ["Ménard"]}},
+        {"id": "fr-p48-rapporteure-reports-menard", "case": "French pp. 48–49", "check": "usage", "page": 48, "anchor": "Vous ajoutez qu’ils agissent avec prudence", "where": {"speaker_any": ["Vanceunebrock", "rapporteure"], "quoted_party_any": ["Ménard"]}},
+        {"id": "fr-p49-petit-pauses", "case": "French pp. 48–49", "check": "usage", "page": 49, "anchor": "d’actions, de pauses, d’attentes", "where": {"speaker_any": ["Petit"]}},
+        {"id": "fr-p48-49-senses", "case": "French pp. 48–49", "check": "judged", "criterion": "Prudence/time is used in opposite arguments: Ménard (p. 48) defends doctors who act 'avec prudence' and give 'davantage de temps'; Breton (p. 48) asks for prudence about hormone treatment of minors; Petit (p. 49) describes pauses and waiting as part of self-determined transition. The reading keeps these as different uses with their own speakers; it does not merge them into one sense and does not treat every pause as suppression."},
+        {"id": "fr-p45-breton-60-90", "case": "French pp. 45–46", "check": "usage", "page": 45, "anchor": "cela concernerait 60 à 90 % d’entre eux", "where": {"speaker_any": ["Breton"]}},
+        {"id": "fr-p46-rapporteure-4", "case": "French pp. 45–46", "check": "usage", "page": 46, "anchor": "elle ne touche que 4 % des personnes", "where": {"speaker_any": ["Vanceunebrock", "rapporteure"]}},
+        {"id": "fr-p45-miviludes-cases", "case": "French pp. 45–46", "check": "usage", "page": 45, "anchor": "une petite dizaine de cas", "where": {"speaker_any": ["Abadie"], "quoted_party_any": ["MIVILUDES"]}},
+        {"id": "fr-p45-46-claims", "case": "French pp. 45–46", "check": "claims_attributed", "pages": [45, 46], "min": 2, "factual_status_not": ["corroborated", "refuted"]},
+        {"id": "fr-p45-46-no-verdict", "case": "French pp. 45–46", "check": "judged", "criterion": "The 60–90 % (Breton, 'selon les études') and 4 % (rapporteure) detransition figures stay as attributed claims; neither is chosen as the true figure by majority or model confidence."},
+        {"id": "fr-p63-64-no-edges", "case": "French pp. 63–64", "check": "no_relation", "pages": [63, 64], "types": ["affiliated_with", "co_signatory_of", "funded_by", "trains", "referred_to", "critiques", "claims_about"]},
+        {"id": "fr-p63-64-no-stance", "case": "French pp. 63–64", "check": "usage", "must": "none", "anchor": "PERSONNES ENTENDUES PAR LA RAPPORTEURE", "window": 3000, "where": {"stance_any": ["endorses", "criticizes", "denies", "minimizes"]}, "note": "A list of people heard states no position."},
+        {"id": "fr-p63-64-judged", "case": "French pp. 63–64", "check": "judged", "criterion": "Being heard by the rapporteure creates no endorsement or perpetrator edge: groups on the list (e.g. Devenir Un En Christ, Communion Béthanie, CNEF) are not tagged as practising or opposing conversion practices on the strength of the list. Stated roles (président, cheffe du service) may be recorded as such."}
+      ]
+    },
+    {
+      "key": "exodus-closure",
+      "title": "Exodus International to Shut Down (press release, 19 June 2013), Wayback capture",
+      "split": "dev",
+      "roles": ["transfer_case", "wayback", "researcher_copy"],
+      "urls": ["https://web.archive.org/web/20130811165248/http://exodusinternational.org/2013/06/exodus-international-to-shut-down/"],
+      "package_files": [{"path": "baseline_replay/sources/exodus-shutdown-wayback-copy.pdf", "sha256": "76dd7e2ff649c730a11a465647f8b8afbeacee95b4fa272b4c601a268749206c", "use": "attach"}],
+      "expect": [
+        {"id": "ex-language", "check": "language", "code": "en"},
+        {"id": "ex-p1-churches-target", "case": "Exodus p. 1", "check": "usage", "anchor": "mutually transforming communities", "where": {"speaker_any": ["Chambers"], "attribution_any": ["direct_quote"]}},
+        {"id": "ex-p1-transforming-judged", "case": "Exodus p. 1", "check": "judged", "criterion": "'Transforming' here is read as describing churches/communities (the new ministry's target), not a change of anyone's orientation."},
+        {"id": "ex-p1-affiliates", "case": "Exodus p. 1", "check": "usage", "anchor": "Local affiliated ministries, which have always been autonomous, will continue", "where": {"speaker_any": ["Exodus"]}},
+        {"id": "ex-p1-closure-judged", "case": "Exodus p. 1", "check": "judged", "criterion": "The closure of the Exodus umbrella and the continuation of local affiliated ministries are separate statements: nothing says the affiliates closed, and the closure is not read as the end of the affiliates' work."},
+        {"id": "ex-moore", "check": "usage", "anchor": "a new generation of Christians is looking for change", "where": {"speaker_any": ["Moore"], "attribution_any": ["direct_quote"]}},
+        {"id": "ex-chambers-older-brother", "check": "usage", "anchor": "Exodus International is the prodigal’s older brother", "where": {"speaker_any": ["Chambers"]}}
+      ]
+    },
+    {
+      "key": "harvest-covenant",
+      "title": "Harvest USA, Two sample group covenants (PDF, 3 pages)",
+      "split": "dev",
+      "roles": ["transfer_case", "pdf_pages", "template"],
+      "urls": ["https://harvestusa.org/wp-content/uploads/2024/01/Two-sample-group-covenants-1.pdf"],
+      "package_files": [{"path": "harvest/Two-sample-group-covenants-1.pdf", "sha256": "3347e87a3d9665a6d1411a95619181a80efcd52a26c279a017c88f3d32b94954", "use": "attach"}],
+      "expect": [
+        {"id": "hc-pages", "check": "pages"},
+        {"id": "hc-samples-separate", "case": "Harvest covenant", "check": "separate", "page_groups": [[1, 1], [2, 3]], "note": "Sample 1 is page 1; Sample 2 is pages 2–3. No claim or relation may draw on both."},
+        {"id": "hc-template-voice", "case": "Harvest covenant", "check": "usage", "page": 1, "anchor": "I struggle with sexual sin", "must": "none", "where": {"attribution_any": ["direct_quote"], "stance_any": ["endorses"], "speaker_not": ["Harvest", "template", "covenant", "sample", "church", "group"]}, "note": "First-person lines are template commitments, not a named participant's testimony."},
+        {"id": "hc-template-judged", "case": "Harvest covenant", "check": "judged", "criterion": "First-person declarations are treated as template wording by Harvest USA, not testimony; nothing says anyone signed it or that a church used it; the URL's 2024/01 is not taken as a publication date."},
+        {"id": "hc-exceptions-judged", "case": "Harvest covenant", "check": "judged", "criterion": "Confidentiality assurances are recorded together with their exceptions and escalation steps (Sample 1: group, leader, 'the leader in authority' / church; Sample 2: parish elder after earlier steps), each kept to its own sample; persistent disengagement is kept apart from occasional setbacks."}
+      ]
+    },
+    {
+      "key": "harvest-women-curriculum",
+      "title": "Harvest USA, Sexual Sanity for Women (curriculum listing)",
+      "split": "dev",
+      "roles": ["transfer_case", "curriculum_title", "site_furniture"],
+      "urls": ["https://harvestusa.org/curriculum/sexual-sanity-for-women-healing-from-sexual-relational-brokenness/"],
+      "expect": [
+        {"id": "hw-furniture", "case": "Repeated site furniture", "check": "furniture"},
+        {"id": "hw-title-judged", "case": "Curriculum title", "check": "judged", "criterion": "The listing attests the title wording only; the reading does not invent a definition of the manual's content beyond what the page itself says."},
+        {"id": "hw-title-usage", "check": "usage", "anchor": "Sexual Sanity for Women: Healing from Sexual & Relational Brokenness", "where": {"speaker_any": ["Harvest USA", "Harvest"], "stance_any": ["endorses", "describes"]}, "note": "The title attests Harvest USA's wording 'sexual & relational brokenness'; the page gives no definition."},
+        {"id": "hw-title-not-critical", "check": "usage", "must": "none", "anchor": "Sexual Sanity for Women: Healing from Sexual & Relational Brokenness", "where": {"stance_any": ["criticizes", "denies", "minimizes"]}, "note": "The publisher's title for its own manual carries no critical stance."}
+      ]
+    },
+    {
+      "key": "harvest-support-groups",
+      "title": "Harvest USA, Sexual integrity support groups (guidance page)",
+      "split": "dev",
+      "roles": ["transfer_case", "site_furniture", "policy_text"],
+      "urls": ["https://harvestusa.org/sexual-integrity-support-groups/"],
+      "expect": [
+        {"id": "hs-furniture", "case": "Repeated site furniture", "check": "furniture"},
+        {"id": "hs-guidance-judged", "check": "judged", "criterion": "Privacy assurances and their pastoral or disciplinary exceptions are recorded as published guidance, not as evidence of what any particular group did."},
+        {"id": "hs-confidentiality-promise", "check": "usage", "anchor": "It is essential that some assurance of confidentiality be given", "where": {"speaker_any": ["Harvest USA", "Harvest"], "stance_any": ["endorses", "describes"]}, "note": "Harvest USA's published guidance on a written confidentiality promise."},
+        {"id": "hs-discipline-exception", "check": "usage", "anchor": "further accountability to church discipline", "where": {"speaker_any": ["Harvest USA", "Harvest"], "stance_any": ["endorses", "describes", "acknowledges"]}, "note": "The church-discipline exception stays attributed guidance, not a confidentiality promise."},
+        {"id": "hs-sexual-integrity-term", "check": "usage", "anchor": "Sexual Integrity Support Groups provide a structured and safe environment", "where": {"speaker_any": ["Harvest USA", "Harvest"], "stance_any": ["endorses", "describes"]}, "note": "Harvest USA's own use of 'sexual integrity' for its groups."}
+      ]
+    },
+    {
+      "key": "latimes-exodus",
+      "title": "Los Angeles Times, Exodus ministry to shut down after apology (2013)",
+      "split": "holdout",
+      "roles": ["news", "intermediary", "same_event_as:exodus-closure"],
+      "urls": ["https://www.latimes.com/local/lanow/la-me-ln-exodus-ministry-to-shut-down-20130619-story.html"],
+      "expect": [
+        {"id": "lat-language", "check": "language", "code": "en"},
+        {"id": "lat-chambers-apology", "check": "usage", "anchor": "I am sorry I didn’t stand up to people publicly", "where": {"speaker_any": ["Chambers"], "attribution_any": ["direct_quote"], "stance_any": ["acknowledges", "criticizes", "mixed"]}, "note": "Chambers' own apology, quoted directly by the paper."},
+        {"id": "lat-apology-not-endorse", "check": "usage", "anchor": "I am sorry I didn’t stand up to people publicly", "must": "none", "where": {"stance_any": ["endorses"]}, "note": "Trap: the apology must not be read as endorsing change efforts."},
+        {"id": "lat-ministry-statement", "check": "usage", "anchor": "years of undue judgment by the organization", "where": {"speaker_any": ["Exodus", "Chambers"], "attribution_any": ["direct_quote", "reported_speech", "paraphrase_attributed"], "stance_any": ["acknowledges", "criticizes", "mixed"]}, "note": "From the ministry's statement: Exodus/Chambers, not the newspaper."},
+        {"id": "lat-affected-scare", "check": "usage", "anchor": "devoted to changing people “affected by homosexuality”", "where": {"speaker_any": ["Los Angeles Times", "LA Times", "latimes", "Lopez"], "attribution_any": ["editorial_narration"], "stance_any": ["reports", "describes"]}, "note": "The paper's narration quoting Exodus's framing without adopting it."}
+      ]
+    },
+    {
+      "key": "eternity-exodus",
+      "title": "Eternity News, As Exodus exits, other ex-gay ministries vow to stay the course",
+      "split": "dev",
+      "roles": ["news", "intermediary", "several_speakers"],
+      "urls": ["https://eternitynews.com.au/archive/as-exodus-exits-other-ex-gay-ministries-vow-to-stay-the-course/"],
+      "expect": [
+        {"id": "et-language", "check": "language", "code": "en"},
+        {"id": "et-brookman-continue", "check": "usage", "anchor": "At LW Australia we too understand", "where": {"speaker_any": ["Brookman", "Living Waters"], "attribution_any": ["direct_quote"], "stance_any": ["endorses", "mixed"]}, "note": "A Living Waters leader defending continued ministry: Brookman, not Exodus or Chambers."},
+        {"id": "et-sennitt-999-claim", "check": "usage", "anchor": "99.9 per cent of people cannot change their sexuality", "where": {"speaker_any": ["Sennitt"], "quoted_party_any": ["Chambers", "Chamber"], "speaker_not": ["Chambers", "Chamber"], "attribution_any": ["direct_quote", "reported_speech"]}, "note": "Sennitt reports Chambers' figure in order to reject it."},
+        {"id": "et-benson-mixed", "check": "usage", "anchor": "should have no direct impact on the good work", "where": {"speaker_any": ["Benson"], "speaker_not": ["Eternity"], "stance_any": ["mixed", "endorses"]}, "note": "Benson criticises hard-line approaches but backs groups like Living Waters."},
+        {"id": "et-nested-voices", "check": "judged", "criterion": "Nested quotes keep their own speakers: the 'prodigal's older brother' line is Alan Chambers (spelled 'Chamber' in the source) relayed by Eternity; in the Gagnon passage, 'But I do not have any desire to fight you…' is Chambers quoted by Gagnon and the rebuttal is Gagnon's. No Living Waters, Restored Hope Network or Gagnon text is attributed to Exodus or Chambers."}
+      ]
+    },
+    {
+      "key": "france24-torrents",
+      "title": "France 24, France sees rise in conversion therapies (2019)",
+      "split": "dev",
+      "roles": ["news", "intermediary", "same_actor_as:fr-4501"],
+      "urls": ["https://www.france24.com/en/20190327-france-sees-rise-conversion-therapies-cure-homosexuality"],
+      "expect": [
+        {"id": "f24-language", "check": "language", "code": "en"},
+        {"id": "f24-700k-unattributed", "check": "usage", "anchor": "estimated that 700,000 young people have been sent", "where": {"speaker_any": ["France 24", "France24"], "speaker_not": ["Vanceunebrock"], "attribution_any": ["source_claim_without_named_speaker", "editorial_narration"], "stance_any": ["reports", "describes", "criticizes"]}, "note": "An unsourced estimate in the article's voice; not the MP named next."},
+        {"id": "f24-favier-torrents-list", "check": "usage", "anchor": "such as Torrents de vie and Courage", "where": {"speaker_any": ["Favier", "David & Jonathan", "David et Jonathan"], "speaker_not": ["Torrents", "Courage"], "attribution_any": ["paraphrase_attributed", "reported_speech"], "stance_any": ["criticizes", "reports", "describes"]}, "note": "Favier names the groups critically; they are never the speakers."},
+        {"id": "f24-refuge-35pct", "check": "usage", "anchor": "3.5 percent of LGBT calls are reactions", "where": {"speaker_any": ["Le Refuge", "Lesage"], "attribution_any": ["source_claim_without_named_speaker", "paraphrase_attributed", "reported_speech"]}, "note": "Le Refuge's estimate stays attributed to it."},
+        {"id": "f24-miviludes-minimizes", "check": "usage", "anchor": "We don’t consider the fact that religious groups", "where": {"speaker_any": ["Keysers", "Miviludes"], "attribution_any": ["direct_quote"], "stance_any": ["minimizes", "acknowledges", "mixed"]}, "note": "The cult-watch agency head plays the problem down, unlike the activists around her."}
+      ]
+    },
+    {
+      "key": "cohen-cnn",
+      "title": "Richard Cohen CNN interview (YouTube, queued twice under two URLs)",
+      "split": "dev",
+      "roles": ["duplicate", "video_captions", "interview"],
+      "urls": ["https://www.youtube.com/watch?v=9UlFSTrSnnY", "https://youtu.be/9UlFSTrSnnY?si=c81FfkANnaBJ-3xf"],
+      "expect": [
+        {"id": "cc-same-text", "check": "same_text", "note": "Same video under two source ids; it must be read once and its usages counted once."},
+        {"id": "cc-timecodes", "check": "timecodes"},
+        {"id": "cc-cohen-endorses", "check": "usage", "anchor": "i've literally helped thousands of men and women", "where": {"speaker_any": ["Cohen", "Richard", "psychotherapist"], "stance_any": ["endorses"]}, "note": "Cohen promotes his own change work; no speaker labels, so the speaker is inferred from the host's 'richard let me ask you'."},
+        {"id": "cc-cohen-quotes-therapists", "check": "usage", "anchor": "they said well you're born this way accepted", "where": {"speaker_any": ["Cohen", "Richard", "psychotherapist"], "quoted_party_any": ["therapist"]}, "note": "Cohen recounts what earlier therapists told him."},
+        {"id": "cc-lowenthal-criticizes", "check": "usage", "anchor": "homosexuality was shoehorned into that law", "where": {"speaker_any": ["Lowenthal", "Bonnie", "assembly"], "stance_any": ["criticizes"]}, "note": "Assemblywoman Lowenthal answers; the turn change has no label in the captions."},
+        {"id": "cc-host-challenge-not-cohen", "check": "usage", "must": "none", "window": 0, "anchor": "i feel so sorry for him because he's denying", "where": {"speaker_any": ["Cohen", "Richard"]}, "note": "The CNN host voices the critics' challenge; Cohen's reply starts after it."}
+      ]
+    },
+    {
+      "key": "publico-pt",
+      "title": "Público, Exorcismos, agressões e culpa: o trauma das terapias de conversão (2026)",
+      "split": "holdout",
+      "roles": ["non_english", "news", "testimony"],
+      "urls": ["https://www.publico.pt/2026/05/17/sociedade/reportagem/exorcismos-agressoes-culpa-trauma-terapias-conversao-2175018"],
+      "expect": [
+        {"id": "pt-language", "check": "language", "code": "pt"},
+        {"id": "pt-bertolo-not-ricou", "check": "usage", "anchor": "Como não há nada para curar", "where": {"speaker_any": ["Bertolo", "Opus Diversidade"], "stance_any": ["criticizes"]}, "note": "Helder Bertolo 'corroborou' right after a Ricou quote: the speaker changes."},
+        {"id": "pt-pedro-recounts-padre", "check": "usage", "anchor": "deveria \"seguir o sacerdócio\"", "where": {"speaker_any": ["Pedro", "Lusa", "Público", "Publico", "jornalista", "journalist"], "quoted_party_any": ["padre", "pároco", "franciscano", "guia", "priest"]}, "note": "The priest's advice reaches us through Pedro's recollection."},
+        {"id": "pt-mother-denies", "check": "usage", "anchor": "a mãe de Miguel negou todas as acusações", "where": {"speaker_any": ["mãe", "mae", "mother"], "stance_any": ["denies"], "attribution_any": ["reported_speech", "paraphrase_attributed"]}, "note": "The mother's denial is her voice, not Miguel's."},
+        {"id": "pt-maria-relays-psychologist", "check": "usage", "anchor": "admitiu ter \"poucas vitórias de conversão\"", "where": {"speaker_any": ["Maria", "Lusa", "Público", "Publico"], "quoted_party_any": ["psicólogo", "psicologo", "psychologist"]}, "note": "A survivor's account of what her psychologist admitted."}
+      ]
+    },
+    {
+      "key": "mirrorweb-challenge",
+      "title": "Deliberate failure: a bot-check page stored in place of a Scottish Parliament briefing",
+      "split": "dev",
+      "roles": ["deliberate_failure"],
+      "urls": ["https://webarchive.nrscotland.gov.uk/20240327034104mp_/https://archive2021.parliament.scot/ResearchBriefingsAndFactsheets/PB20-1817.pdf"],
+      "expect": [
+        {"id": "mw-no-usages", "check": "no_model_usages"},
+        {"id": "mw-judged", "check": "judged", "criterion": "The reading reports the text as a bot-check page with no source content (no terms, entities or claims), and the batch carries on to the next source."}
+      ]
+    },
+    {
+      "key": "bacp-mou",
+      "title": "Memorandum of Understanding on Conversion Therapy in the UK (July 2024, PDF)",
+      "split": "dev",
+      "roles": ["pdf_pages", "professional_bodies", "signatory_list"],
+      "urls": ["https://www.bacp.co.uk/media/21242/memorandum-of-understanding-on-conversion-therapy-in-the-uk-july-2024.pdf"],
+      "expect": [
+        {"id": "mou-pages", "check": "pages"},
+        {"id": "mou-definition-collective", "check": "usage", "anchor": "is an umbrella term for a therapeutic approach", "where": {"speaker_any": ["Memorandum of Understanding", "MoU", "Signator", "signatories", "Memorandum"], "speaker_not": ["Nicola Gale", "Andrew Reeves", "Anthony Ruddle", "Duncan McGregor"], "stance_any": ["criticizes", "describes"]}, "note": "The definition of 'conversion therapy' is the signatory bodies' collective text (or the MoU's), not one signatory's."},
+        {"id": "mou-unethical-harmful", "check": "usage", "anchor": "is unethical and potentially harmful", "where": {"speaker_any": ["Memorandum of Understanding", "MoU", "Signator", "signatories", "Memorandum"], "stance_any": ["criticizes"]}, "note": "Core collective position: criticism of the practice."},
+        {"id": "mou-exemption-exploration", "check": "usage", "anchor": "not intended to deny, discourage or exclude those with uncertain", "where": {"speaker_any": ["Memorandum of Understanding", "MoU", "Signator", "signatories", "Memorandum"], "stance_any": ["acknowledges", "describes", "endorses", "mixed"]}, "note": "The exemption for exploratory, non-directive help stays an exemption."},
+        {"id": "mou-signatories-judged", "check": "judged", "criterion": "The signatory list may support co_signatory_of (each body to the MoU) and stated roles for named signers (e.g. Anthony Ruddle, Chair, ACC), but no affiliated_with or other relation between different signatory bodies; no single signatory is the author of the definition; the para. 6 exemptions (exploratory help, clinical assessment, prescribing hormones) are recorded as exemptions."}
+      ]
+    },
+    {
+      "key": "christianconcern-exgay",
+      "title": "Christian Concern, Ex-gay-turned-Christian says conversion therapy ban is an attack on the gospel",
+      "split": "dev",
+      "roles": ["ban_opponent", "testimony_reported", "scare_quotes"],
+      "urls": ["https://christianconcern.com/comment/ex-gay-turned-christian-says-conversion-therapy-ban-is-an-attack-on-the-gospel/"],
+      "expect": [
+        {"id": "cce-language", "check": "language", "code": "en"},
+        {"id": "cce-intro-ban-opponent", "check": "usage", "anchor": "Yet a blanket ban on ‘conversion therapy’ cannot be", "where": {"speaker_any": ["Christian Concern", "interviewer", "author"], "speaker_not": ["Sterling"], "attribution_any": ["editorial_narration"], "stance_any": ["endorses", "mixed", "denies", "minimizes"]}, "note": "The organisation's own voice against a ban, with scare quotes; not Sterling's testimony."},
+        {"id": "cce-sterling-ban", "check": "usage", "anchor": "a complete ban on conversion therapy would go against", "where": {"speaker_any": ["Sterling"], "attribution_any": ["direct_quote"], "stance_any": ["endorses", "mixed", "denies", "minimizes"], "stance_not": ["criticizes"]}, "note": "Sterling opposes the ban; not criticism of the practice."},
+        {"id": "cce-sterling-convert-hedge", "check": "usage", "anchor": "I do not believe that attempts to ‘convert’ somebody", "where": {"speaker_any": ["Sterling"], "stance_any": ["mixed", "criticizes", "denies"], "stance_not": ["endorses"]}, "note": "Sterling rejects 'attempts to convert' before reframing the gospel as conversion."},
+        {"id": "cce-relayed-testimony", "check": "judged", "criterion": "Christian Concern (unnamed interviewer) owns the questions, intro and outro; Jack Sterling owns the answers, with Christian Concern as intermediary. The Liverpool man who 'has a wife and kids now' is Sterling's second-hand claim, not that man's own testimony or a separate speaker."}
+      ]
+    },
+    {
+      "key": "beyondexgay-rick",
+      "title": "Beyond Ex-Gay, Survivor narrative (Rick)",
+      "split": "holdout",
+      "roles": ["survivor_testimony", "first_person"],
+      "urls": ["https://www.beyondexgay.com/narratives/rick.html"],
+      "expect": [
+        {"id": "bxg-language", "check": "language", "code": "en"},
+        {"id": "bxg-rick-quotes-counselor", "check": "usage", "anchor": "never met a homosexually-attracted man who had a good relationship", "where": {"speaker_any": ["Rick"], "quoted_party_any": ["counselor", "counsellor", "therapist", "MSW"]}, "note": "The survivor recounts his counselor's words."},
+        {"id": "bxg-counselor-not-speaker", "check": "usage", "must": "none", "window": 0, "anchor": "never met a homosexually-attracted man who had a good relationship", "where": {"speaker_any": ["counselor", "counsellor", "therapist", "MSW"]}, "note": "The counselor's line reaches us only through Rick."},
+        {"id": "bxg-rick-criticizes", "check": "usage", "anchor": "the treatment was sub-standard if not bogus", "where": {"speaker_any": ["Rick"], "stance_any": ["criticizes"]}, "note": "Rick's retrospective judgement."},
+        {"id": "bxg-past-belief-not-endorsement", "check": "usage", "must": "none", "window": 0, "anchor": "He was the expert and I was desperate", "where": {"speaker_any": ["Rick"], "stance_any": ["endorses"]}, "note": "Past belief described, not endorsement by the narrator now."}
+      ]
+    },
+    {
+      "key": "exodus-moving-on",
+      "title": "Exodus, Moving On To Heterosexuality (Wayback, 2008)",
+      "split": "dev",
+      "roles": ["ministry_text", "wayback", "old_page"],
+      "urls": ["https://web.archive.org/web/20081205061031/http://exodus.to/content/view/67/55/"],
+      "expect": [
+        {"id": "emo-language", "check": "language", "code": "en"},
+        {"id": "emo-medinger-method", "check": "usage", "anchor": "We will need to remove obstacles that block us", "where": {"speaker_any": ["Medinger", "Regeneration"], "stance_any": ["endorses", "describes"]}, "note": "The named author describes his ministry's method."},
+        {"id": "emo-new-directions-limits", "check": "usage", "anchor": "we can't do anything directly -- nor can the participant", "where": {"speaker_any": ["Medinger", "Regeneration"], "stance_not": ["criticizes"]}, "note": "An admission of limits inside an endorsing frame, not criticism."},
+        {"id": "emo-exodus-intermediary", "check": "usage", "anchor": "God wants us to grow into our heterosexuality", "where": {"speaker_any": ["Medinger", "Regeneration"], "intermediary_any": ["Exodus"], "stance_any": ["endorses"]}, "note": "Exodus hosts the article; the named author speaks, Exodus relays."},
+        {"id": "emo-not-dated-capture", "check": "usage", "must": "none", "anchor": "God wants us to grow into our heterosexuality", "where": {"date_any": ["2008"]}, "note": "The text is © 1993 Regeneration; 2008 is only the capture date."},
+        {"id": "emo-hypothetical-vow", "check": "judged", "criterion": "The inner vow 'From today on I am going to like women, not men' and 'Confess and Wow!' are Medinger's own rhetorical examples of what the programme rejects; no usage treats them as another party's words or as Medinger endorsing instant change."}
+      ]
+    },
+    {
+      "key": "apa-consumers-report",
+      "title": "Shidlo & Schroeder, Changing sexual orientation: A consumers' report (2002), abstract only",
+      "split": "holdout",
+      "roles": ["academic", "abstract_only", "doi_route"],
+      "urls": ["https://psycnet.apa.org/doiLanding?doi=10.1037%2F0735-7028.33.3.249"],
+      "expect": [
+        {"id": "apa-language", "check": "language", "code": "en"},
+        {"id": "apa-majority-failed", "check": "usage", "anchor": "a majority failed to change sexual orientation", "where": {"speaker_any": ["Shidlo", "Schroeder", "author", "researcher", "study"], "stance_any": ["reports", "criticizes", "describes"]}, "note": "A study finding stays the authors'."},
+        {"id": "apa-harm-stays-with-authors", "check": "usage", "must": "none", "window": 0, "anchor": "many reported that they associated harm with conversion interventions", "where": {"speaker_any": ["consumer", "participant", "respondent", "interviewee", "American Psychological", "APA"]}, "note": "The authors summarise participants; neither participants nor the publisher is the speaker."},
+        {"id": "apa-minority-helped", "check": "usage", "anchor": "A minority reported feeling helped", "where": {"speaker_any": ["Shidlo", "Schroeder", "author", "researcher", "study"], "stance_any": ["reports", "describes", "mixed", "acknowledges"]}, "note": "Reporting that a minority felt helped is a finding, not an endorsement."}
+      ]
+    },
+    {
+      "key": "davidson-therapeutic-choice",
+      "title": "Therapeutic Choice with Mike Davidson (YouTube, manual captions)",
+      "split": "dev",
+      "roles": ["video_captions", "interview", "practitioner", "long"],
+      "urls": ["https://www.youtube.com/watch?v=NrXB6z__4uA"],
+      "expect": [
+        {"id": "md-timecodes", "check": "timecodes"},
+        {"id": "md-host-pink-therapy", "check": "usage", "anchor": "have you recommended pink therapy", "where": {"speaker_any": ["Ali", "Ellie", "host", "StrongSupport", "Strong Support", "interviewer"], "quoted_party_any": ["therapist", "counsellor", "counselor"]}, "note": "The host recounts what his own EMDR therapist said to him."},
+        {"id": "md-host-story-not-davidson", "check": "usage", "must": "none", "window": 0, "anchor": "she terminated the sessions herself halfway", "where": {"speaker_any": ["Davidson", "Mike"]}, "note": "The host's own story, not the guest's."},
+        {"id": "md-davidson-rejects-term", "check": "usage", "anchor": "It actually damages the religious idea of", "where": {"speaker_any": ["Davidson", "Mike", "guest"], "stance_any": ["criticizes", "denies", "mixed"]}, "note": "Davidson rejects the term 'conversion therapy' while defending the practice."},
+        {"id": "md-davidson-relays-apa", "check": "usage", "anchor": "did cite the Apa, the American Psychological Association", "where": {"speaker_any": ["Davidson", "Mike", "guest"], "quoted_party_any": ["American Psychological", "APA", "memorandum", "MoU"]}, "note": "Davidson's paraphrase of the APA; the APA is not the speaker."}
+      ]
+    },
+    {
+      "key": "genspect-irish-mou",
+      "title": "Genspect, The Irish MoU on Conversion Therapy: A Concession amidst Ideological Persistence",
+      "split": "holdout",
+      "roles": ["ban_critic", "stance_nuance"],
+      "urls": ["https://genspect.org/the-irish-mou-on-conversion-therapy-a-concession-amidst-ideological-persistence/"],
+      "expect": [
+        {"id": "gen-language", "check": "language", "code": "en"},
+        {"id": "gen-mou-quoted", "check": "usage", "anchor": "is unethical, potentially harmful and is not supported by evidence", "where": [{"speaker_any": ["College of Psychiatrists", "Irish Association for Counselling", "Psychological Society of Ireland", "MoU", "Memorandum", "CPsychI"], "speaker_not": ["van Zyl", "Genspect"], "stance_any": ["criticizes"]}, {"speaker_any": ["van Zyl"], "quoted_party_any": ["MoU", "Memorandum", "College of Psychiatrists", "Irish Association for Counselling", "Psychological Society of Ireland"]}], "note": "The MoU's definition quoted by a critic: the MoU keeps its own voice."},
+        {"id": "gen-vanzyl-baseless", "check": "usage", "anchor": "the baseless belief that conversion practices are rampant", "where": {"speaker_any": ["van Zyl"], "attribution_any": ["editorial_narration", "direct_quote", "source_claim_without_named_speaker"], "stance_any": ["minimizes", "denies", "mixed"]}, "note": "The author's own voice plays down prevalence: the opposite stance to the MoU he quotes."},
+        {"id": "gen-278-critique", "check": "usage", "anchor": "based on an online survey of 278 participants", "where": {"speaker_any": ["van Zyl", "Genspect"], "speaker_not": ["Keogh", "Trinity", "LGBT Ireland"]}, "note": "Van Zyl's account of the TCD report stays his claim."},
+        {"id": "gen-publisher-relations", "check": "judged", "criterion": "The essay is by Jaco van Zyl, published by Genspect with a disclaimer that it is not Genspect's official position (Genspect is intermediary, not endorser). The College of Psychiatrists of Ireland, IACP and PSI are MoU signatories, LGBT Ireland a supporter; van Zyl critiques the MoU. Quotes from the MoU, Cass and Chasseguet-Smirgel keep those authors as speakers."}
+      ]
+    },
+    {
+      "key": "stoptheban-testimonies",
+      "title": "Stop the Ban (Canada), Personal stories from ex-gays and ex-transgenders",
+      "split": "dev",
+      "roles": ["ban_opponent", "testimony_relayed", "short"],
+      "urls": ["https://stoptheban.ca/testimonies-personal-testimonoes-trom-ex-gays-and-ex-transgenders/"],
+      "expect": [
+        {"id": "stb-language", "check": "language", "code": "en"},
+        {"id": "stb-site-opposes-ban", "check": "usage", "anchor": "is harming same-sex attracted Canadians who are desperate", "where": {"speaker_not": ["Keira Bell", "Duncan", "Wenman", "Alexander", "Van Beek", "Parker", "Hudson"], "attribution_any": ["editorial_narration", "source_claim_without_named_speaker"], "stance_any": ["endorses", "denies", "minimizes", "mixed"], "stance_not": ["criticizes"]}, "note": "The campaign site's own voice against the ban; not a testifier's words."},
+        {"id": "stb-wenman-caption", "check": "usage", "anchor": "Conversion therapy saved my life", "where": {"speaker_any": ["Wenman"], "attribution_any": ["direct_quote", "paraphrase_attributed"], "stance_any": ["endorses"]}, "note": "Name-then-caption layout: this caption is Robert Wenman's."},
+        {"id": "stb-vanbeek-caption", "check": "usage", "anchor": "My same-sex attractions no longer exist", "where": {"speaker_any": ["Van Beek"], "attribution_any": ["direct_quote", "paraphrase_attributed"], "stance_any": ["endorses", "describes"]}, "note": "Wilna Van Beek's caption, relayed by the site."},
+        {"id": "stb-keira-bell-no-speech", "check": "usage", "anchor": "Watch the Testimony of Keira Bell", "must": "none", "where": {"speaker_any": ["Keira Bell"]}, "note": "Trap: Bell is only listed by name; no words are hers."}
+      ]
+    },
+    {
+      "key": "trevor-still-happening",
+      "title": "The Trevor Project, It's Still Happening (report, 2023, PDF)",
+      "split": "dev",
+      "roles": ["pdf_pages", "survey_numbers", "advocacy_research"],
+      "urls": ["https://storage.googleapis.com/trevor-web-public/2023/12/FINAL_Its-Still-Happening-Report.pdf"],
+      "expect": [
+        {"id": "tr-pages", "check": "pages"},
+        {"id": "tr-therapist-testimony", "check": "usage", "anchor": "undergoing authentic Reparative Therapy for unwanted homosexual feelings", "where": [{"speaker_any": ["therapist", "psychotherapist", "unnamed", "anonymous", "unknown"], "speaker_not": ["Trevor Project"], "stance_any": ["endorses"]}, {"speaker_any": ["Trevor Project"], "quoted_party_any": ["therapist", "psychotherapist", "unnamed", "anonymous"], "stance_any": ["reports", "criticizes", "describes"]}], "note": "An unnamed licensed therapist's testimony quoted by the report: the endorsing stance is the therapist's, not The Trevor Project's."},
+        {"id": "tr-samhsa-quote", "check": "usage", "anchor": "harmful practices that are never appropriate with LGBTQI+", "where": [{"speaker_any": ["SAMHSA", "Substance Abuse and Mental Health Services Administration", "Department of Health and Human Services", "HHS"], "stance_any": ["criticizes"]}, {"speaker_any": ["Trevor Project"], "quoted_party_any": ["SAMHSA", "Substance Abuse", "Health and Human Services", "HHS"], "stance_any": ["criticizes", "reports"]}], "note": "A quoted government report: SAMHSA/HHS keeps its own voice."},
+        {"id": "tr-survey-15pct", "check": "usage", "anchor": "15% of LGBTQ young people reported being threatened", "where": {"speaker_any": ["Trevor Project", "National Survey"], "stance_any": ["reports", "criticizes", "describes"]}, "note": "Survey figure stays The Trevor Project's claim."},
+        {"id": "tr-headline-claims", "check": "claims_attributed", "pages": [14, 16]}
+      ]
+    }
+  ]
+}

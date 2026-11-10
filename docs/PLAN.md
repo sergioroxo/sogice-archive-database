@@ -49,6 +49,10 @@ turns every exact label hit into a usage; `seeds/match_rules.json` lists
 labels left for context reading (ordinary words, identity words, short
 acronyms). Reference terms are matched but do not count for the gate.
 
+Phase 3 test set as built (10 Nov 2026): `evaluation/testset_2026-11-10.json`
+(20 entries, 112 expectations, 5 holdout) and `archive/testset.py`
+(prepare, show, score); see `docs/TESTSET.md`.
+
 ## The local–Claude loop
 
 1. Local model processes a batch overnight.

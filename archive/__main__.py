@@ -19,7 +19,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from . import attach, db, match, paths, queue_import, report, seeds
+from . import attach, db, match, paths, queue_import, report, seeds, testset
 from .depot import Depot
 from .index_text import TextIndexer, pending_versions
 from .acquire import pending_targets
@@ -143,6 +143,50 @@ def cmd_match(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_testset(args: argparse.Namespace) -> int:
+    data = testset.load_testset(args.file)
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    conn.execute("PRAGMA busy_timeout = 30000")
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    folder = paths.reports_dir()
+    if args.action == "prepare":
+        depot = Depot(paths.data_dir())
+        result = testset.prepare(conn, depot, data, package_root=args.package)
+        sources = [s for e in data["entries"] for s in testset.entry_sources(e)]
+        pending = {t["id"] for t in pending_targets(conn, target_ids=[
+            v["target_id"] for v in result["targets"].values()])}
+        conn.close()
+        print(json.dumps({k: v for k, v in result.items() if k != "targets"}, indent=2))
+        if pending and not args.no_fetch:
+            run_preserve(args.db, paths.data_dir(), target_ids=sorted(pending), workers=4, index=False,
+                         log=lambda line: print(line, flush=True))
+        conn = db.connect(args.db)
+        conn.execute("PRAGMA busy_timeout = 30000")
+        indexer = TextIndexer(conn, Depot(paths.data_dir()))
+        for version in testset.unindexed_versions(conn, sources):
+            outcome = indexer.index(version)
+            print(f"indexed {version['source_id']} {outcome.status} {outcome.passages} passages")
+        conn.close()
+        return 1 if result["problems"] else 0
+    if args.action == "show":
+        entry = next((e for e in data["entries"] if e["key"] == args.key), None)
+        if entry is None:
+            print(f"no entry {args.key!r}", file=sys.stderr)
+            return 2
+        print(testset.show(conn, entry, grep=args.grep, width=args.width))
+        return 0
+    judgements = json.loads(args.judgements.read_text(encoding="utf-8")) if args.judgements else {}
+    result = testset.score(conn, data, judgements, split=args.split)
+    conn.close()
+    queue_import.write_report(result, folder, f"testset-{stamp}.json")
+    markdown = testset.to_markdown(result)
+    (folder / f"testset-{stamp}.md").write_text(markdown, encoding="utf-8")
+    print(markdown)
+    print(f"report: {folder / f'testset-{stamp}.md'}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m archive")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -192,6 +236,19 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("match", help="exact matching of seed labels across all passages")
     p.add_argument("--db", type=Path, default=paths.database_path())
     p.set_defaults(func=cmd_match)
+
+    p = sub.add_parser("testset", help="Phase 3 test set: prepare sources, show text, score results")
+    p.add_argument("action", choices=["prepare", "show", "score"])
+    p.add_argument("key", nargs="?", help="entry key (for show)")
+    p.add_argument("--file", type=Path, default=paths.REPO_ROOT / "evaluation" / "testset_2026-11-10.json")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--package", type=Path, default=testset.PACKAGE_ROOT, help="Transfer package folder")
+    p.add_argument("--no-fetch", action="store_true", help="prepare: queue and attach only")
+    p.add_argument("--grep", help="show: only passages containing this text")
+    p.add_argument("--width", type=int, help="show: cut each passage to this many characters")
+    p.add_argument("--split", choices=["dev", "holdout"], help="score: one split only")
+    p.add_argument("--judgements", type=Path, help="score: verdicts for judged expectations (JSON)")
+    p.set_defaults(func=cmd_testset)
 
     args = parser.parse_args(argv)
     return args.func(args)

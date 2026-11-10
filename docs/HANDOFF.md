@@ -13,7 +13,8 @@ https://claude.ai/artifact/Birwc68ZN83XGaFgzuVaqV
 | Tests | 115 passing on Python 3.10 (standard library only) |
 | Done 9 Nov (evening) | Venv (Python 3.14), exact Ollama tags, `archive/ollama.py`, `scripts/check_models.py`, results in `docs/MODELS.md` |
 | Done 9 Nov (night) | Phase 1 code (import, fetch, Wayback, DOI, captions, extraction, passages, language, attach-pdfs); full preservation run started; Phase 2 seeds and exact matching, gate passed (60 English concepts in 3+ sources) |
-| Not yet done | Phase 3 on; garbled-OCR detection; researcher interface |
+| Done 10 Nov | Phase 3 test set: 20 entries, expectations, scorer (`docs/TESTSET.md`) |
+| Not yet done | Phase 3 reading prompt and runner; source dedupe (YouTube ids, DOIs); garbled-OCR detection; researcher interface |
 | Old system | Retired. Its UI on :8503 and LiteLLM gateway may still run; do not depend on them |
 
 ## 2. Environment facts

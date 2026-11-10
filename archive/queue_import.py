@@ -241,3 +241,20 @@ def write_report(report: dict, folder: Path, name: str) -> Path:
     path = folder / name
     path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
+
+
+def add_urls(conn: sqlite3.Connection, urls: list[str], *, origin: str,
+             hints: dict | None = None) -> dict:
+    """Queue new URLs (live pages or Wayback captures) the same way the old queue was.
+
+    ``origin`` names where they came from (e.g. 'testset-2026-11-10'); each URL
+    gets the legacy reference ``<origin>:<n>`` so its provenance stays visible.
+    Existing sources and targets are left as they are.
+    """
+    rows = [{"id": f"{origin}:{n:03d}", "url": url, "source_type": "", **(hints or {}).get(url, {})}
+            for n, url in enumerate(urls, 1)]
+    plan = plan_import(rows)
+    report = apply_import(conn, plan, inputs={"origin": origin, "urls": len(urls)})
+    report["targets"] = {t["url"]: {"target_id": t["id"], "source_id": t["source_id"]}
+                         for t in plan.targets.values()}
+    return report
