@@ -169,8 +169,8 @@
       "roles": ["deliberate_failure"],
       "urls": ["https://webarchive.nrscotland.gov.uk/20240327034104mp_/https://archive2021.parliament.scot/ResearchBriefingsAndFactsheets/PB20-1817.pdf"],
       "expect": [
-        {"id": "mw-no-usages", "check": "no_model_usages"},
-        {"id": "mw-judged", "check": "judged", "criterion": "The reading reports the text as a bot-check page with no source content (no terms, entities or claims), and the batch carries on to the next source."}
+        {"id": "mw-no-usages", "check": "no_model_usages", "flag": "challenge_page", "note": "Nothing is read from the bot-check copy (kept, flagged challenge_page); a later real copy of the briefing may be read."},
+        {"id": "mw-judged", "check": "judged", "criterion": "The bot-check copy yields no terms, entities or claims (the reader skips versions flagged challenge_page, or reports the text as a bot check), and the batch carries on to the next source."}
       ]
     },
     {

@@ -19,13 +19,19 @@ from .preserve import target_host
 
 TEXT_KINDS = ("webpage", "pdf", "docx", "social", "unknown")
 GATE = 0.90
+# Review list: big HTML pages with little extracted text. Usually the text is
+# rendered by JavaScript (e.g. page builders that keep it in a script blob);
+# sometimes the page really is short. Not fixed automatically.
+THIN_PAGE_BYTES = 150_000
+THIN_PAGE_CHARS = 800
 
 
 def _target_status(conn: sqlite3.Connection) -> dict[str, dict]:
     rows = conn.execute("""
-        SELECT t.id, t.source_id, t.kind_hint, t.hold, t.url, t.route,
+        SELECT t.id, COALESCE(s.merged_into, t.source_id) AS source_id, t.kind_hint, t.hold, t.url, t.route,
                SUM(a.outcome = 'stored') AS stored, COUNT(a.id) AS attempts
-        FROM source_target t LEFT JOIN fetch_attempt a ON a.target_id = t.id
+        FROM source_target t JOIN source s ON s.id = t.source_id
+        LEFT JOIN fetch_attempt a ON a.target_id = t.id
         GROUP BY t.id""").fetchall()
     status = {}
     for row in rows:
@@ -61,8 +67,10 @@ def build_report(conn: sqlite3.Connection) -> dict:
     text_sources = {t["source_id"] for t in targets.values()
                     if t["kind_hint"] in TEXT_KINDS and t["status"] != "held"}
     passing = {row[0] for row in conn.execute("""
-        SELECT DISTINCT v.source_id FROM source_version v JOIN passage p ON p.version_id = v.id
-        WHERE p.language <> 'und'""")}
+        SELECT DISTINCT COALESCE(s.merged_into, v.source_id) FROM source_version v
+        JOIN source s ON s.id = v.source_id JOIN passage p ON p.version_id = v.id
+        WHERE p.language <> 'und' AND NOT EXISTS (
+            SELECT 1 FROM json_each(v.quality_flags) j WHERE j.value = 'challenge_page')""")}
     gate_done = len(text_sources & passing)
     attempted_text = {t["source_id"] for t in targets.values()
                       if t["source_id"] in text_sources and t["status"] in ("stored", "failed")}
@@ -81,7 +89,7 @@ def build_report(conn: sqlite3.Connection) -> dict:
     routes = Counter(dict(conn.execute(
         "SELECT acquisition_route, COUNT(*) FROM source_version GROUP BY 1").fetchall()))
     languages = Counter(dict(conn.execute(
-        "SELECT COALESCE(language, 'none'), COUNT(*) FROM source WHERE id IN"
+        "SELECT COALESCE(language, 'none'), COUNT(*) FROM source WHERE merged_into IS NULL AND id IN"
         " (SELECT source_id FROM source_version) GROUP BY 1").fetchall()))
     passage_count = conn.execute("SELECT COUNT(*) FROM passage").fetchone()[0]
     media_files = conn.execute("""
@@ -92,7 +100,13 @@ def build_report(conn: sqlite3.Connection) -> dict:
         JOIN source_target t ON t.id = a.target_id WHERE t.kind_hint = 'youtube'
         AND json_extract(detail, '$.part') IS NOT NULL GROUP BY 1""").fetchall()))
 
+    thin = [dict(r) for r in conn.execute(f"""
+        SELECT s.id AS source_id, s.url, v.byte_size, SUM(length(p.text)) AS text_chars
+        FROM source_version v JOIN source s ON s.id = v.source_id JOIN passage p ON p.version_id = v.id
+        WHERE v.mime_type LIKE '%html%' AND v.byte_size > {THIN_PAGE_BYTES}
+        GROUP BY v.id HAVING text_chars < {THIN_PAGE_CHARS} ORDER BY s.url""")]
     return {
+        "thin_pages": thin,
         "gate": {
             "text_sources": len(text_sources),
             "passing": gate_done,
@@ -144,6 +158,10 @@ def to_markdown(report: dict) -> str:
               "", f"Passages: {report['passages']}",
               "", f"Audio/video files found (queued for transcription later): "
                   f"{report['media_files_for_transcription']}"]
+    if report.get("thin_pages"):
+        lines += ["", f"## Large pages with little text ({len(report['thin_pages'])}, review list)", "",
+                  "Over 150 KB of HTML but under 800 characters extracted: usually text rendered by JavaScript.", ""]
+        lines += [f"- {row['url']} ({row['text_chars']} chars)" for row in report["thin_pages"]]
     if report["youtube"]:
         lines += ["", "YouTube: " + ", ".join(f"{k} {v}" for k, v in sorted(report["youtube"].items()))]
     return "\n".join(lines) + "\n"

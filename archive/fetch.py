@@ -62,7 +62,9 @@ CHALLENGE_TEXT = re.compile(
     r"enable javascript and cookies to continue|cf-browser-verification|cf_chl_opt|"
     r"cdn-cgi/challenge-platform|please complete the security check|"
     r"attention required.{0,40}cloudflare|ddos protection by|"
-    r"preparing to download \.\.\.|pow_challenge|proof.of.work",
+    r"preparing to download \.\.\.|pow_challenge|proof.of.work|"
+    r"verifying your browser|__mw_turnstile|checking if the site connection is secure|"
+    r"needs to review the security of your connection",
     re.IGNORECASE)
 CHALLENGE_MAX_BODY = 60_000   # real challenge pages are small; long pages are content
 CHALLENGE_LARGE_BODY = 2_000_000

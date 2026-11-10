@@ -72,8 +72,12 @@ a quote that software cannot locate is kept as a usage with
 ## Problems in the stored texts, found while writing expectations
 
 - A MirrorWeb bot-check page was stored for a Scottish Parliament briefing
-  (fetch detection missed it); kept here as the deliberate failure.
-- transformingcongregations.org: extraction kept only a contact-form blurb.
+  (fetch detection missed it); kept here as the deliberate failure. Fixed
+  10 Nov: detection catches it, `recheck` flags such copies `challenge_page`
+  (7 found: 4 MirrorWeb, 3 Vimeo) and their targets are fetched again.
+- transformingcongregations.org: the page builder keeps its text in a script
+  blob; only a contact-form blurb is visible HTML. One of 25 such pages (of
+  4,816), now listed in the preservation report for review.
 - Harvest's women's curriculum page is title-only on the live site (as the
   package said).
 - BACP MoU PDF: two-column layout scrambles reading order; title not in text.
@@ -82,8 +86,8 @@ a quote that software cannot locate is kept as a usage with
   no speaker labels.
 - Exodus "Moving On" is a 1993 Regeneration article; 2008 is the capture date.
 - Público piece is a Lusa agency text; the Stop the Ban page is cut off.
-- Duplicate sources the URL rules missed: 5 YouTube videos and 16 DOIs
-  queued under two URLs each.
+- Duplicate sources the URL rules missed: 5 YouTube videos and 17 DOIs
+  queued under two URLs each. Fixed 10 Nov: work keys and `dedupe`.
 
 ## Commands
 

@@ -254,3 +254,21 @@ def test_small_challenge_page_message_after_scripts():
             "accessing pmc.ncbi.nlm.nih.gov ...</body></html>").encode()
     assert 12_000 < len(page) < 60_000
     assert classify_challenge(200, {}, page) == "blocker_text"
+
+
+def test_turnstile_bot_check_page_is_a_challenge():
+    """MirrorWeb archives (e.g. webarchive.nrscotland.gov.uk) answer with a Turnstile check page."""
+    from archive.fetch import classify_challenge
+    page = ('<!doctype html><html><head><title>Verifying your browser — MirrorWeb Archive</title>'
+            '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script></head>'
+            '<body><h1>Verifying your browser</h1><form method="POST" action="/__mw_turnstile">'
+            '<div class="cf-turnstile" data-sitekey="x"></div></form></body></html>').encode()
+    assert classify_challenge(200, {}, page) == "blocker_text"
+    vimeo = ('<html><body><h1>Verify to continue</h1><p>Checking if the site connection is secure</p>'
+             '<p>vimeo.com needs to review the security of your connection before proceeding.</p></body></html>').encode()
+    assert classify_challenge(200, {}, vimeo) == "blocker_text"
+    # A real article that only loads the Turnstile script (carm.org) is not a challenge.
+    article = ('<html><head><script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script></head>'
+               '<body><div class="cf-turnstile"></div><h1>LGBTQ+</h1>' + "<p>Article text. </p>" * 50
+               + "</body></html>").encode()
+    assert classify_challenge(200, {}, article) is None

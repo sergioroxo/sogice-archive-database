@@ -81,7 +81,7 @@ def test_v1_database_gains_new_tables(conn):
         conn.execute("DROP TABLE source_target")
         conn.execute("DELETE FROM schema_version")
         conn.execute("INSERT INTO schema_version VALUES (1, ?, ?)", (NOW, "0" * 64))
-    assert db.init_db(conn) == db.SCHEMA_VERSION == 5
+    assert db.init_db(conn) == db.SCHEMA_VERSION == 6
     names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"source_target", "fetch_attempt"} <= names
 
@@ -100,7 +100,7 @@ def test_old_database_gains_time_columns(tmp_path):
     assert "time_start" not in {r[1] for r in old.execute("PRAGMA table_info(passage)")}
     old.close()
     conn = db.connect(path)
-    assert db.init_db(conn) == 5
+    assert db.init_db(conn) == db.SCHEMA_VERSION
     for table in ("section", "passage"):
         assert {"time_start", "time_end"} <= {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
     db.init_db(conn)  # idempotent

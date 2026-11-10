@@ -29,6 +29,7 @@ same file attaches to the existing source_version.
 from __future__ import annotations
 
 import html
+import json
 import re
 import sqlite3
 import uuid
@@ -36,7 +37,7 @@ from urllib.parse import urljoin
 from dataclasses import dataclass, field
 
 from .db import canonical_json, utc_now
-from .depot import Depot, sniff_extension
+from .depot import Depot, DepotError, sniff_extension
 from .doi import CROSSREF, MAX_OA_COPIES, OPENALEX, DoiResolver, doi_candidates
 from .extract import ExtractionError, extract_html
 from .fetch import REFUSED_TYPE_PREFIXES, Capture, FetchResult, Fetcher, capture_time
@@ -97,16 +98,55 @@ def _is_media(result: FetchResult) -> bool:
             and (result.content_type or "").lower().startswith(REFUSED_TYPE_PREFIXES))
 
 
+_CHALLENGE_STORED = ("COALESCE(a.version_id IN (SELECT v.id FROM source_version v, json_each(v.quality_flags) j"
+                     " WHERE j.value = 'challenge_page'), 0)")
+
+
+def recheck_stored(conn: sqlite3.Connection, depot: Depot, *, dry_run: bool = False) -> list[dict]:
+    """Run today's challenge detection over stored HTML copies; flag the bot-check pages.
+
+    Flagged versions are kept (never deleted) but no longer count as stored, so
+    the next ``preserve`` fetches their targets again (live, then Wayback).
+    """
+    from .fetch import classify_challenge
+    found = []
+    rows = conn.execute("""SELECT v.id, v.source_id, v.path, v.quality_flags FROM source_version v
+        WHERE (v.mime_type LIKE '%html%' OR v.path LIKE '%.html' OR v.path LIKE '%.htm')
+          AND v.byte_size <= 2000000
+          AND NOT EXISTS (SELECT 1 FROM json_each(v.quality_flags) j WHERE j.value = 'challenge_page')""").fetchall()
+    for row in rows:
+        try:
+            body = depot.read(row["path"])
+        except (OSError, DepotError):
+            continue
+        kind = classify_challenge(200, {}, body)
+        if not kind:
+            continue
+        found.append({"version_id": row["id"], "source_id": row["source_id"], "challenge": kind})
+        if not dry_run:
+            flags = sorted(set(json.loads(row["quality_flags"] or "[]")) | {"challenge_page"})
+            with conn:
+                conn.execute("UPDATE source_version SET quality_flags = ? WHERE id = ?",
+                             (canonical_json(flags), row["id"]))
+    return found
+
+
 def pending_targets(conn: sqlite3.Connection, *, limit: int | None = None,
                     kinds: list[str] | None = None, target_ids: list[str] | None = None,
                     retry_failed: bool = False) -> list[sqlite3.Row]:
-    """Targets not yet stored (and, unless retry_failed, never tried)."""
+    """Targets not yet stored (and, unless retry_failed, never tried).
+
+    A stored copy later found to be a bot-check page (version flagged
+    'challenge_page' by ``recheck_stored``) does not count: its target is
+    pending again, and that attempt does not count as a try.
+    """
     sql = ["SELECT * FROM source_target t WHERE t.hold IS NULL",
-           "AND NOT EXISTS (SELECT 1 FROM fetch_attempt a WHERE a.target_id = t.id"
-           " AND a.outcome = 'stored')"]
+           f"AND NOT EXISTS (SELECT 1 FROM fetch_attempt a WHERE a.target_id = t.id"
+           f" AND a.outcome = 'stored' AND NOT {_CHALLENGE_STORED})"]
     params: list = []
     if not retry_failed:
-        sql.append("AND NOT EXISTS (SELECT 1 FROM fetch_attempt a WHERE a.target_id = t.id)")
+        sql.append(f"AND NOT EXISTS (SELECT 1 FROM fetch_attempt a WHERE a.target_id = t.id"
+                   f" AND NOT (a.outcome = 'stored' AND {_CHALLENGE_STORED}))")
     if target_ids:
         sql.append(f"AND t.id IN ({','.join('?' for _ in target_ids)})")
         params += target_ids

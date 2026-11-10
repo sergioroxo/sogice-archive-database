@@ -182,14 +182,34 @@ def _insert(conn: sqlite3.Connection, table: str, row: dict) -> bool:
 
 def apply_import(conn: sqlite3.Connection, plan: ImportPlan, *, inputs: dict) -> dict:
     """Write the plan in one transaction and return a report."""
+    from .dedupe import key_index, work_key
+
     started = utc_now()
     run_id = f"run_{uuid.uuid4().hex}"
     new_sources = new_targets = 0
+    # A new URL for a work already stored (same YouTube id or DOI) joins that source.
+    index = key_index(conn)
+    existing = {row[0] for row in conn.execute("SELECT id FROM source")}
+    redirect: dict[str, str] = {}
+    for source_id in sorted(plan.sources):
+        if source_id in existing:
+            continue
+        urls = [plan.sources[source_id]["url"]] + [t["_original"] for t in plan.targets.values()
+                                                    if t["source_id"] == source_id]
+        keys = {k for k in map(work_key, urls) if k}
+        holder = next((index[k] for k in sorted(keys) if k in index), None)
+        if holder and holder != source_id:
+            redirect[source_id] = holder
+        else:
+            for key in keys:
+                index.setdefault(key, source_id)
     with conn:
         for source in plan.sources.values():
-            new_sources += _insert(conn, "source", source)
+            if source["id"] not in redirect:
+                new_sources += _insert(conn, "source", source)
         for target in plan.targets.values():
             row = {k: v for k, v in target.items() if not k.startswith("_")}
+            row["source_id"] = redirect.get(row["source_id"], row["source_id"])
             row["legacy_refs"] = canonical_json(row["legacy_refs"])
             row["legacy_hints"] = canonical_json(row["legacy_hints"])
             new_targets += _insert(conn, "source_target", row)
@@ -199,7 +219,8 @@ def apply_import(conn: sqlite3.Connection, plan: ImportPlan, *, inputs: dict) ->
             (run_id, canonical_json({"job": "queue_import", **inputs}), started, utc_now()))
     report = summarize(plan)
     report.update(run_id=run_id, new_sources=new_sources, new_targets=new_targets,
-                  existing_sources=len(plan.sources) - new_sources,
+                  attached_by_work_key=len(redirect),
+                  existing_sources=len(plan.sources) - new_sources - len(redirect),
                   existing_targets=len(plan.targets) - new_targets)
     return report
 
@@ -255,6 +276,7 @@ def add_urls(conn: sqlite3.Connection, urls: list[str], *, origin: str,
             for n, url in enumerate(urls, 1)]
     plan = plan_import(rows)
     report = apply_import(conn, plan, inputs={"origin": origin, "urls": len(urls)})
-    report["targets"] = {t["url"]: {"target_id": t["id"], "source_id": t["source_id"]}
+    report["targets"] = {t["url"]: {"target_id": t["id"], "source_id": conn.execute(
+        "SELECT source_id FROM source_target WHERE id = ?", (t["id"],)).fetchone()[0]}
                          for t in plan.targets.values()}
     return report

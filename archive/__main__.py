@@ -19,10 +19,10 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from . import attach, db, match, paths, queue_import, report, seeds, testset
+from . import attach, db, dedupe, match, paths, queue_import, report, seeds, testset
 from .depot import Depot
 from .index_text import TextIndexer, pending_versions
-from .acquire import pending_targets
+from .acquire import pending_targets, recheck_stored
 from .preserve import pilot_sample, run_preserve
 
 
@@ -143,6 +143,46 @@ def cmd_match(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_recheck(args: argparse.Namespace) -> int:
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    conn.execute("PRAGMA busy_timeout = 30000")
+    found = recheck_stored(conn, Depot(paths.data_dir()), dry_run=args.dry_run)
+    for item in found:
+        url = conn.execute("SELECT url FROM source WHERE id = ?", (item["source_id"],)).fetchone()[0]
+        print(f"{'would flag' if args.dry_run else 'flagged'} {item['version_id']} {item['challenge']} {url}")
+    targets = sorted({r[0] for r in conn.execute(
+        "SELECT t.id FROM source_target t JOIN fetch_attempt a ON a.target_id = t.id"
+        f" WHERE a.version_id IN ({','.join('?' for _ in found)})", [f["version_id"] for f in found])}) if found else []
+    conn.close()
+    print(f"{len(found)} stored pages are bot checks; their {len(targets)} targets are pending again.")
+    if targets and not args.dry_run:
+        print("fetch again: python -m archive preserve " + " ".join(f"--target {t}" for t in targets))
+    return 0
+
+
+def cmd_dedupe(args: argparse.Namespace) -> int:
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    conn.execute("PRAGMA busy_timeout = 30000")
+    if args.undo:
+        with conn:
+            row = dedupe.undo_merge(conn, args.undo, reason=args.reason or "undone by researcher",
+                                    actor_id=args.actor)
+        print(f"undone: {args.undo} -> {row['id']}")
+        return 0
+    data = dedupe.run_dedupe(conn, dry_run=args.dry_run)
+    conn.close()
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    folder = paths.reports_dir()
+    queue_import.write_report(data, folder, f"dedupe-{stamp}.json")
+    markdown = dedupe.to_markdown(data)
+    (folder / f"dedupe-{stamp}.md").write_text(markdown, encoding="utf-8")
+    print(markdown)
+    print(f"report: {folder / f'dedupe-{stamp}.md'}")
+    return 0
+
+
 def cmd_testset(args: argparse.Namespace) -> int:
     data = testset.load_testset(args.file)
     conn = db.connect(args.db)
@@ -236,6 +276,19 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("match", help="exact matching of seed labels across all passages")
     p.add_argument("--db", type=Path, default=paths.database_path())
     p.set_defaults(func=cmd_match)
+
+    p = sub.add_parser("recheck", help="flag stored pages that today's detection calls bot checks")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_recheck)
+
+    p = sub.add_parser("dedupe", help="merge sources that are the same work (YouTube id, DOI) as recorded decisions")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--dry-run", action="store_true", help="list the merges, change nothing")
+    p.add_argument("--undo", metavar="DECISION_ID", help="reverse one merge decision")
+    p.add_argument("--reason", help="with --undo: why")
+    p.add_argument("--actor", default="sergio", help="with --undo: researcher id")
+    p.set_defaults(func=cmd_dedupe)
 
     p = sub.add_parser("testset", help="Phase 3 test set: prepare sources, show text, score results")
     p.add_argument("action", choices=["prepare", "show", "score"])

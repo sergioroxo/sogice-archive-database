@@ -27,6 +27,14 @@
    no Save Page Now submissions. A blocked, parked or vanished live page
    falls back to the newest usable Wayback capture (flagged). Transient
    failures are retried once, then the target is marked failed.
+   One work, one source: a URL's *work key* (YouTube video id or DOI) attaches
+   new URLs to the source already holding that work; sources stored twice are
+   merged by `dedupe` as recorded, undoable decisions (`source.merged_into`;
+   nothing moved or deleted) and counted under their keeper. `recheck` runs
+   today's bot-check detection over stored pages: a bot-check copy is kept,
+   flagged `challenge_page`, never read, and its target is fetched again.
+   Large pages with almost no extracted text (usually JavaScript-rendered)
+   are listed in the preservation report for review, not fixed automatically.
 2. **Match (no model).** Search every seed concept variant and entity name
    across all passages. Each hit is a usage marked `exact_match`. Count
    repeated navigation/promotional blocks separately.

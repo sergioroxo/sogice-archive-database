@@ -201,9 +201,21 @@ class EntryView:
                 and u["char_start"] < located.end + window and u["char_end"] > located.start - window]
 
 
+def _with_merged(conn: sqlite3.Connection, sources: list[str]) -> list[str]:
+    """The entry's sources plus every copy merged with them (same work)."""
+    from .dedupe import keeper_of
+    merged = keeper_of(conn)
+    keepers = {merged.get(s, s) for s in sources}
+    out = list(sources)
+    for sid in sorted(keepers | {d for d, k in merged.items() if k in keepers}):
+        if sid not in out:
+            out.append(sid)
+    return out
+
+
 def entry_view(conn: sqlite3.Connection, entry: dict) -> EntryView:
     conn.row_factory = sqlite3.Row
-    sources = entry_sources(entry)
+    sources = _with_merged(conn, entry_sources(entry))
     view = EntryView(sources)
     marks = ",".join("?" for _ in sources)
     view.passages = conn.execute(
@@ -336,8 +348,9 @@ def check(conn: sqlite3.Connection, view: EntryView, exp: dict, judgements: dict
             texts[p["source_id"]].add(p["text_sha256"])
         shared = set.intersection(*(texts[s] for s in view.sources)) if all(texts[s] for s in view.sources) else set()
         merged = conn.execute(
-            f"SELECT 1 FROM decision WHERE action = 'merge_source' AND target_id IN "
-            f"({','.join('?' for _ in view.sources)})", view.sources).fetchone()
+            f"SELECT 1 FROM source WHERE merged_into IS NOT NULL AND id IN "
+            f"({','.join('?' for _ in view.sources)})", view.sources).fetchone() if any(
+            r[1] == "merged_into" for r in conn.execute("PRAGMA table_info(source)")) else None
         if not shared and not merged:
             return "fail", "the copies share no passage text and no merge is recorded"
         if not view.read:
@@ -392,8 +405,14 @@ def check(conn: sqlite3.Connection, view: EntryView, exp: dict, judgements: dict
         furniture = furniture_hashes(conn)
         bad = [u for u in view.usages if u["passage_sha"] in furniture and u["evidence_state"] == "located"]
         return ("pass" if not bad else "fail"), f"{len(bad)} usages in repeated page blocks counted as body"
-    if kind == "no_model_usages":
+    if kind == "no_model_usages":  # optionally only from versions with a quality flag
         located = [u for u in view.usages if u["evidence_state"] != "unlocated"]
+        if exp.get("flag"):
+            flagged = {r[0] for r in conn.execute(
+                "SELECT p.id FROM passage p JOIN source_version v ON v.id = p.version_id, json_each(v.quality_flags) j"
+                f" WHERE j.value = ? AND v.source_id IN ({','.join('?' for _ in view.sources)})",
+                [exp["flag"], *view.sources])}
+            located = [u for u in located if u["passage_id"] in flagged]
         return ("pass" if not located else "fail"), f"{len(located)} model usages"
     raise TestsetError(f"unhandled check {kind}")
 

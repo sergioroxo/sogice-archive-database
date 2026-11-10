@@ -198,6 +198,7 @@ CREATE TABLE IF NOT EXISTS source (
   religious_tradition     TEXT REFERENCES concept(id),   -- scheme 'religious_tradition'
   legacy_ref              TEXT,       -- id in the old state/source_queue.db, if imported
   created_at              TEXT NOT NULL,
+  merged_into             TEXT REFERENCES source(id),   -- set by a recorded 'merge' decision; undoable
   CHECK (url IS NOT NULL OR title IS NOT NULL),
   CHECK (published_date IS NULL OR published_date_certainty IS NOT NULL),
   CHECK (captured_date IS NULL OR captured_date_certainty IS NOT NULL),

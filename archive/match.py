@@ -245,8 +245,10 @@ def run_match(conn: sqlite3.Connection, *, rules_path: Path | None = None, log=p
 def build_match_report(conn: sqlite3.Connection, furniture: set | None = None) -> dict:
     furniture = furniture_hashes(conn) if furniture is None else furniture
     rows = conn.execute("""
-        SELECT u.concept_id, u.entity_id, p.language, p.text_sha256, v.source_id
+        SELECT u.concept_id, u.entity_id, p.language, p.text_sha256,
+               COALESCE(s.merged_into, v.source_id) AS source_id   -- a merged copy counts as its keeper
         FROM usage u JOIN passage p ON p.id = u.passage_id JOIN source_version v ON v.id = p.version_id
+        JOIN source s ON s.id = v.source_id
         WHERE u.found_by = 'exact_match' AND u.review_state NOT IN ('rejected', 'superseded')""").fetchall()
     body = [r for r in rows if r["text_sha256"] not in furniture]
     per_target: dict[str, dict] = defaultdict(lambda: {"usages": 0, "sources": set(), "languages": Counter(),
