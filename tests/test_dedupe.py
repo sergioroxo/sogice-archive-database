@@ -161,7 +161,7 @@ def test_recheck_flags_bot_check_pages_and_target_is_pending_again(conn, tmp_pat
     assert recheck_stored(conn, depot) == []                               # already flagged
 
 
-def test_missing_file_is_flagged_batch_continues_and_target_is_pending(conn, tmp_path):
+def test_missing_file_is_flagged_and_batch_continues(conn, tmp_path):
     from archive.index_text import TextIndexer, pending_versions
     depot = Depot(tmp_path / "data")
     good = depot.put(b"<html><body><p>A page that is still on disk, with enough words.</p></body></html>", "html")
@@ -176,6 +176,18 @@ def test_missing_file_is_flagged_batch_continues_and_target_is_pending(conn, tmp
     failed = [r for r in results if r.status == "failed"]
     assert failed and all("missing_object" in r.flags for r in failed)
     pending = {t["id"] for t in pending_targets(conn)}
-    assert "tgt_" + source_id_for("https://doi.org/10.1080/00224499.2022.2060927") in pending
-    assert "tgt_" + source_id_for("https://example.org/a") not in pending
+    assert "tgt_" + source_id_for("https://doi.org/10.1080/00224499.2022.2060927") not in pending  # review, no refetch
     assert pending_versions(conn) == []                  # not retried in a loop
+
+
+def test_unreadable_file_is_flagged(conn, tmp_path, monkeypatch):
+    from archive.index_text import TextIndexer, pending_versions
+    depot = Depot(tmp_path / "data")
+
+    def refuse(*args, **kwargs):
+        raise PermissionError(1, "Operation not permitted")
+    monkeypatch.setattr(depot, "read", refuse)
+    with conn:
+        conn.execute("DELETE FROM passage")
+    results = [TextIndexer(conn, depot).index(v) for v in pending_versions(conn)]
+    assert results and all(r.status == "failed" and "unreadable_object" in r.flags for r in results)

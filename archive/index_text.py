@@ -119,12 +119,16 @@ class TextIndexer:
         try:
             data = self.depot.read(version["path"])
             extraction = extract(data, _extension(version["path"]), url=version["source_url"])
-        except (ExtractionError, DepotError) as exc:
+        except (ExtractionError, DepotError, OSError) as exc:
             # A failed version is marked and the batch carries on. A stored file that is
-            # missing or no longer matches its checksum also makes its target pending again.
+            # missing, unreadable or no longer matches its checksum is flagged for review:
+            # antivirus software (Microsoft Defender) quarantines Wayback pages with injected
+            # scripts, and fetching the same copy again would only repeat that.
             flags = ["extraction_failed"]
             if isinstance(exc, DepotError):
                 flags.append("missing_object" if "missing" in str(exc) else "corrupt_object")
+            elif isinstance(exc, OSError):
+                flags.append("unreadable_object")
             with self.conn:
                 self.conn.execute("UPDATE source_version SET quality_flags = ? WHERE id = ?",
                                   (_merge_flags(version["quality_flags"], flags), version_id))
