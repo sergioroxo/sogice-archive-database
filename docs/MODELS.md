@@ -147,3 +147,26 @@ not at the model. The 14 judged expectations are not scored yet.
 Qwen 3.8 27B and the 31B are level on these sources (2 vs 3 failures out of
 about 50 checks is within noise). The 31B reads (Sérgio, 10 Nov). Add a new
 model as a `trial_…` role in `config/models.yaml` and run the same test.
+
+### Judged expectations (blind A/B, 10 November)
+
+`scripts/judge_packets.py` wrote one packet per judged expectation (source
+text plus both readings, labelled A/B in random order per packet); a
+separate Claude agent judged them without the key. Both models pass 8 of the
+14. With these verdicts, the whole dev split (88 expectations): 31B fails 13,
+Qwen 3.8 27B fails 12.
+
+| | Expectations |
+|---|---|
+| Both fail (9) | interviewer's question credited to the interviewee (Christian Concern); Chambers quoted by Gagnon given to Gagnon (Eternity); Le Refuge figure credited to France 24; Petit's "pauses" use missing (French pp. 48–49); list of people heard turned into `affiliated_with` edges and stances (French pp. 63–64, two checks); covenant Sample 1 exceptions missing (Harvest); the host's words in the Davidson captions credited to Davidson (two checks) |
+| Only the 31B fails (4) | all missed statements: Exodus affiliates continuing; Petit p. 49; Harvest church-discipline exception; MoU para. 6 exemptions |
+| Only Qwen fails (3) | "transforming communities" marked as endorsing change; Stop the Ban stance; a pastoral exception missed |
+
+What this says about using two models: the 7 model-specific failures are
+what a second model can fix (5 missed statements that the other model
+found, 2 stance disagreements a comparison would flag). The 9 shared ones it
+cannot: both models make the same mistake, so they agree. Those need prompt
+rules (who owns an interviewer's question, nested quotes, a stated role is
+`employed_by`, a list of people heard states no stance, unlabelled captions)
+and Sérgio's weekly sample. Correct records were never at issue: quotes are
+located by software, so a model cannot invent text, only misattribute it.
