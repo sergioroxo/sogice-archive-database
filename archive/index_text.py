@@ -28,7 +28,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from .db import canonical_json, utc_now
-from .depot import Depot
+from .depot import Depot, DepotError
 from .extract import Extraction, ExtractionError, extract
 from .passages import build_passages, build_sections, sha256_text
 
@@ -119,12 +119,16 @@ class TextIndexer:
         try:
             data = self.depot.read(version["path"])
             extraction = extract(data, _extension(version["path"]), url=version["source_url"])
-        except ExtractionError as exc:
+        except (ExtractionError, DepotError) as exc:
+            # A failed version is marked and the batch carries on. A stored file that is
+            # missing or no longer matches its checksum also makes its target pending again.
+            flags = ["extraction_failed"]
+            if isinstance(exc, DepotError):
+                flags.append("missing_object" if "missing" in str(exc) else "corrupt_object")
             with self.conn:
                 self.conn.execute("UPDATE source_version SET quality_flags = ? WHERE id = ?",
-                                  (_merge_flags(version["quality_flags"], ["extraction_failed"]),
-                                   version_id))
-            return IndexResult(version_id, "failed", error=str(exc), flags=["extraction_failed"])
+                                  (_merge_flags(version["quality_flags"], flags), version_id))
+            return IndexResult(version_id, "failed", error=str(exc), flags=flags)
 
         text = extraction.text
         text_path = self.depot.put(text.encode("utf-8"), "txt").relative_path if text else None

@@ -98,8 +98,11 @@ def _is_media(result: FetchResult) -> bool:
             and (result.content_type or "").lower().startswith(REFUSED_TYPE_PREFIXES))
 
 
+# Stored copies that do not count as stored: bot-check pages (flagged by recheck_stored)
+# and files that went missing or corrupt in the depot (flagged by the indexer).
+UNUSABLE_FLAGS = ("challenge_page", "missing_object", "corrupt_object")
 _CHALLENGE_STORED = ("COALESCE(a.version_id IN (SELECT v.id FROM source_version v, json_each(v.quality_flags) j"
-                     " WHERE j.value = 'challenge_page'), 0)")
+                     " WHERE j.value IN ('challenge_page', 'missing_object', 'corrupt_object')), 0)")
 
 
 def recheck_stored(conn: sqlite3.Connection, depot: Depot, *, dry_run: bool = False) -> list[dict]:
@@ -136,9 +139,10 @@ def pending_targets(conn: sqlite3.Connection, *, limit: int | None = None,
                     retry_failed: bool = False) -> list[sqlite3.Row]:
     """Targets not yet stored (and, unless retry_failed, never tried).
 
-    A stored copy later found to be a bot-check page (version flagged
-    'challenge_page' by ``recheck_stored``) does not count: its target is
-    pending again, and that attempt does not count as a try.
+    A stored copy later found unusable (a bot-check page flagged
+    'challenge_page' by ``recheck_stored``, or a depot file flagged
+    'missing_object'/'corrupt_object' by the indexer) does not count: its
+    target is pending again, and that attempt does not count as a try.
     """
     sql = ["SELECT * FROM source_target t WHERE t.hold IS NULL",
            f"AND NOT EXISTS (SELECT 1 FROM fetch_attempt a WHERE a.target_id = t.id"
