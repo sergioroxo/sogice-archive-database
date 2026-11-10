@@ -95,6 +95,7 @@ python -m archive testset score --split dev
 python -m archive read --status                        # runs in progress, stalled runs
 python -m archive read --testset --both                # two readers, then reconcile
 python -m archive reconcile --all --report-only        # the difficulties register
+python -m archive review prepare                       # the review queue (docs/REVIEW.md)
 python -m archive read --db data/scratch/copy.db --testset --model-role audit --again   # try the 31B on a copy
 python scripts/probe_reader.py --chunk-chars 1600      # compare variants; writes nothing
 ```

@@ -257,3 +257,17 @@ short sources go over 15 s per 1,000 characters for one reader, because each
 call repeats the prompt; no source came near the run-time ceiling. Both
 readers over the English corpus (109 M characters, about 60 M in short
 sources): roughly 700 hours, a month of continuous running.
+
+### Review of disputed and held records (10 November)
+
+With single-reader relations held from publication, the combined reading
+fails 3 automatic checks instead of 5. A first blind review of 61 packets by
+Claude (`/review-queue`, on a copy of the database) brought it to 2: the
+Stop the Ban stance is settled. Where the reviewer chose a reading it chose
+the 31B 17 times and Qwen 17 times; in 9 of 26 statement disputes both were
+wrong. Details and the reviewer's proposed rules: `docs/REVIEW.md`.
+
+The scorer used to miss relations whose evidence quote had been folded into
+the other reader's copy; it now finds relations through any located quote
+in the source. The combined figure above (5 before holding) was re-checked
+with the fixed scorer and holds.

@@ -170,6 +170,8 @@ class ModelsConfig:
     timeout_seconds: float
     roles: dict
     path: Path
+    review_model: str | None = None   # the Claude model that works the review queue (no API)
+    review_prompt: str | None = None
 
     def role(self, name: str) -> RoleConfig:
         try:
@@ -243,5 +245,9 @@ def load_models_config(path: str | Path | None = None) -> ModelsConfig:
     if roles["embedding"].dimensions is None:
         raise ConfigError(f"{chosen}: roles.embedding.dimensions is required")
 
+    review = data.get("review") or {}
+    if not isinstance(review, dict) or (review and not isinstance(review.get("model"), str)):
+        raise ConfigError(f"{chosen}: review.model must be a model name")
     return ModelsConfig(base_url=base_url.rstrip("/"), timeout_seconds=float(timeout),
-                        roles=roles, path=chosen)
+                        roles=roles, path=chosen, review_model=review.get("model"),
+                        review_prompt=review.get("prompt"))

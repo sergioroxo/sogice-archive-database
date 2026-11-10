@@ -27,6 +27,7 @@ hard. This page explains how.
 | `one_reader` | both models read the passage; only one recorded this | "Found by one reader" |
 | `readers_disagree` | both recorded it, with different speakers or opposite stances; both records are *disputed* and wait for review | not published as a finding; listed as "under review" |
 | `single_reading` | only one model has read the source so far | "Read by one model" |
+| `confirmed` (review state) | a reviewer (Claude, `/review-queue`) ruled on a disputed or held record, on a quote from the source | "Reviewed" (with the reviewer's reason) |
 | `researcher_verified` (evidence state) | Sérgio checked it | "Checked by the researcher" |
 
 Agreement is not proof. The test set showed both models making the *same*
@@ -100,10 +101,33 @@ From the first two-reader run (read-v4, 10 November evening):
     reconciled) and every change is a decision: the fix undid each wrong
     change with a recorded `undo`, and the register now includes it.
 
+From the first review-queue trial (61 packets, 10 November; `docs/REVIEW.md`):
+
+13. **A disagreement is often two mistakes.** In 9 of 26 disputed statements
+    both readers were wrong, so the queue must allow "neither" and a
+    correction, not only a choice between them.
+14. **One reader's relation is a weak claim.** Of 28 held relations the
+    reviewer rejected 15. Holding them was right.
+15. **No reader is the reference.** The reviewer, blind to the models,
+    chose each one about equally often.
+16. **Review finds rules.** Most rulings fell into a few patterns (role lines,
+    relations to things that are not entities, stance toward a ban,
+    unlabelled captions). Turning those into rules that software applies is
+    what makes the method scale; the queue is for what needs judgement.
+
+## The review queue
+
+Disputed statements and relations, and relations only one reader proposed
+(held from publication since 10 November), go to a review queue worked by a
+Claude Code session with a saved prompt (`/review-queue`). The reviewer sees
+the source text and both readings with the model names hidden, rules on the
+words of the source, and may say it cannot tell. Every ruling is a decision
+under the reviewer's name that can be undone; low-confidence rulings change
+nothing and go to Sérgio. See `docs/REVIEW.md`.
+
 ## What stays with the researcher
 
-Sérgio samples 30–50 AI decisions a week and has the final say on method
-changes. Disputed records, single-reader records of consequential relations
-(affiliation, funding, employment, training, co-signing) and the hard cases
-above are the review queue. A researcher's decision is never undone by a
+Sérgio samples 30–50 AI decisions a week, including the reviewer's rulings,
+and has the final say on method changes. He works the packets the reviewer
+sends him, and the hard cases above are where his sample looks first. A researcher's decision is never undone by a
 later automatic step.

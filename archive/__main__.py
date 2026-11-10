@@ -14,6 +14,7 @@
     python -m archive read --status
     python -m archive read --testset --both     # two readers, then reconcile
     python -m archive reconcile [--testset|--all|--source ID] [--report-only]
+    python -m archive review prepare|apply|status|undo   # the review queue (data/review/)
 """
 from __future__ import annotations
 
@@ -341,6 +342,43 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_review(args: argparse.Namespace) -> int:
+    from . import review
+    from .config import load_models_config
+    base = args.folder
+    if args.action == "status":
+        print(json.dumps(review.status(base), indent=1))
+        return 0
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    conn.execute("PRAGMA busy_timeout = 30000")
+    if args.action == "prepare":
+        sources = list(args.source or [])
+        if args.testset:
+            data = testset.load_testset(args.file)
+            sources += [s for e in data["entries"] if not args.split or e["split"] == args.split
+                        for s in testset.entry_sources(e)]
+        from .read import keeper
+        sources = sorted({keeper(conn, s) for s in sources}) or None
+        print(json.dumps(review.prepare(conn, sources, base=base), indent=1))
+    elif args.action == "apply":
+        cfg = load_models_config()
+        reviewer = args.reviewer or cfg.review_model
+        if not reviewer:
+            print("no reviewer: set review.model in config/models.yaml or pass --reviewer", file=sys.stderr)
+            return 2
+        result = review.apply(conn, reviewer=reviewer, base=base, prompt_version=cfg.review_prompt or review.PROMPT)
+        print(json.dumps(result, indent=1, ensure_ascii=False))
+    elif args.action == "undo":
+        if not args.run:
+            print("undo needs --run RUN_ID (the review run to reverse)", file=sys.stderr)
+            return 2
+        n = review.undo(conn, args.run, reason=args.reason or "review run undone by researcher", actor_id=args.actor)
+        print(f"undone: {n} decision(s) of {args.run}")
+    conn.close()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m archive")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -445,6 +483,20 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--all", action="store_true", help="every source with a reading")
     p.add_argument("--report-only", action="store_true", help="write the difficulties report, change nothing")
     p.set_defaults(func=cmd_reconcile)
+
+    p = sub.add_parser("review", help="the review queue: packets for disputed and held records, verdicts, undo")
+    p.add_argument("action", choices=["prepare", "apply", "status", "undo"])
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--folder", type=Path, help="queue folder (default data/review)")
+    p.add_argument("--source", action="append", help="with prepare: only this source")
+    p.add_argument("--testset", action="store_true", help="with prepare: the test-set sources")
+    p.add_argument("--split", choices=["dev", "holdout"])
+    p.add_argument("--file", type=Path, default=paths.REPO_ROOT / "evaluation" / "testset_2026-11-10.json")
+    p.add_argument("--reviewer", help="with apply: the reviewing model's name (default: review.model in the config)")
+    p.add_argument("--run", help="with undo: the review run to reverse")
+    p.add_argument("--reason", help="with undo: why")
+    p.add_argument("--actor", default="sergio", help="with undo: researcher id")
+    p.set_defaults(func=cmd_review)
 
     args = parser.parse_args(argv)
     return args.func(args)

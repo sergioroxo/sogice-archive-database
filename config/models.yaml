@@ -16,6 +16,12 @@ ollama:
   base_url: http://127.0.0.1:11434
   timeout_seconds: 600
 
+# The review queue (archive/review.py) is worked by a Claude Code session with the
+# /review-queue command, not through an API. Its decisions are recorded under this name.
+review:
+  model: claude-opus-5-5
+  prompt: review-v2
+
 roles:
   reading:
     model: gemma4:31b-mlx    # digest 637cc0ff1570; chosen by Sérgio 10 Nov (12B failed 15 test expectations, 31B 3)

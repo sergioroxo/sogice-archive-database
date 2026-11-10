@@ -17,7 +17,9 @@ Statements are paired when their located quotes overlap in the same passage
   against criticizes/denies/minimizes). Both usages become ``disputed`` (a
   'dispute' decision each) and wait for review; neither is asserted.
 - **one_reader**: only one model recorded the statement. It stays, and the
-  assessment says so: both models read the passage, one proposed it.
+  assessment says so: both models read the passage, one proposed it. A
+  relation found by one reader is held from publication until reviewed
+  (``archive/review.py``).
 
 Relations are paired by subject, type and object (names compared loosely);
 the same two names with different types is a disagreement. Claims follow
@@ -30,7 +32,7 @@ database for the record, never takes part.
 Every assessment lists the readers (model, run, prompt, when) and which of
 them proposed the record. Re-running is safe: states set by an earlier
 reconciliation are restored first (to the state recorded before it); a
-researcher's decision is never undone. Records of runs no longer compared
+researcher's or reviewer's decision is never undone. Records of runs no longer compared
 that an earlier reconciliation changed get an 'undo' decision back to the
 state their run implies (superseded run: superseded).
 """
@@ -100,12 +102,31 @@ def current_readings(conn: sqlite3.Connection, source_id: str, models: list[str]
     return conn.execute(sql, [source_id, *extra]).fetchall()
 
 
+def _effective_last(conn: sqlite3.Connection, table: str, record_id: str, *, skip_audits: bool = False):
+    """The latest decision on a record that still stands (undone decisions and the undos are skipped)."""
+    reverted = set()
+    for d in conn.execute("SELECT * FROM decision WHERE target_table = ? AND target_id = ? ORDER BY seq DESC",
+                          (table, record_id)):
+        if d["action"] == "undo":
+            reverted.add(d["reverts_decision_id"])
+            continue
+        if d["id"] in reverted or (skip_audits and d["action"] == "audit"):
+            continue
+        return d
+    return None
+
+
 def _last_reconcile_decision(conn: sqlite3.Connection, table: str, record_id: str):
-    last = conn.execute("SELECT * FROM decision WHERE target_table = ? AND target_id = ? ORDER BY seq DESC LIMIT 1",
-                        (table, record_id)).fetchone()
+    last = _effective_last(conn, table, record_id)
     if last and last["actor_id"].startswith(ACTOR_PREFIX) and last["action"] in ("merge", "dispute"):
         return last
     return None
+
+
+def settled(conn: sqlite3.Connection, table: str, record_id: str) -> bool:
+    """A reviewer or the researcher has ruled on this record: reconciliation must not change its state."""
+    last = _effective_last(conn, table, record_id, skip_audits=True)
+    return bool(last) and last["action"] != "propose" and not last["actor_id"].startswith(ACTOR_PREFIX)
 
 
 def _set_claims(conn: sqlite3.Connection, usage_id: str, state: str) -> None:
@@ -245,6 +266,9 @@ def reconcile_source(conn: sqlite3.Connection, source_id: str, *, primary_model:
         counts[f"{table}:{confidence}"] += 1
 
     def set_state(table, record, state, action, reason, *, verdict="not_audited", new_state=None):
+        if settled(conn, table, record["id"]):   # a review or researcher decision stands
+            counts["kept_reviewed"] += 1
+            return
         conn.execute(f"UPDATE {table} SET review_state = ? WHERE id = ?", (state, record["id"]))
         if table == "usage":  # a claim stands or falls with its usage
             _set_claims(conn, record["id"], state)
@@ -379,8 +403,17 @@ def difficulties(conn: sqlite3.Connection, source_ids: list[str] | None = None, 
     corrections = conn.execute(
         "SELECT target_table, COUNT(*) n, MIN(created_at) first, MAX(created_at) last FROM decision"
         " WHERE action = 'undo' AND actor_id LIKE ? GROUP BY target_table", (ACTOR_PREFIX + "%",)).fetchall()
+    reviews = conn.execute(
+        f"""SELECT d.actor_kind, d.actor_id, d.action, d.audit_verdict, COUNT(*) n FROM decision d
+            JOIN run ru ON ru.id = d.run_id WHERE ru.role = 'audit' AND json_extract(ru.inputs, '$.job') = 'review'
+            AND d.action <> 'undo' AND NOT EXISTS (SELECT 1 FROM decision u WHERE u.reverts_decision_id = d.id)
+            GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 3""").fetchall()
+    held = sum(1 for r in rows if r["target_table"] == "relation" and r["confidence"] in ("one_reader", "single_reading")
+               and conn.execute("SELECT review_state FROM relation WHERE id = ?", (r["target_id"],)).fetchone()[0] == "proposed")
     return {"confidence": {f"{t}:{c}": n for (t, c), n in sorted(confidence.items())},
             "corrections": [dict(r) for r in corrections],
+            "reviews": [dict(r) for r in reviews],
+            "held_relations": held,
             "disagreements_by_field": dict(fields.most_common()),
             "examples": {k: v for k, v in by_field.items()},
             "one_reader": {f"{t}:{m}": n for (t, m), n in sorted(one_reader.items())},
@@ -417,6 +450,14 @@ def difficulties_markdown(report: dict) -> str:
                   "Changes an earlier reconciliation made to records it should not have compared, undone",
                   "with a recorded 'undo' decision each:", ""]
         lines += [f"- {c['target_table']}: {c['n']} ({c['first'][:10]}–{c['last'][:10]})" for c in report["corrections"]]
+    lines += ["", "## Review", "",
+              f"Relations held from publication (one reader only, not yet reviewed): {report.get('held_relations', 0)}", ""]
+    if report.get("reviews"):
+        lines += ["Rulings on the review queue (each a recorded decision; `review undo` reverses a run):", "",
+                  "| Reviewer | Action | Verdict | Records |", "|---|---|---|---:|"]
+        lines += [f"| {r['actor_id']} | {r['action']} | {r['audit_verdict']} | {r['n']} |" for r in report["reviews"]]
+    else:
+        lines.append("No rulings on the review queue yet.")
     lines += ["", "## Reading runs", "", "| Model | Outcome | Runs | Unlocated quotes | Cut-off sections kept | Gap passes |",
               "|---|---|---:|---:|---:|---:|"]
     for r in report["runs"]:

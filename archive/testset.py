@@ -172,6 +172,7 @@ class EntryView:
     runs: list[sqlite3.Row] = field(default_factory=list)         # reading/audit runs
     claims: list[dict] = field(default_factory=list)              # with usage pages
     disputed: int = 0                                             # statements the readers disagreed on
+    held_relations: int = 0                                       # one reader's relations, held until reviewed
     relations: list[dict] = field(default_factory=list)
 
     @property
@@ -200,6 +201,13 @@ class EntryView:
         return [u for u in self.usages if u["passage_id"] == located.passage_id
                 and u["char_start"] is not None
                 and u["char_start"] < located.end + window and u["char_end"] > located.start - window]
+
+
+def _held(conn: sqlite3.Connection, relation_ids: list[str]) -> set[str]:
+    if not conn.execute("SELECT name FROM sqlite_master WHERE name = 'assessment'").fetchone():
+        return set()
+    from .review import held_relation_ids
+    return held_relation_ids(conn, relation_ids)
 
 
 def _with_merged(conn: sqlite3.Connection, sources: list[str]) -> list[str]:
@@ -263,16 +271,24 @@ def entry_view(conn: sqlite3.Connection, entry: dict) -> EntryView:
                 continue
             claim["pages"] = sorted({pages[u] for u in uids if pages[u] is not None})
             view.claims.append(claim)
-        grouped = defaultdict(list)
-        for row in conn.execute(f"SELECT relation_id, usage_id FROM relation_usage WHERE usage_id IN ({umarks})",
-                                usage_ids):
-            grouped[row["relation_id"]].append(row["usage_id"])
-        for relation_id, uids in grouped.items():
-            relation = dict(conn.execute("SELECT * FROM relation WHERE id = ?", (relation_id,)).fetchone())
-            if relation["review_state"] in ("superseded", "rejected", "disputed"):
-                continue
-            relation["pages"] = sorted({pages[u] for u in uids if pages[u] is not None})
-            view.relations.append(relation)
+    # Relations: through any located evidence usage in these passages. A relation's own state decides
+    # whether it counts; its evidence quote may have been folded into the other reader's copy.
+    grouped = defaultdict(set)
+    for row in conn.execute(
+            f"""SELECT ru.relation_id, u.char_start, p.page_start, p.text FROM relation_usage ru
+                JOIN usage u ON u.id = ru.usage_id JOIN passage p ON p.id = u.passage_id
+                JOIN source_version v ON v.id = p.version_id WHERE v.source_id IN ({marks})""", sources):
+        page = (row["page_start"] + row["text"].count("\f", 0, row["char_start"])
+                if row["page_start"] is not None and row["char_start"] is not None else None)
+        grouped[row["relation_id"]].add(page)
+    held = _held(conn, list(grouped))
+    view.held_relations = len(held)
+    for relation_id, found_pages in grouped.items():
+        relation = dict(conn.execute("SELECT * FROM relation WHERE id = ?", (relation_id,)).fetchone())
+        if relation["review_state"] in ("superseded", "rejected", "disputed") or relation_id in held:
+            continue  # held: one reader's relation, not published until reviewed
+        relation["pages"] = sorted(p for p in found_pages if p is not None)
+        view.relations.append(relation)
     return view
 
 
@@ -441,13 +457,14 @@ def score(conn: sqlite3.Connection, data: dict, judgements: dict | None = None,
           split: str | None = None) -> dict:
     judgements = judgements or {}
     gate = data.get("gate", {})
-    results, all_usages, seconds, chars, all_disputed = [], [], {}, {}, 0
+    results, all_usages, seconds, chars, all_disputed, all_held = [], [], {}, {}, 0, 0
     for entry in data["entries"]:
         if split and entry["split"] != split:
             continue
         view = entry_view(conn, entry)
         all_usages += view.usages
         all_disputed += view.disputed
+        all_held += view.held_relations
         for model in {r["model"] for r in view.runs if r["role"] == "reading"}:
             runs = [r for r in view.runs if r["role"] == "reading" and r["model"] == model]
             key = (entry["key"], model)
@@ -484,6 +501,7 @@ def score(conn: sqlite3.Connection, data: dict, judgements: dict | None = None,
         "stance_filled": share(statements, lambda u: u["stance"] != "unknown"),
         "entity_mentions": len(located) - len(statements),
         "disputed_statements": all_disputed,
+        "held_relations": all_held,
         "confidence": _confidence(conn, [u["id"] for u in statements]),
         "max_seconds_per_source": max(seconds.values()) if seconds else None,
         "max_seconds_per_1000_chars": max(rates.values()) if rates else None,
@@ -508,10 +526,15 @@ def _confidence(conn: sqlite3.Connection, usage_ids: list[str]) -> dict:
     found = Counter()
     for i in range(0, len(usage_ids), 500):
         chunk = usage_ids[i:i + 500]
-        for row in conn.execute(f"SELECT confidence FROM assessment WHERE current = 1 AND target_table = 'usage'"
-                                f" AND target_id IN ({','.join('?' for _ in chunk)})", chunk):
-            found[row[0]] += 1
-    found["not_reconciled"] = len(usage_ids) - sum(found.values())
+        marks = ",".join("?" for _ in chunk)
+        confirmed = {r[0] for r in conn.execute(
+            f"SELECT id FROM usage WHERE review_state = 'confirmed' AND id IN ({marks})", chunk)}
+        found["confirmed_on_review"] += len(confirmed)
+        for row in conn.execute(f"SELECT target_id, confidence FROM assessment WHERE current = 1"
+                                f" AND target_table = 'usage' AND target_id IN ({marks})", chunk):
+            if row[0] not in confirmed:
+                found[row[1]] += 1
+    found["not_reconciled"] = len(usage_ids) - sum(found.values())   # never compared (or confirmed without one)
     return {k: round(v / len(usage_ids), 3) for k, v in sorted(found.items()) if v}
 
 
@@ -527,6 +550,7 @@ def to_markdown(report: dict) -> str:
              f"{m.get('max_seconds_per_1000_chars')} s (gate {report['gate'].get('seconds_per_1000_chars')});"
              f" over limit: {m['sources_over_time'] or 'none'}",
              f"- Disputed statements (readers disagree, waiting for review): {m.get('disputed_statements', 0)}",
+             f"- Relations held (one reader only, waiting for review): {m.get('held_relations', 0)}",
              f"- Confidence of counted statements: {m.get('confidence') or 'not reconciled'}",
              f"- Expectations: {report['counts']}", "",
              "| Entry | Expectation | Case | Status | Detail |", "|---|---|---|---|---|"]

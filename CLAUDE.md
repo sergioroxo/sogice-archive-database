@@ -39,6 +39,10 @@ The model quotes; software locates. Models never compute offsets.
   disagreements are disputed, not published. Reading time is budgeted per
   1,000 characters (15 s per reader), not per source. The Mac Studio may run
   continuously. See `docs/ACCOUNTABILITY.md`.
+- 10 Nov 2026: a relation only one reader proposed is held from publication
+  until reviewed. The review queue (`docs/REVIEW.md`) is worked by Claude
+  Code with `/review-queue`; rulings are recorded decisions, never
+  researcher-verified; low-confidence ones go to Sérgio.
 - Releases: GitHub (code, static site); Zenodo or DataverseNO (dataset + DOI).
 - Target: working exhibition demo by 31 March 2027.
 
