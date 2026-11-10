@@ -20,7 +20,7 @@ is published as plain fact; edges read "Source X states…" with the quote.
 | Who | Does what |
 |---|---|
 | Python, no model | Fetch, preserve (Wayback), extract text, detect language, cut passages, full-text index, exact matching of seed vocabularies |
-| Local models (Ollama on the Mac Studio) | Bulk reading: Gemma 4 12B; 31B for hard cases and the audit pass. Embeddings: EmbeddingGemma 2 (text, image, audio, video) |
+| Local models (Ollama on the Mac Studio) | Reading and the audit pass: Gemma 4 31B (decided 10 Nov: far fewer attribution errors than the 12B). Embeddings: EmbeddingGemma 2 (text, image, audio, video) |
 | Claude agents (Claude Code / Cowork, Enterprise seat) | Review results and samples, score against the test set, propose prompt/vocabulary/rule changes as commits, organise the review queue. No API pipeline |
 | Sérgio | Samples 30–50 AI decisions a week; final say on method changes |
 
@@ -34,6 +34,8 @@ The model quotes; software locates. Models never compute offsets.
 - No human gate before publication. Every AI decision records actor, model,
   prompt version, quote, reason and audit verdict, and can be undone.
 - All public testimony, from every side, is in scope with attribution.
+- 10 Nov 2026: the 31B reads everything; reading time is budgeted per
+  1,000 characters (15 s), not per source.
 - Releases: GitHub (code, static site); Zenodo or DataverseNO (dataset + DOI).
 - Target: working exhibition demo by 31 March 2027.
 

@@ -18,19 +18,30 @@ ollama:
 
 roles:
   reading:
-    model: gemma4:12b-mlx    # digest 117d0d84cf2a; bulk structured reading
-    description: Bulk reading, one structured call per short document or section
+    model: gemma4:31b-mlx    # digest 637cc0ff1570; chosen by Sérgio 10 Nov (12B failed 15 test expectations, 31B 3)
+    description: All reading, one structured call per section of about 6,000 characters
     temperature: 0
     num_predict: 4096
     num_ctx: 32768
     keep_alive: 10m          # stays loaded between sections of a batch; unloaded when the batch ends
-    seconds_per_1000_chars: 10  # time budget; a source past 3x its budget is stopped (archive/read.py)
+    seconds_per_1000_chars: 15  # time budget; a source past 3x its budget is stopped (archive/read.py)
   audit:
     model: gemma4:31b-mlx    # digest 637cc0ff1570; hard cases and the audit pass
     description: Hard cases and the per-source audit verdict
     temperature: 0
     num_predict: 2048
     num_ctx: 32768
+  # Trial roles: other models tried with the reading settings (read --model-role NAME, on a copy of the
+  # database). Results: docs/MODELS.md. They are never used for stored readings.
+  trial_gemma12b:
+    model: gemma4:12b-mlx    # digest 117d0d84cf2a; the reading model until 10 Nov
+    description: Trial only
+  trial_qwen36_35b:
+    model: qwen3.6:35b-mlx   # digest 1b50c6fdc2d4; 35.1B mixture of experts, nvfp4
+    description: Trial only
+  trial_qwen38_27b:
+    model: qwen3.8:27b-mlx   # digest 5642e97495e1; 27.8B dense, nvfp4
+    description: Trial only
   embedding:
     model: embeddinggemma-2:740m  # digest 969600645b52
     description: Search and attachment suggestions only, never evidence

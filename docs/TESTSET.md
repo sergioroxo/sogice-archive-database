@@ -61,10 +61,10 @@ needed) or error (the test set itself is wrong: fix the anchor, not the model).
 
 90% of model quotes located; speaker and stance filled on 90% of located
 usages (the plan says "filled"; 90% is our working figure); every expectation
-passes; reading takes at most 10 seconds per 1,000 characters. (Until 10 Nov
+passes; reading takes at most 15 seconds per 1,000 characters. (Until 10 Nov
 the limit was 5 minutes per source; a 150-page report cannot meet that, and
 what matters is whether the corpus fits the schedule: about 109 million
-English characters at ~7 s per 1,000 is roughly 200 model hours. Hangs are
+English characters at ~13 s per 1,000 (the 31B) is roughly 390 model hours. Hangs are
 caught separately: see `docs/READING.md`, Safeguards.)
 
 ## For the reading stage

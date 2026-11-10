@@ -54,7 +54,7 @@ the current one is `read-v3`).
 |---|---|
 | A call hangs | 10-minute timeout per call (`ollama.timeout_seconds`); retried once |
 | A reply runs on | token cap per call (`num_predict`); see cut-off replies above |
-| One document holds the batch | stopped past 3× its budget (budget: `seconds_per_1000_chars`, 10; at least 10 minutes), marked failed, batch continues |
+| One document holds the batch | stopped past 3× its budget (budget: `seconds_per_1000_chars`, 15; at least 10 minutes), marked failed, batch continues |
 | The process dies or hangs | each run records `progress` and `heartbeat_at` after every section; `read --status` lists runs in progress and exits 1 if one has had no progress for 20 minutes (usable as a scheduled alarm); the next batch marks such a run failed |
 
 The test-set gate for time is seconds per 1,000 characters read, not a fixed

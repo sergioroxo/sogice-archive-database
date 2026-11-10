@@ -273,6 +273,12 @@ def cmd_read(args: argparse.Namespace) -> int:
     role = cfg.role("reading")
     if args.model_role != "reading":  # another role's model with the reading settings (comparisons)
         import dataclasses
+        if args.model_role == "embedding":
+            print("the embedding model cannot read", file=sys.stderr)
+            return 2
+        if args.model_role.startswith("trial_") and Path(args.db).resolve() == paths.database_path().resolve():
+            print("trial models read into a copy of the database only (--db data/scratch/…)", file=sys.stderr)
+            return 2
         role = dataclasses.replace(role, model=cfg.model_for(args.model_role))
     client = OllamaClient(cfg.base_url, cfg.timeout_seconds)
     results = read.read_sources(conn, client, role, sources, prompt=prompt, chunk_chars=args.chunk_chars,
@@ -374,8 +380,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--again", action="store_true", help="read even if already read with this prompt")
     p.add_argument("--dry-run", action="store_true", help="show sections and the first prompt; no model call")
     p.add_argument("--status", action="store_true", help="show runs in progress; exit 1 if one has stalled")
-    p.add_argument("--model-role", default="reading", choices=["reading", "audit"],
-                   help="use this role's model (from config/models.yaml) with the reading settings")
+    p.add_argument("--model-role", default="reading",
+                   help="use this role's model (config/models.yaml: audit, trial_…) with the reading settings")
     p.set_defaults(func=cmd_read)
 
     args = parser.parse_args(argv)
