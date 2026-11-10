@@ -171,6 +171,7 @@ class EntryView:
     usages: list[sqlite3.Row] = field(default_factory=list)       # model usages
     runs: list[sqlite3.Row] = field(default_factory=list)         # reading/audit runs
     claims: list[dict] = field(default_factory=list)              # with usage pages
+    disputed: int = 0                                             # statements the readers disagreed on
     relations: list[dict] = field(default_factory=list)
 
     @property
@@ -226,21 +227,28 @@ def entry_view(conn: sqlite3.Connection, entry: dict) -> EntryView:
         f"""SELECT u.*, p.page_start, p.page_end, p.text_sha256 AS passage_sha, v.source_id
             FROM usage u JOIN passage p ON p.id = u.passage_id JOIN source_version v ON v.id = p.version_id
             WHERE v.source_id IN ({marks}) AND u.found_by = 'model'
-            AND u.review_state NOT IN ('superseded', 'rejected')""", sources).fetchall()
+            AND u.review_state NOT IN ('superseded', 'rejected', 'disputed')""", sources).fetchall()
     view.usages += conn.execute(  # unlocated quotes have no passage; the run names the source
         f"""SELECT u.*, NULL AS page_start, NULL AS page_end, NULL AS passage_sha,
                    json_extract(r.inputs, '$.source_id') AS source_id
             FROM usage u JOIN run r ON r.id = u.run_id
             WHERE u.passage_id IS NULL AND json_extract(r.inputs, '$.source_id') IN ({marks})
-            AND u.review_state NOT IN ('superseded', 'rejected')""",
+            AND u.review_state NOT IN ('superseded', 'rejected', 'disputed')""",
         sources).fetchall()
-    # The current reading of each source: its latest succeeded run (earlier ones are superseded).
+    # The current reading of each source by each model: its latest succeeded run (a model's earlier
+    # runs are superseded; another model's reading is a second layer, not an earlier version).
     view.runs = conn.execute(
         f"""SELECT * FROM run r WHERE role IN ('reading', 'audit') AND outcome = 'succeeded'
             AND json_extract(inputs, '$.source_id') IN ({marks})
             AND NOT EXISTS (SELECT 1 FROM run later WHERE later.role = r.role AND later.outcome = 'succeeded'
+                            AND later.model IS r.model
                             AND json_extract(later.inputs, '$.source_id') = json_extract(r.inputs, '$.source_id')
                             AND later.started_at > r.started_at)""", sources).fetchall()
+    # Disputed and disputed-out records are not findings: they wait for review.
+    view.disputed = conn.execute(
+        f"""SELECT COUNT(*) FROM usage u JOIN passage p ON p.id = u.passage_id JOIN source_version v ON v.id = p.version_id
+            WHERE v.source_id IN ({marks}) AND u.found_by = 'model' AND u.review_state = 'disputed'""",
+        sources).fetchone()[0]
     usage_ids = [u["id"] for u in view.usages]
     pages = {u["id"]: view.page_of(u) for u in view.usages}
     if usage_ids:
@@ -251,6 +259,8 @@ def entry_view(conn: sqlite3.Connection, entry: dict) -> EntryView:
             grouped[row["claim_id"]].append(row["usage_id"])
         for claim_id, uids in grouped.items():
             claim = dict(conn.execute("SELECT * FROM claim WHERE id = ?", (claim_id,)).fetchone())
+            if claim["review_state"] in ("superseded", "rejected", "disputed"):
+                continue
             claim["pages"] = sorted({pages[u] for u in uids if pages[u] is not None})
             view.claims.append(claim)
         grouped = defaultdict(list)
@@ -259,6 +269,8 @@ def entry_view(conn: sqlite3.Connection, entry: dict) -> EntryView:
             grouped[row["relation_id"]].append(row["usage_id"])
         for relation_id, uids in grouped.items():
             relation = dict(conn.execute("SELECT * FROM relation WHERE id = ?", (relation_id,)).fetchone())
+            if relation["review_state"] in ("superseded", "rejected", "disputed"):
+                continue
             relation["pages"] = sorted({pages[u] for u in uids if pages[u] is not None})
             view.relations.append(relation)
     return view
@@ -429,16 +441,20 @@ def score(conn: sqlite3.Connection, data: dict, judgements: dict | None = None,
           split: str | None = None) -> dict:
     judgements = judgements or {}
     gate = data.get("gate", {})
-    results, all_usages, seconds, chars = [], [], {}, {}
+    results, all_usages, seconds, chars, all_disputed = [], [], {}, {}, 0
     for entry in data["entries"]:
         if split and entry["split"] != split:
             continue
         view = entry_view(conn, entry)
         all_usages += view.usages
-        seconds[entry["key"]] = sum(r["seconds"] or 0 for r in view.runs)
-        read_chars = [json.loads(r["inputs"]).get("chars") for r in view.runs if r["role"] == "reading"]
-        chars[entry["key"]] = (sum(read_chars) if read_chars and None not in read_chars
-                               else sum(len(p["text"]) for p in view.passages))
+        all_disputed += view.disputed
+        for model in {r["model"] for r in view.runs if r["role"] == "reading"}:
+            runs = [r for r in view.runs if r["role"] == "reading" and r["model"] == model]
+            key = (entry["key"], model)
+            seconds[key] = sum(r["seconds"] or 0 for r in runs)
+            read_chars = [json.loads(r["inputs"]).get("chars") for r in runs]
+            chars[key] = (sum(read_chars) if None not in read_chars
+                          else sum(len(p["text"]) for p in view.passages))
         for exp in entry.get("expect", []):
             status, detail = check(conn, view, exp, judgements)
             results.append({"entry": entry["key"], "split": entry["split"], "id": exp["id"],
@@ -449,10 +465,13 @@ def score(conn: sqlite3.Connection, data: dict, judgements: dict | None = None,
     # Time scales with length: the gate is seconds per 1,000 characters read (a fixed limit per
     # source is kept for old test-set files that still give one).
     rates = {k: round(1000 * seconds[k] / chars[k], 2) for k in seconds if chars.get(k) and seconds[k]}
-    if "seconds_per_1000_chars" in gate:
-        over_time = [k for k, r in rates.items() if r > gate["seconds_per_1000_chars"]]
+    if "seconds_per_1000_chars" in gate:  # per reader: each model's reading is budgeted on its own
+        over_time = sorted({k[0] for k, r in rates.items() if r > gate["seconds_per_1000_chars"]})
     else:
-        over_time = [k for k, s in seconds.items() if s > gate.get("seconds_per_source", 300)]
+        per_entry = Counter()
+        for (entry_key, _model), s in seconds.items():
+            per_entry[entry_key] += s
+        over_time = [k for k, s in per_entry.items() if s > gate.get("seconds_per_source", 300)]
 
     def share(rows, test):
         return round(sum(1 for r in rows if test(r)) / len(rows), 3) if rows else None
@@ -464,6 +483,8 @@ def score(conn: sqlite3.Connection, data: dict, judgements: dict | None = None,
         "speaker_filled": share(statements, lambda u: norm(u["speaker"]) not in UNFILLED_SPEAKERS),
         "stance_filled": share(statements, lambda u: u["stance"] != "unknown"),
         "entity_mentions": len(located) - len(statements),
+        "disputed_statements": all_disputed,
+        "confidence": _confidence(conn, [u["id"] for u in statements]),
         "max_seconds_per_source": max(seconds.values()) if seconds else None,
         "max_seconds_per_1000_chars": max(rates.values()) if rates else None,
         "sources_over_time": sorted(over_time),
@@ -480,6 +501,20 @@ def score(conn: sqlite3.Connection, data: dict, judgements: dict | None = None,
             "results": results}
 
 
+def _confidence(conn: sqlite3.Connection, usage_ids: list[str]) -> dict:
+    """Share of the counted statements by reconciliation outcome (none if never reconciled)."""
+    if not usage_ids or not conn.execute("SELECT name FROM sqlite_master WHERE name = 'assessment'").fetchone():
+        return {}
+    found = Counter()
+    for i in range(0, len(usage_ids), 500):
+        chunk = usage_ids[i:i + 500]
+        for row in conn.execute(f"SELECT confidence FROM assessment WHERE current = 1 AND target_table = 'usage'"
+                                f" AND target_id IN ({','.join('?' for _ in chunk)})", chunk):
+            found[row[0]] += 1
+    found["not_reconciled"] = len(usage_ids) - sum(found.values())
+    return {k: round(v / len(usage_ids), 3) for k, v in sorted(found.items()) if v}
+
+
 def to_markdown(report: dict) -> str:
     m = report["metrics"]
     lines = [f"# Test set {report['testset']} ({report['split']})", "",
@@ -491,6 +526,8 @@ def to_markdown(report: dict) -> str:
              f"- Slowest source: {m['max_seconds_per_source']} s; slowest per 1,000 characters: "
              f"{m.get('max_seconds_per_1000_chars')} s (gate {report['gate'].get('seconds_per_1000_chars')});"
              f" over limit: {m['sources_over_time'] or 'none'}",
+             f"- Disputed statements (readers disagree, waiting for review): {m.get('disputed_statements', 0)}",
+             f"- Confidence of counted statements: {m.get('confidence') or 'not reconciled'}",
              f"- Expectations: {report['counts']}", "",
              "| Entry | Expectation | Case | Status | Detail |", "|---|---|---|---|---|"]
     for r in report["results"]:

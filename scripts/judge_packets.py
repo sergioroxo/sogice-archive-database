@@ -1,13 +1,14 @@
-"""Blind packets for judging the test set's `judged` expectations across two readings.
+"""Blind packets for judging the test set's `judged` expectations across two or more readings.
 
-    python scripts/judge_packets.py --a data/archive.db --b data/scratch/other.db --out data/scratch/judging
+    python scripts/judge_packets.py --a data/archive.db --b data/scratch/other.db [more.db …] --out data/scratch/judging
 
 For each judged expectation in the dev split, writes ``<id>.md`` with the
-criterion, the source text it concerns (pages for paged entries) and the two
-readings' records (statements, claims, relations), labelled A and B in a
-random order per packet. The key (which database is A) goes to ``key.json``,
+criterion, the source text it concerns (pages for paged entries) and each
+reading's records (statements, claims, relations), labelled A, B, C… in a
+random order per packet. Disputed and superseded records are not shown: a
+reading is judged on what it would publish. The key (which database is A) goes to ``key.json``,
 which the judge must not read. Verdicts go to ``verdicts.json`` as
-``{id: {"A": {"verdict": "pass"|"fail", "reason": …}, "B": {…}}}``; then
+``{id: {"A": {"verdict": "pass"|"fail", "reason": …}, "B": {…}, …}}``; then
 ``--split-verdicts`` turns them into one judgements file per database for
 ``testset score --judgements``. Packets hold source text: they stay under data/.
 """
@@ -90,7 +91,7 @@ def source_text(conn: sqlite3.Connection, entry: dict, pages) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--a", type=Path, default=paths.database_path())
-    ap.add_argument("--b", type=Path, required=True)
+    ap.add_argument("--b", type=Path, nargs="+", required=True)
     ap.add_argument("--out", type=Path, default=paths.data_dir() / "scratch" / "judging")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--split-verdicts", action="store_true", help="verdicts.json -> one judgements file per database")
@@ -109,7 +110,7 @@ def main() -> int:
             print(path)
         return 0
     data = testset.load_testset(paths.REPO_ROOT / "evaluation" / "testset_2026-11-10.json")
-    conns = {str(args.a): db.connect(args.a), str(args.b): db.connect(args.b)}
+    conns = {str(path): db.connect(path) for path in [args.a, *args.b]}
     rng = random.Random(args.seed)
     key = {}
     for entry in data["entries"]:
@@ -121,12 +122,12 @@ def main() -> int:
             pages = PAGES.get(exp["id"])
             order = list(conns)
             rng.shuffle(order)
-            key[exp["id"]] = {"A": order[0], "B": order[1]}
+            key[exp["id"]] = dict(zip("ABCDEFG", order))
             first = conns[order[0]]
             parts = [f"# {exp['id']} ({entry['key']})", "", "## Criterion", "", exp["criterion"], "",
                      f"## Source text{' (pages %d–%d)' % pages if pages else ''}", "",
                      source_text(first, entry, pages), ""]
-            for label, name in zip("AB", order):
+            for label, name in zip("ABCDEFG", order):
                 parts += [f"## Reading {label}", "", records(conns[name], entry, pages), ""]
             (args.out / f"{exp['id']}.md").write_text("\n".join(parts), encoding="utf-8")
     (args.out / "key.json").write_text(json.dumps(key, indent=1), encoding="utf-8")

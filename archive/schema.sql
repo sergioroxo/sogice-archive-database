@@ -630,3 +630,25 @@ CREATE TRIGGER IF NOT EXISTS release_record_no_delete BEFORE DELETE ON release_r
 BEGIN
   SELECT RAISE(ABORT, 'release records are frozen');
 END;
+
+-- Assessment (v8): how sure we are of a model record, and who looked at it.
+-- Written by archive/reconcile.py each time a source's readings are compared;
+-- the latest row per record has current = 1. readers lists every model that
+-- read the source (run, prompt, when); proposed_by lists those that proposed
+-- this record. differences holds field -> [primary value, second value].
+CREATE TABLE IF NOT EXISTS assessment (
+  id             TEXT PRIMARY KEY,
+  run_id         TEXT NOT NULL REFERENCES run(id),
+  source_id      TEXT NOT NULL REFERENCES source(id),
+  target_table   TEXT NOT NULL CHECK (target_table IN ('usage', 'relation')),
+  target_id      TEXT NOT NULL,
+  counterpart_id TEXT,
+  confidence     TEXT NOT NULL CHECK (confidence IN ('two_readers_agree', 'one_reader', 'readers_disagree', 'single_reading')),
+  readers        TEXT NOT NULL CHECK (json_valid(readers)),
+  proposed_by    TEXT NOT NULL CHECK (json_valid(proposed_by)),
+  differences    TEXT CHECK (differences IS NULL OR json_valid(differences)),
+  current        INTEGER NOT NULL DEFAULT 1 CHECK (current IN (0, 1)),
+  created_at     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_assessment_target ON assessment(target_table, target_id, current);
+CREATE INDEX IF NOT EXISTS idx_assessment_source ON assessment(source_id, current);

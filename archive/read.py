@@ -48,7 +48,7 @@ from .seeds import normalize_label
 from .urls import host_of
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
-DEFAULT_PROMPT = "read-v3"
+DEFAULT_PROMPT = "read-v4"
 GAP_MIN_CHARS = 400
 # Time: a budget per 1,000 characters (config: reading.seconds_per_1000_chars). A source that runs
 # past CEILING_FACTOR times its budget (at least MIN_CEILING_SECONDS) is stopped and marked failed,
@@ -572,12 +572,16 @@ def write_reading(conn: sqlite3.Connection, reading: SourceReading, *, role, pro
 
 
 def supersede_earlier(conn: sqlite3.Connection, source_id: str, new_run_id: str, *, actor_id: str) -> int:
-    """Mark records of earlier reading runs of this source superseded (one decision per run)."""
+    """Mark records of this model's earlier readings of the source superseded (one decision per run).
+
+    Readings by other models are layers, not earlier versions: they stay, and are reconciled
+    with this one (archive/reconcile.py).
+    """
     runs = [r[0] for r in conn.execute(
-        """SELECT id FROM run WHERE role = 'reading' AND outcome = 'succeeded' AND id <> ?
+        """SELECT id FROM run WHERE role = 'reading' AND outcome = 'succeeded' AND id <> ? AND model = ?
            AND json_extract(inputs, '$.source_id') = ?
            AND id NOT IN (SELECT target_id FROM decision WHERE target_table = 'run' AND action = 'supersede')""",
-        (new_run_id, source_id))]
+        (new_run_id, actor_id, source_id))]
     for old in runs:
         usage_ids = "SELECT id FROM usage WHERE run_id = ?"
         conn.execute(f"UPDATE claim SET review_state = 'superseded' WHERE id IN "

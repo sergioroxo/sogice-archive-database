@@ -12,6 +12,8 @@
     python -m archive read [--source ID ...] [--testset [--split dev] [--entry KEY ...]]
                            [--prompt read-v3] [--chunk-chars N] [--again] [--dry-run]
     python -m archive read --status
+    python -m archive read --testset --both     # two readers, then reconcile
+    python -m archive reconcile [--testset|--all|--source ID] [--report-only]
 """
 from __future__ import annotations
 
@@ -281,8 +283,23 @@ def cmd_read(args: argparse.Namespace) -> int:
             return 2
         role = dataclasses.replace(role, model=cfg.model_for(args.model_role))
     client = OllamaClient(cfg.base_url, cfg.timeout_seconds)
-    results = read.read_sources(conn, client, role, sources, prompt=prompt, chunk_chars=args.chunk_chars,
-                                again=args.again, log=lambda line: print(line, flush=True))
+    log = lambda line: print(line, flush=True)
+    if args.both:  # two independent readings, batch by batch (one resident model at a time), then compare
+        import dataclasses
+        from . import reconcile
+        second = dataclasses.replace(role, model=cfg.model_for("reading_second"))
+        results = []
+        for start in range(0, len(sources), args.batch):
+            batch = sources[start:start + args.batch]
+            for layer in (role, second):
+                log(f"=== batch {start // args.batch + 1}: {layer.model} reads {len(batch)} source(s)")
+                results += read.read_sources(conn, client, layer, batch, prompt=prompt, chunk_chars=args.chunk_chars,
+                                             again=args.again, log=log)
+            keepers = sorted({read.keeper(conn, s) for s in batch})
+            log(f"=== batch {start // args.batch + 1}: reconcile {json.dumps(reconcile.reconcile(conn, keepers, primary_model=role.model, models=[role.model, second.model])['counts'])}")
+    else:
+        results = read.read_sources(conn, client, role, sources, prompt=prompt, chunk_chars=args.chunk_chars,
+                                    again=args.again, log=log)
     conn.close()
     stamp = time.strftime("%Y%m%d-%H%M%S")
     queue_import.write_report({"prompt": prompt.version, "model": role.model, "results": results},
@@ -290,6 +307,38 @@ def cmd_read(args: argparse.Namespace) -> int:
     outcomes = Counter(r["outcome"] for r in results)
     print(json.dumps(dict(outcomes)))
     return 1 if outcomes.get("failed") else 0
+
+
+def cmd_reconcile(args: argparse.Namespace) -> int:
+    from . import reconcile
+    from .config import load_models_config
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    conn.execute("PRAGMA busy_timeout = 30000")
+    sources = list(args.source or [])
+    if args.testset:
+        data = testset.load_testset(args.file)
+        sources += [s for e in data["entries"] if not args.split or e["split"] == args.split
+                    for s in testset.entry_sources(e)]
+    if args.all:
+        sources += [r[0] for r in conn.execute(
+            "SELECT DISTINCT json_extract(inputs, '$.source_id') FROM run WHERE role = 'reading' AND outcome = 'succeeded'")]
+    from .read import keeper
+    sources = sorted({keeper(conn, s) for s in sources})
+    if sources and not args.report_only:
+        cfg = load_models_config()
+        primary, second = cfg.model_for("reading"), cfg.model_for("reading_second")
+        print(json.dumps(reconcile.reconcile(conn, sources, primary_model=primary, models=[primary, second]), indent=1))
+    report = reconcile.difficulties(conn, sources or None)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    folder = paths.reports_dir()
+    queue_import.write_report(report, folder, f"difficulties-{stamp}.json")
+    markdown = reconcile.difficulties_markdown(report)
+    (folder / f"difficulties-{stamp}.md").write_text(markdown, encoding="utf-8")
+    print(markdown[:4000])
+    print(f"report: {folder / f'difficulties-{stamp}.md'}")
+    conn.close()
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -380,9 +429,22 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--again", action="store_true", help="read even if already read with this prompt")
     p.add_argument("--dry-run", action="store_true", help="show sections and the first prompt; no model call")
     p.add_argument("--status", action="store_true", help="show runs in progress; exit 1 if one has stalled")
+    p.add_argument("--both", action="store_true",
+                   help="read with the reading and reading_second models, then reconcile (batch by batch)")
+    p.add_argument("--batch", type=int, default=25, help="with --both: sources per batch")
     p.add_argument("--model-role", default="reading",
                    help="use this role's model (config/models.yaml: audit, trial_…) with the reading settings")
     p.set_defaults(func=cmd_read)
+
+    p = sub.add_parser("reconcile", help="compare the two models' readings; write the difficulties report")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--source", action="append")
+    p.add_argument("--testset", action="store_true")
+    p.add_argument("--split", choices=["dev", "holdout"])
+    p.add_argument("--file", type=Path, default=paths.REPO_ROOT / "evaluation" / "testset_2026-11-10.json")
+    p.add_argument("--all", action="store_true", help="every source with a reading")
+    p.add_argument("--report-only", action="store_true", help="write the difficulties report, change nothing")
+    p.set_defaults(func=cmd_reconcile)
 
     args = parser.parse_args(argv)
     return args.func(args)

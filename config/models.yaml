@@ -25,6 +25,9 @@ roles:
     num_ctx: 32768
     keep_alive: 10m          # stays loaded between sections of a batch; unloaded when the batch ends
     seconds_per_1000_chars: 15  # time budget; a source past 3x its budget is stopped (archive/read.py)
+  reading_second:
+    model: qwen3.8:27b-mlx   # digest 5642e97495e1; 27.8B dense; second reader (Sérgio, 10 Nov)
+    description: Second, independent reading with the reading settings; reconciled with the first (archive/reconcile.py)
   audit:
     model: gemma4:31b-mlx    # digest 637cc0ff1570; hard cases and the audit pass
     description: Hard cases and the per-source audit verdict
@@ -38,9 +41,6 @@ roles:
     description: Trial only
   trial_qwen36_35b:
     model: qwen3.6:35b-mlx   # digest 1b50c6fdc2d4; 35.1B mixture of experts, nvfp4
-    description: Trial only
-  trial_qwen38_27b:
-    model: qwen3.8:27b-mlx   # digest 5642e97495e1; 27.8B dense, nvfp4
     description: Trial only
   embedding:
     model: embeddinggemma-2:740m  # digest 969600645b52

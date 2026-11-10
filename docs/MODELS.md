@@ -170,3 +170,90 @@ rules (who owns an interviewer's question, nested quotes, a stated role is
 `employed_by`, a list of people heard states no stance, unlabelled captions)
 and Sérgio's weekly sample. Correct records were never at issue: quotes are
 located by software, so a model cannot invent text, only misattribute it.
+
+## Two readers with prompt read-v4 (10 November, evening)
+
+Both models read all 16 dev entries with `read-v4` (the rules for the shared
+hard cases); `reconcile` then compared them. Each model's reading was also
+scored alone, in a copy of the database with the other reader hidden.
+
+Automatic checks (74 of the 88 expectations):
+
+| Reading | read-v3 failures | read-v4 failures |
+|---|---:|---:|
+| 31B alone | 7 | 4 |
+| Qwen 3.8 27B alone | 6 | 7 |
+| Both, reconciled (what would be published) | – | 5 |
+
+Judged expectations (14), blind, three readings shuffled per packet and
+judged by a separate agent without the key: each reading fails 3 (read-v3:
+6 each). Whole dev split (88 expectations):
+
+| Reading | read-v3 | read-v4 |
+|---|---:|---:|
+| 31B alone | 13 | 7 |
+| Qwen 3.8 27B alone | 12 | 10 |
+| Both, reconciled | – | 8 |
+
+Judged failures: all three still give the interviewer's question to Jack
+Sterling (Christian Concern) and miss Petit's "pauses" use (French pp. 48–49;
+the judge read the criterion as requiring all three uses, a stricter reading
+than "keeps the senses apart"). The 31B alone still leaves out the covenant's
+Sample 1 confidentiality promise and its exceptions, which Qwen records, so
+the combined reading passes. Qwen gives Chambers' words, quoted by Gagnon,
+to Gagnon (Eternity), and that one-reader record carries into the combined
+reading.
+
+What read-v4 changed:
+
+- **Fixed for both:** the Le Refuge figure is now credited to Le Refuge.
+- **Fixed for the 31B:** the list of people heard (pp. 63–64) no longer
+  becomes `affiliated_with` edges (it gives `employed_by` from stated roles,
+  as the rule says); Petit's p. 49 statement; one of the two Davidson host
+  checks.
+- **Still shared:** the list of people heard still gets stances (both); the
+  host's Pink Therapy remark in the Davidson captions is credited to the
+  guest (both).
+- **New failures:** the 31B makes Torrents de Vie the speaker of words that
+  reach the report only through Petit (p. 42); Qwen turns amendments into
+  `co_signatory_of` and `authored_by` edges for the deputies who moved them
+  (p. 42), and gives Petit's words after a page break to the rapporteure
+  (p. 43).
+
+What reconciling did, against the 31B alone:
+
+- **Removed 31B errors** where Qwen disagreed: the Torrents de Vie line was
+  disputed, so it is not published.
+- **Added Qwen's misses back:** the Harvest church-discipline exception,
+  which only Qwen recorded.
+- **Added Qwen's errors:** every failing relation in the combined reading
+  (7 records: amendments as `co_signatory_of`, the list of people heard as
+  `affiliated_with` and `employed_by`) was proposed by Qwen alone.
+- **Held back a correct reading:** the Stop the Ban stance (31B right, Qwen
+  wrong) is disputed, so neither is published. That fails the check, but it
+  is the safe kind of failure: nothing wrong is said.
+
+Disagreements in the dev set (456 statements in 228 pairs, 19 relation
+pairs): 171 on speaker, 128 on stance, 19 on relation type. Of the speaker
+pairs, 49 are "unknown" against a name or a site, many from the list of
+people heard. The commonest stance clash is criticizes against endorses on
+statements that support the ban (49 pairs with the 31B saying criticizes,
+which is the rule; 26 the other way): read-v4 says in words that stance is
+toward the practice, never the ban, and Qwen often does not follow it.
+
+Relations are where the readers agree least: 81 of 280 published relations
+were proposed by both (63 of them `employed_by`); Qwen alone proposed 172,
+the 31B alone 27.
+
+Time (current read-v4 runs, 359,859 characters each):
+
+| Model | Total | s per 1,000 chars | long sources | short sources |
+|---|---:|---:|---:|---:|
+| 31B | 62.4 min | 10.4 | 9.2 | 15.6 |
+| Qwen 3.8 27B | 54.2 min | 9.0 | 8.3 | 12.0 |
+
+The longer prompt costs about 20% on short sources (31B 12.9 → 15.6 s). Five
+short sources go over 15 s per 1,000 characters for one reader, because each
+call repeats the prompt; no source came near the run-time ceiling. Both
+readers over the English corpus (109 M characters, about 60 M in short
+sources): roughly 700 hours, a month of continuous running.

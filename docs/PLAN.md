@@ -44,7 +44,13 @@
    event); speaker, quoted party, intermediary, stance; tactics, practices,
    harm from the facet lists; claims; relations from the closed vocabulary.
    Software locates quotes, drops what it cannot find, resolves endpoints.
-   A local audit pass records a verdict per source.
+   Two readers (decided 10 Nov): two different local models read every
+   source independently with the same prompt; `reconcile` pairs their
+   statements by quote position and records a confidence level per record
+   (both agree / one reader / readers disagree), which models read it and
+   when. Disagreements are disputed and go to review, not to publication.
+   A difficulties register (what the readers found hard) ships with each
+   release. See `docs/ACCOUNTABILITY.md`.
    Completeness: the model receives every passage of every readable copy,
    in order, in sections of about 6,000 characters (a cut-off reply is read
    again as two halves, never shortened). Left out on purpose: blocks

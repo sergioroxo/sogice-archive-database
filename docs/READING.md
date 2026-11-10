@@ -5,7 +5,7 @@
 as usages, claims, entities and relations. The model copies short quotes;
 software finds them in the stored text. Code: `archive/read.py`. Prompts:
 `prompts/read-v*.md` (a new wording gets a new file, so runs stay comparable;
-the current one is `read-v3`).
+the current one is `read-v4`).
 
 ## What the model is given
 
@@ -60,6 +60,21 @@ the current one is `read-v3`).
 The test-set gate for time is seconds per 1,000 characters read, not a fixed
 time per source.
 
+## Two readers
+
+`read --both` reads each batch with the `reading` model, then with the
+`reading_second` model (one resident model at a time), then runs
+`reconcile` on the batch. The two readings are layers: a model reading a
+source again replaces only its own earlier reading. `reconcile` compares
+only the two configured models' latest, not superseded readings (an old
+reading by another model stays in the database for the record but takes no
+part; anything an earlier reconciliation changed on it is undone with a
+recorded `undo`). It pairs
+statements whose quotes overlap, compares speaker and stance, and writes an
+assessment per record (confidence, readers, proposed by, differences); see
+`docs/ACCOUNTABILITY.md`. Agreeing copies are folded into one record (the
+`reading` model's), disagreeing ones are both disputed.
+
 ## Records and undo
 
 Every stored record has a `propose` decision: the model tag, the run, the
@@ -78,6 +93,8 @@ python -m archive read --source src_… --prompt read-v3
 python -m archive read --testset --dry-run             # sections and the first prompt, no model call
 python -m archive testset score --split dev
 python -m archive read --status                        # runs in progress, stalled runs
+python -m archive read --testset --both                # two readers, then reconcile
+python -m archive reconcile --all --report-only        # the difficulties register
 python -m archive read --db data/scratch/copy.db --testset --model-role audit --again   # try the 31B on a copy
 python scripts/probe_reader.py --chunk-chars 1600      # compare variants; writes nothing
 ```

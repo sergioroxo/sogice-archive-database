@@ -11,7 +11,9 @@ def test_repository_config_has_three_roles():
     assert cfg.model_for("reading")
     assert cfg.model_for("audit")
     # Since 10 Nov the 31B both reads and audits (Sérgio's decision); trial roles are named trial_*.
-    assert all(name in config.REQUIRED_ROLES or name.startswith("trial_") for name in cfg.roles)
+    assert all(name in config.REQUIRED_ROLES or name == "reading_second" or name.startswith("trial_")
+               for name in cfg.roles)
+    assert cfg.model_for("reading_second") != cfg.model_for("reading")   # two different readers
     embedding = cfg.role("embedding")
     assert embedding.dimensions == 768
     assert "text" in embedding.modalities
