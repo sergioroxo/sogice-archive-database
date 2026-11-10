@@ -145,7 +145,8 @@ def test_difficulties_report_names_the_disagreements(conn):
 
 @pytest.mark.parametrize("a, b, same", [
     ("Alan Chambers", "Chambers, Exodus president", True),
-    ("Mme Laurence Vanceunebrock, rapporteure", "Mme la rapporteure", True),
+    ("Mme Laurence Vanceunebrock, rapporteure", "Mme la rapporteure", False),   # v3: only with the source's aliases
+    ("Mme Laurence Vanceunebrock, rapporteure", "M. Xavier Breton, rapporteur", False),  # a shared role is not a name
     ("Jack Sterling", "Christian Concern", False),
     ("unknown", "unknown", True),
     ("unknown", "Exodus", False),
@@ -201,3 +202,30 @@ def test_restore_returns_to_the_recorded_earlier_state(conn):
     last = conn.execute("SELECT previous_state FROM decision WHERE target_id = ? AND action = 'merge'",
                         (folded,)).fetchone()[0]
     assert json.loads(last) == {"review_state": "proposed"}
+
+
+def test_v3_resolves_a_role_only_label_to_the_one_person_with_that_role():
+    labels = ["Mme Laurence Vanceunebrock, rapporteure", "Mme Naïma Moutchou, présidente", "M. Xavier Breton"]
+    aliases = reconcile.speaker_aliases(labels)
+    assert aliases == {"rapporteure": "Mme Laurence Vanceunebrock", "presidente": "Mme Naïma Moutchou"}
+    a = {"speaker": "Mme la rapporteure", "stance": "criticizes", "intermediary": ""}
+    b = {"speaker": "Mme Laurence Vanceunebrock, rapporteure", "stance": "criticizes",
+         "intermediary": "assemblee-nationale.fr"}
+    clash, differences = reconcile.compare(a, b, aliases=aliases, site=["assemblee-nationale.fr"])
+    assert not clash and "intermediary" not in differences            # the hosting site says nothing
+    assert reconcile.compare(a, b)[0]                                  # without the source's aliases: two labels
+    two = reconcile.speaker_aliases(labels + ["M. Raphaël Gérard, rapporteure"])
+    assert "rapporteure" not in two                                    # two people with the role: no alias
+
+
+def test_v3_two_names_of_one_registry_entity_are_one_speaker():
+    registry = {"american psychological association": "org:apa", "apa": "org:apa"}
+    a = {"speaker": "APA", "stance": "criticizes", "intermediary": ""}
+    b = {"speaker": "American Psychological Association", "stance": "criticizes", "intermediary": ""}
+    assert not reconcile.compare(a, b, registry=registry)[0]
+    assert reconcile.compare(a, b)[0]
+
+
+def test_v3_one_person_spelt_two_ways_is_still_one_alias():
+    aliases = reconcile.speaker_aliases(["Mme Laurence Vanceunebrock, rapporteure", "Laurence Vanceunebrock, rapporteure"])
+    assert aliases == {"rapporteure": "Mme Laurence Vanceunebrock"}

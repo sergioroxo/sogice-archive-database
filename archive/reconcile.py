@@ -47,13 +47,20 @@ from collections import Counter, defaultdict
 
 from .db import canonical_json, record_decision, utc_now
 
-RULE = "reconcile/v2"
+RULE = "reconcile/v3"
 ACTOR_ID = f"rule:{RULE}"
 ACTOR_PREFIX = "rule:reconcile/"   # earlier versions of this rule too
 MIN_OVERLAP = 0.3
 STANCE_POLE = {"endorses": "+", "criticizes": "-", "denies": "-", "minimizes": "-"}
 _STOP = {"the", "and", "of", "for", "mme", "mrs", "miss", "president", "director", "member", "board",
-         "chair", "founder", "pastor", "interviewer", "host", "guest"}
+         "chair", "founder", "pastor", "interviewer", "host", "guest",
+         # v3: role words say what someone is, not who: "X, rapporteure" and "Y, rapporteure" are two people
+         "presidente", "rapporteur", "rapporteure", "rapporteuse", "depute", "deputee", "ministre", "minister",
+         "secretaire", "secretary", "spokesperson", "executive", "chief", "officer", "commission", "vice",
+         "garde", "sceaux", "senateur", "senatrice", "unknown", "viewer", "unnamed", "template", "signatories",
+         "madame", "monsieur", "directeur", "directrice", "fondateur", "fondatrice", "membre", "chairman"}
+_HONORIFIC = {"m", "mme", "mmes", "mm", "me", "mr", "mrs", "ms", "dr", "madame", "monsieur", "the", "le", "la", "l",
+              "les", "votre", "notre", "our", "your"}
 
 
 def _norm(text: str | None) -> str:
@@ -76,6 +83,47 @@ def same_speaker(a: str | None, b: str | None) -> bool:
 
 def same_name(a: str | None, b: str | None) -> bool:
     return same_speaker(a, b)
+
+
+def _role_only(label: str | None) -> str | None:
+    """'Mme la rapporteure' -> 'rapporteure': a label that names a role and no one (None otherwise)."""
+    words = [w for w in _norm(label).split() if w not in _HONORIFIC]
+    return " ".join(words) if words and all(w in _STOP for w in words) else None
+
+
+def speaker_aliases(labels: list[str]) -> dict[str, str]:
+    """Role-only labels the source makes one person: 'Mme la rapporteure' is 'Laurence Vanceunebrock,
+    rapporteure' when she is the only speaker in the source given that role. Folded role -> name."""
+    names_by_role: dict[str, set] = defaultdict(set)
+    for label in labels:
+        if not label or "," not in label:
+            continue
+        name, role = label.split(",", 1)
+        role_key = _role_only(role)
+        if role_key and not _role_only(name):
+            names_by_role[role_key].add(name.strip())
+    aliases = {}
+    for role, names in names_by_role.items():   # one person, however spelt ("Mme X" and "X")
+        ordered = sorted(names, key=len, reverse=True)
+        if all(same_speaker(ordered[0], other) for other in ordered[1:]):
+            aliases[role] = ordered[0]
+    return aliases
+
+
+def canonical_speaker(label: str | None, aliases: dict[str, str]) -> str | None:
+    role = _role_only(label)
+    return aliases.get(role, label) if role else label
+
+
+def _quiet_intermediary(a: str | None, b: str | None, site: list[str]) -> bool:
+    """An intermediary difference that means nothing: empty against the site or publisher that hosts the
+    record, or two spellings of it ('youtube.com' vs the channel's name)."""
+    x, y = _norm(a), _norm(b)
+    hosts = {_norm(s) for s in site if s}
+    hosts |= {h.replace(" ", "") for h in hosts}
+    def is_site(v):
+        return v in hosts or v.replace(" ", "") in hosts or v in ("youtube com", "youtube")
+    return (not x and is_site(y)) or (not y and is_site(x)) or (is_site(x) and is_site(y))
 
 
 def stances_clash(a: str, b: str) -> bool:
@@ -127,6 +175,18 @@ def settled(conn: sqlite3.Connection, table: str, record_id: str) -> bool:
     """A reviewer or the researcher has ruled on this record: reconciliation must not change its state."""
     last = _effective_last(conn, table, record_id, skip_audits=True)
     return bool(last) and last["action"] != "propose" and not last["actor_id"].startswith(ACTOR_PREFIX)
+
+
+def frozen(conn: sqlite3.Connection, table: str, record_id: str) -> bool:
+    """Ruled on (by a reviewer, the researcher or a rule), or folded by an earlier reconciliation into a
+    record that was: reconciliation leaves it as it is, with the assessment it had (v3)."""
+    if settled(conn, table, record_id):
+        return True
+    last = _last_reconcile_decision(conn, table, record_id)
+    if last and last["action"] == "merge":
+        target = json.loads(last["new_state"] or "{}").get("merged_into")
+        return bool(target) and settled(conn, table, target)
+    return False
 
 
 def _set_claims(conn: sqlite3.Connection, usage_id: str, state: str) -> None:
@@ -221,14 +281,32 @@ def pair_statements(first: list[dict], second: list[dict]) -> tuple[list[tuple[d
             [b for j, b in enumerate(second) if j not in used_b])
 
 
-def compare(a: dict, b: dict) -> tuple[bool, dict]:
-    """(material disagreement?, differences)."""
+def compare(a: dict, b: dict, *, aliases: dict | None = None, site: list[str] = (),
+            registry: dict | None = None) -> tuple[bool, dict]:
+    """(material disagreement?, differences).
+
+    v3: speakers are compared after role-only labels are resolved to the one person the source gives
+    that role (``aliases``) and through the entity registry (two names of one entity are one speaker);
+    an intermediary difference against the hosting site is not recorded.
+    """
+    aliases = aliases or {}
     differences = {}
     for field in ("speaker", "quoted_party", "intermediary", "attribution_mode", "stance"):
         if _norm(a.get(field)) != _norm(b.get(field)):
+            if field == "intermediary" and _quiet_intermediary(a.get(field), b.get(field), site):
+                continue
             differences[field] = [a.get(field), b.get(field)]
-    clash = (not same_speaker(a["speaker"], b["speaker"])) or stances_clash(a["stance"], b["stance"])
+    x, y = canonical_speaker(a["speaker"], aliases), canonical_speaker(b["speaker"], aliases)
+    one_entity = bool(registry) and _entity_of(x, registry) is not None and _entity_of(x, registry) == _entity_of(y, registry)
+    clash = not (same_speaker(x, y) or one_entity) or stances_clash(a["stance"], b["stance"])
     return clash, differences
+
+
+def _entity_of(label: str | None, registry: dict) -> str | None:
+    """The registry entity a speaker label names (the part before any role), if any."""
+    from .rules import bare
+    name = (label or "").split(",")[0]
+    return registry.get(" ".join(bare(name)))
 
 
 # --------------------------------------------------------------------------- reconcile one source
@@ -241,20 +319,32 @@ def reconcile_source(conn: sqlite3.Connection, source_id: str, *, primary_model:
     undone = _release_others(conn, source_id, {r["id"] for r in runs}, run_id)
     if undone:
         counts["undone"] += undone
-    conn.execute("UPDATE assessment SET current = 0 WHERE source_id = ? AND current = 1", (source_id,))
+    ruled: set[str] = set()   # records ruled on since: kept as they are, with their assessment
+    for r in runs:
+        usages, relations = _run_records(conn, r["id"])
+        ruled |= {x for x in usages if frozen(conn, "usage", x)} | {x for x in relations if frozen(conn, "relation", x)}
+    stale = [row[0] for row in conn.execute("SELECT id, target_id FROM assessment WHERE source_id = ? AND current = 1",
+                                            (source_id,)) if row[1] not in ruled]
+    conn.executemany("UPDATE assessment SET current = 0 WHERE id = ?", [(x,) for x in stale])
+    if ruled:
+        counts["kept_ruled"] += len(ruled)
     if not runs:
         return counts
     for r in runs:  # restore first, then read the records' states
         usages, relations = _run_records(conn, r["id"])
-        _restore(conn, "usage", usages)
-        _restore(conn, "relation", relations)
+        _restore(conn, "usage", [x for x in usages if x not in ruled])
+        _restore(conn, "relation", [x for x in relations if x not in ruled])
     readers = [{"model": r["model"], "run_id": r["id"], "prompt": r["prompt_version"],
                 "read_at": r["finished_at"] or r["started_at"]} for r in runs]
     runs = sorted(runs, key=lambda r: r["model"] != primary_model)       # primary first
-    statements = {r["id"]: _statements(conn, r["id"]) for r in runs}
-    relations = {r["id"]: _relations(conn, r["id"]) for r in runs}
+    statements = {r["id"]: [u for u in _statements(conn, r["id"]) if u["id"] not in ruled] for r in runs}
+    relations = {r["id"]: [x for x in _relations(conn, r["id"]) if x["id"] not in ruled] for r in runs}
     model_of = {r["id"]: r["model"] for r in runs}
     now = utc_now()
+    from .rules import _registry, _document_names
+    aliases = speaker_aliases([u["speaker"] for rows in statements.values() for u in rows])
+    site = _document_names(conn, source_id)
+    registry = _registry(conn)
 
     def assess(table, record, confidence, *, counterpart=None, differences=None, proposed_by):
         conn.execute(
@@ -291,7 +381,7 @@ def reconcile_source(conn: sqlite3.Connection, source_id: str, *, primary_model:
     pairs, only_first, only_second = pair_statements(statements[first["id"]], statements[second["id"]])
     both = [first["model"], second["model"]]
     for a, b in pairs:
-        clash, differences = compare(a, b)
+        clash, differences = compare(a, b, aliases=aliases, site=site, registry=registry)
         if clash:
             for record, other in ((a, b), (b, a)):
                 assess("usage", record, "readers_disagree", counterpart=other, differences=differences,
@@ -408,11 +498,17 @@ def difficulties(conn: sqlite3.Connection, source_ids: list[str] | None = None, 
             JOIN run ru ON ru.id = d.run_id WHERE ru.role = 'audit' AND json_extract(ru.inputs, '$.job') = 'review'
             AND d.action <> 'undo' AND NOT EXISTS (SELECT 1 FROM decision u WHERE u.reverts_decision_id = d.id)
             GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 3""").fetchall()
+    rule_rows = conn.execute(
+        """SELECT json_extract(d.new_state, '$.rule') AS rule, d.action, COUNT(*) n, MIN(d.reason) example
+           FROM decision d WHERE d.actor_id LIKE 'rule:relations/%' AND d.action IN ('reject', 'edit', 'confirm')
+           AND NOT EXISTS (SELECT 1 FROM decision u WHERE u.reverts_decision_id = d.id)
+           GROUP BY 1, 2 ORDER BY 1, 2""").fetchall()
     held = sum(1 for r in rows if r["target_table"] == "relation" and r["confidence"] in ("one_reader", "single_reading")
                and conn.execute("SELECT review_state FROM relation WHERE id = ?", (r["target_id"],)).fetchone()[0] == "proposed")
     return {"confidence": {f"{t}:{c}": n for (t, c), n in sorted(confidence.items())},
             "corrections": [dict(r) for r in corrections],
             "reviews": [dict(r) for r in reviews],
+            "rules": [dict(r) for r in rule_rows],
             "held_relations": held,
             "disagreements_by_field": dict(fields.most_common()),
             "examples": {k: v for k, v in by_field.items()},
@@ -450,6 +546,13 @@ def difficulties_markdown(report: dict) -> str:
                   "Changes an earlier reconciliation made to records it should not have compared, undone",
                   "with a recorded 'undo' decision each:", ""]
         lines += [f"- {c['target_table']}: {c['n']} ({c['first'][:10]}–{c['last'][:10]})" for c in report["corrections"]]
+    if report.get("rules"):
+        lines += ["", "## Relations decided by rule", "",
+                  "Software rules on the readers' relations (archive/rules.py), each a recorded decision with",
+                  "its reason; `review undo --run` reverses a run:", "",
+                  "| Rule | Action | Relations | Example |", "|---|---|---:|---|"]
+        lines += [f"| {r['rule']} | {r['action']} | {r['n']} | {r['example'][:110].replace('|', '/')} |"
+                  for r in report["rules"]]
     lines += ["", "## Review", "",
               f"Relations held from publication (one reader only, not yet reviewed): {report.get('held_relations', 0)}", ""]
     if report.get("reviews"):

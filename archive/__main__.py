@@ -13,8 +13,9 @@
                            [--prompt read-v3] [--chunk-chars N] [--again] [--dry-run]
     python -m archive read --status
     python -m archive read --testset --both     # two readers, then reconcile
-    python -m archive reconcile [--testset|--all|--source ID] [--report-only]
+    python -m archive reconcile [--testset|--all|--source ID] [--report-only] [--no-rules]
     python -m archive review prepare|apply|status|undo   # the review queue (data/review/)
+    python -m archive speakers SOURCE [--set "Name=role" …] [--note TEXT]   # who speaks in a recording
 """
 from __future__ import annotations
 
@@ -298,6 +299,8 @@ def cmd_read(args: argparse.Namespace) -> int:
                                              again=args.again, log=log)
             keepers = sorted({read.keeper(conn, s) for s in batch})
             log(f"=== batch {start // args.batch + 1}: reconcile {json.dumps(reconcile.reconcile(conn, keepers, primary_model=role.model, models=[role.model, second.model])['counts'])}")
+            from . import rules
+            log(f"=== batch {start // args.batch + 1}: rules {json.dumps(rules.apply_rules(conn, keepers)['counts'])}")
     else:
         results = read.read_sources(conn, client, role, sources, prompt=prompt, chunk_chars=args.chunk_chars,
                                     again=args.again, log=log)
@@ -330,6 +333,9 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
         cfg = load_models_config()
         primary, second = cfg.model_for("reading"), cfg.model_for("reading_second")
         print(json.dumps(reconcile.reconcile(conn, sources, primary_model=primary, models=[primary, second]), indent=1))
+        if not args.no_rules:   # the software rules on relations (archive/rules.py)
+            from . import rules
+            print(json.dumps(rules.apply_rules(conn, sources), indent=1))
     report = reconcile.difficulties(conn, sources or None)
     stamp = time.strftime("%Y%m%d-%H%M%S")
     folder = paths.reports_dir()
@@ -376,6 +382,33 @@ def cmd_review(args: argparse.Namespace) -> int:
         n = review.undo(conn, args.run, reason=args.reason or "review run undone by researcher", actor_id=args.actor)
         print(f"undone: {n} decision(s) of {args.run}")
     conn.close()
+    return 0
+
+
+def cmd_speakers(args: argparse.Namespace) -> int:
+    """The researcher's list of who speaks in a recording without speaker labels (read-v5 header)."""
+    conn = db.connect(args.db)
+    sid = read.keeper(conn, args.source)
+    conn.close()
+    path = read.speaker_map_path(sid)
+    data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"speakers": []}
+    for item in args.set or []:
+        name, _, role = item.partition("=")
+        if not name.strip():
+            print(f"--set needs 'Name=role', got {item!r}", file=sys.stderr)
+            return 2
+        data["speakers"] = [s for s in data["speakers"] if s["name"] != name.strip()]
+        data["speakers"].append({"name": name.strip(), "role": role.strip()})
+    for name in args.remove or []:
+        data["speakers"] = [s for s in data["speakers"] if s["name"] != name]
+    if args.note is not None:
+        data["note"] = args.note
+    if args.set or args.remove or args.note is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data["source_id"], data["updated_at"] = sid, db.utc_now()
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(json.dumps(data, ensure_ascii=False, indent=1))
+    print("\n".join(read.speaker_lines(read.speaker_map(sid))) or "no speaker map", file=sys.stderr)
     return 0
 
 
@@ -482,6 +515,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--file", type=Path, default=paths.REPO_ROOT / "evaluation" / "testset_2026-11-10.json")
     p.add_argument("--all", action="store_true", help="every source with a reading")
     p.add_argument("--report-only", action="store_true", help="write the difficulties report, change nothing")
+    p.add_argument("--no-rules", action="store_true", help="compare the readings only; skip the relation rules")
     p.set_defaults(func=cmd_reconcile)
 
     p = sub.add_parser("review", help="the review queue: packets for disputed and held records, verdicts, undo")
@@ -497,6 +531,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--reason", help="with undo: why")
     p.add_argument("--actor", default="sergio", help="with undo: researcher id")
     p.set_defaults(func=cmd_review)
+
+    p = sub.add_parser("speakers", help="who speaks in a recording without speaker labels (shown to the readers)")
+    p.add_argument("source", help="source id")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--set", action="append", metavar="NAME=ROLE", help="add or change a speaker, e.g. 'Jane Doe=host'")
+    p.add_argument("--remove", action="append", metavar="NAME", help="remove a speaker")
+    p.add_argument("--note", help="a note for the readers (e.g. 'the host tells her own story at 12:00')")
+    p.set_defaults(func=cmd_speakers)
 
     args = parser.parse_args(argv)
     return args.func(args)

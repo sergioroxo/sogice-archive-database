@@ -83,12 +83,16 @@ Phase 3 test set as built (10 Nov 2026): `evaluation/testset_2026-11-10.json`
 2. A Claude agent reads the results, the test set and a random sample.
 3. It proposes prompt / vocabulary / rule changes as commits, with reasons.
 4. The anchor set is re-run locally; keep the change only if scores improve.
-5. Disputed cases and relations only one reader proposed go to the review
+5. Software rules decide the relations that need no judgement (role lines,
+   ends that are not names, amendments; `archive/rules.py`). Disputed cases
+   and relations only one reader proposed go to the review
    queue (`docs/REVIEW.md`): a Claude Code session rules on them with a saved
    prompt (`/review-queue`), blind to which model wrote which reading, on a
    quote from the source; unsure cases go to Sérgio, who also samples the
-   rulings. Later (Phase 4), a local pass with the lexicon and the entity
-   registry as context can settle the mechanical ones first.
+   rulings. Each review run ends with a patterns note: recurring rulings
+   become rules (in the prompt or in software) once tested on the test set.
+   Later (Phase 4), a local pass with the lexicon and the entity registry as
+   context can settle the mechanical ones first.
 
 ## Data model
 

@@ -25,8 +25,9 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
-SCHEMA_VERSION = 8  # v2 source_target; v3 fetch_attempt; v4 time_start/time_end; v5 local_file route;
-                    # v6 source.merged_into; v7 run.progress, run.heartbeat_at; v8 assessment
+SCHEMA_VERSION = 9  # v2 source_target; v3 fetch_attempt; v4 time_start/time_end; v5 local_file route;
+                    # v6 source.merged_into; v7 run.progress, run.heartbeat_at; v8 assessment;
+                    # v9 usage.ban_position (the speaker's position on a ban, read-v5)
 
 # Column additions for databases created by an older schema.sql. New tables
 # and indexes need no entry: schema.sql creates them IF NOT EXISTS.
@@ -39,6 +40,7 @@ MIGRATIONS = (
     (6, "source", "merged_into", "TEXT REFERENCES source(id)"),
     (7, "run", "progress", "TEXT CHECK (progress IS NULL OR json_valid(progress))"),
     (7, "run", "heartbeat_at", "TEXT"),
+    (9, "usage", "ban_position", "TEXT CHECK (ban_position IS NULL OR ban_position IN ('supports', 'opposes', 'none'))"),
 )
 GENESIS_HASH = "0" * 64
 

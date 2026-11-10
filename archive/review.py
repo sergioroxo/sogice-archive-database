@@ -128,6 +128,9 @@ def find_issues(conn: sqlite3.Connection, source_ids: list[str] | None = None) -
             seen.add(pair)
             recs = [dict(conn.execute(f"SELECT * FROM {table} WHERE id = ?", (x,)).fetchone()) for x in pair]
             if any(r["review_state"] != "disputed" for r in recs):
+                left = [r for r in recs if r["review_state"] == "disputed"]
+                if table == "relation" and len(left) == 1:   # a rule ruled on the other copy: this one alone
+                    issues.append(Issue(issue_id([left[0]["id"]]), "relation_held", table, sid, left, "readers_disagree"))
                 continue
             kind = "statement_dispute" if table == "usage" else "relation_dispute"
             issues.append(Issue(issue_id(list(pair)), kind, table, sid, recs, "readers_disagree"))
@@ -249,7 +252,8 @@ def _describe(issue: Issue, record: dict, evidence: list[dict]) -> list[str]:
         claim = "yes" if record.get("_claim") else "no"
         return [f"- quote: “{record['quote']}”", f"- speaker: {record['speaker'] or ''}",
                 f"- quoted party: {record['quoted_party'] or ''}", f"- intermediary: {record['intermediary'] or ''}",
-                f"- attribution: {record['attribution_mode']}", f"- stance: {record['stance']}",
+                f"- attribution: {record['attribution_mode']}", f"- stance: {record['stance']}"] + (
+                [f"- position on a ban: {record['ban_position']}"] if record.get("ban_position") else []) + [
                 f"- recorded as a checkable claim: {claim}"]
     lines = [f"- relation: **{record['subject_label']}** `{record['type']}` **{record['object_label']}**",
              f"- stated by: {record['attribution'] or ''}"]
@@ -271,8 +275,9 @@ QUESTIONS = {
                          "text support: A, B, neither (say what is right), or needs_researcher?",
     "relation_dispute": "The two readers name the same two parties but give a different relation. Which does "
                         "the text state: A, B, neither (say which type, or none), or needs_researcher?",
-    "relation_held": "Only one reader proposed this relation, so it is held from publication. Does the text "
-                     "state it, as written (A), not at all or differently (neither), or needs_researcher?",
+    "relation_held": "This relation is held from publication (only one reader proposed it, or the other "
+                     "reader's version was settled by a rule). Does the text state it, as written (A), not at "
+                     "all or differently (neither), or needs_researcher?",
 }
 
 

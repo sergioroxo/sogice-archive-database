@@ -49,6 +49,15 @@ from .urls import host_of
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 DEFAULT_PROMPT = "read-v4"
+# What a prompt's answer holds beyond read-v4's fields (the response schema follows the prompt):
+# ban_position: the speaker's position on a ban, from which software sets the stance;
+# strict_attribution: "unknown" is not an allowed attribution (the prompt never offers it).
+PROMPT_FEATURES = {"read-v5": frozenset({"ban_position", "strict_attribution"}),
+                   "read-v6": frozenset({"ban_position", "strict_attribution"})}
+BAN_POSITIONS = ("supports", "opposes", "none")
+# "host" and "guest" are roles, not names (read-v5): the host's turns are the interviewer's;
+# a turn credited to "the guest" without a name is not known to be the guest's.
+NOT_NAMES = {"host": "interviewer", "the host": "interviewer", "guest": "unknown", "the guest": "unknown"}
 GAP_MIN_CHARS = 400
 # Time: a budget per 1,000 characters (config: reading.seconds_per_1000_chars). A source that runs
 # past CEILING_FACTOR times its budget (at least MIN_CEILING_SECONDS) is stopped and marked failed,
@@ -84,6 +93,10 @@ class Prompt:
     def sha256(self) -> str:
         return hashlib.sha256(self.text.encode("utf-8")).hexdigest()
 
+    @property
+    def features(self) -> frozenset:
+        return PROMPT_FEATURES.get(self.version, frozenset())
+
 
 def load_prompt(version: str = DEFAULT_PROMPT, folder: Path = PROMPTS_DIR) -> Prompt:
     path = folder / f"{version}.md"
@@ -92,17 +105,21 @@ def load_prompt(version: str = DEFAULT_PROMPT, folder: Path = PROMPTS_DIR) -> Pr
     return Prompt(version, path.read_text(encoding="utf-8"))
 
 
-def response_schema(unit_ids: list[str]) -> dict:
+def response_schema(unit_ids: list[str], features: frozenset = frozenset()) -> dict:
     unit = {"type": "string", "enum": list(unit_ids)}
     text = {"type": "string"}
+    attributions = [a for a in ATTRIBUTIONS if a != "unknown" or "strict_attribution" not in features]
     statement = {
         "type": "object", "additionalProperties": False,
         "required": ["quote", "speaker", "quoted_party", "intermediary", "attribution", "stance", "claim"],
         "properties": {
             "quote": text, "speaker": text, "quoted_party": text, "intermediary": text,
-            "attribution": {"type": "string", "enum": list(ATTRIBUTIONS)},
+            "attribution": {"type": "string", "enum": attributions},
             "stance": {"type": "string", "enum": list(STANCES)},
             "claim": {"type": "boolean"}}}
+    if "ban_position" in features:   # asked after the stance, before the claim flag
+        statement["required"].insert(6, "ban_position")
+        statement["properties"]["ban_position"] = {"type": "string", "enum": list(BAN_POSITIONS)}
     return {
         "type": "object", "additionalProperties": False,
         "required": ["statements", "entities", "relations"],
@@ -188,6 +205,36 @@ def _where(unit: dict) -> str:
     return ""
 
 
+def speaker_map_path(source_id: str) -> Path:
+    from .paths import data_dir
+    return data_dir() / "speakers" / f"{source_id}.json"
+
+
+def speaker_map(source_id: str) -> dict | None:
+    """The researcher's list of who speaks in a recording without speaker labels, if there is one.
+
+    ``data/speakers/<source_id>.json``: {"speakers": [{"name": "…", "role": "host"}, …], "note": "…"}.
+    It goes into the header the readers see, and its hash into the run's inputs.
+    """
+    path = speaker_map_path(source_id)
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    speakers = [s for s in data.get("speakers") or [] if isinstance(s, dict) and _blank(s.get("name"))]
+    return {**data, "speakers": speakers} if speakers else None
+
+
+def speaker_lines(smap: dict | None) -> list[str]:
+    if not smap:
+        return []
+    who = "; ".join(f"{s['name'].strip()}" + (f" ({s['role'].strip()})" if _blank(s.get("role")) else "")
+                    for s in smap["speakers"])
+    lines = [f"Speakers of this recording (named by the researcher): {who}"]
+    if _blank(smap.get("note")):
+        lines.append(f"Note from the researcher on the speakers: {smap['note'].strip()}")
+    return lines
+
+
 def source_header(conn: sqlite3.Connection, source_id: str) -> str:
     s = conn.execute("SELECT * FROM source WHERE id = ?", (source_id,)).fetchone()
     lines = [f"Source URL: {s['url']}", f"Site: {host_of(s['url'])}"]
@@ -200,6 +247,7 @@ def source_header(conn: sqlite3.Connection, source_id: str) -> str:
     if s["captured_date"]:
         lines.append(f"Captured by the Wayback Machine: {s['captured_date']} (a capture date, "
                      "not a publication date)")
+    lines += speaker_lines(speaker_map(source_id))
     return "\n".join(lines)
 
 
@@ -262,7 +310,8 @@ class Reader:
     def _call(self, messages: list[dict], unit_ids: list[str]):
         extra = self.role.extra
         return self.client.chat_json(
-            self.role.model, messages, schema=response_schema(unit_ids), temperature=self.role.temperature,
+            self.role.model, messages, schema=response_schema(unit_ids, self.prompt.features),
+            temperature=self.role.temperature,
             num_predict=int(extra.get("num_predict", 4096)), num_ctx=extra.get("num_ctx"),
             keep_alive=extra.get("keep_alive", 0))
 
@@ -428,6 +477,26 @@ class EntityResolver:
         return entity_id, True
 
 
+STANCE_RULE = "ban/v2"
+# The stances software replaces from a ban position: the two the readers confuse with a stance toward the
+# ban, and "no stance given". Anything finer (mixed, minimizes, denies, acknowledges) and the neutral
+# describes/reports stay as the reader gave them: describing a bill or reporting that bans exist is not
+# criticizing the practice (ban/v1, used by the first read-v5 runs, also replaced describes and reports).
+_REPLACED = {"supports": ("endorses", "not_applicable", "unclear"),
+             "opposes": ("criticizes", "not_applicable", "unclear")}
+
+
+def stance_from_ban(stance: str, ban_position: str | None) -> str:
+    """Stance toward the practice, set by software from the speaker's position on a ban (read-v5 on).
+
+    Supporting a ban is criticizing the practice; opposing one is endorsing it. Only a stance that reads
+    as a stance toward the ban (or none) is replaced; see ``_REPLACED``.
+    """
+    if stance in _REPLACED.get(ban_position or "", ()):
+        return "criticizes" if ban_position == "supports" else "endorses"
+    return stance
+
+
 def _overlapping(usages: list[dict], passage_id: str, start: int, end: int) -> dict | None:
     for u in usages:
         if u["passage_id"] == passage_id and u["char_start"] < end and start < u["char_end"]:
@@ -441,7 +510,8 @@ def write_reading(conn: sqlite3.Connection, reading: SourceReading, *, role, pro
     now = utc_now()
     counts = {"statements": 0, "located": 0, "unlocated": 0, "claims": 0, "entity_mentions": 0,
               "new_entities": 0, "relations": 0, "relations_dropped": 0, "long_quotes": 0,
-              "repeats_dropped": 0, "salvaged_sections": sum(c.salvaged for c in reading.chunks)}
+              "repeats_dropped": 0, "stance_from_ban": 0,
+              "salvaged_sections": sum(c.salvaged for c in reading.chunks)}
     unlocated_examples: list[dict] = []
 
     def decide(table: str, target_id: str, reason: str, quote: str | None = None):
@@ -475,11 +545,17 @@ def write_reading(conn: sqlite3.Connection, reading: SourceReading, *, role, pro
             if len(quote.split()) > MAX_QUOTE_WORDS:
                 counts["long_quotes"] += 1
             found = locate_quote(quote, chunk.records, preferred_unit_id=s.get("unit"))
-            fields = {"speaker": _blank(s.get("speaker")) or "unknown",
+            speaker = _blank(s.get("speaker")) or "unknown"
+            speaker = NOT_NAMES.get(speaker.casefold(), speaker)
+            model_stance = s.get("stance") if s.get("stance") in STANCES else "unknown"
+            ban = s.get("ban_position") if s.get("ban_position") in BAN_POSITIONS else None
+            fields = {"speaker": speaker,
                       "quoted_party": _blank(s.get("quoted_party")),
                       "intermediary": _blank(s.get("intermediary")),
                       "attribution_mode": s.get("attribution") if s.get("attribution") in ATTRIBUTIONS else "unknown",
-                      "stance": s.get("stance") if s.get("stance") in STANCES else "unknown"}
+                      "stance": stance_from_ban(model_stance, ban), "ban_position": ban}
+            if fields["stance"] != model_stance:
+                counts["stance_from_ban"] += 1
             if found is None:
                 counts["unlocated"] += 1
                 if len(unlocated_examples) < 20:
@@ -494,8 +570,10 @@ def write_reading(conn: sqlite3.Connection, reading: SourceReading, *, role, pro
                                 "evidence_state": "located"})
             counts["located"] += 1
             statements.append(row)
+            mapped = (f"; stance set by software from ban position '{ban}' (the reader gave '{model_stance}')"
+                      if fields["stance"] != model_stance else "")
             decide("usage", row["id"], f"Statement by {fields['speaker']} ({fields['attribution_mode']}, "
-                                       f"{fields['stance']}); quote located by software ({found['method']}).",
+                                       f"{fields['stance']}); quote located by software ({found['method']}){mapped}.",
                    found["quote"])
             if s.get("claim") is True:
                 claim_id = f"clm_{uuid.uuid4().hex[:20]}"
@@ -680,6 +758,11 @@ def _read_all(conn, reader: Reader, role, source_ids: list[str], *, again: bool,
                   "chunk_chars": chunk_chars, "passages": len(units), "sections": len(chunks),
                   "chars": sum(len(u["text"]) for u in units),
                   "versions": sorted({u["version_id"] for u in units}), "skipped": skipped}
+        if "ban_position" in prompt.features:   # which version of the ban-to-stance rule wrote the stances
+            inputs["stance_rule"] = STANCE_RULE
+        smap = speaker_map(source_id)
+        if smap:  # what the researcher told the readers about who speaks
+            inputs["speaker_map_sha256"] = hashlib.sha256(canonical_json(smap).encode()).hexdigest()
         with conn:
             conn.execute("INSERT INTO run(id, role, model, prompt_version, inputs, started_at, heartbeat_at,"
                          " progress) VALUES (?, 'reading', ?, ?, ?, ?, ?, ?)",

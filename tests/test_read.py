@@ -321,3 +321,82 @@ def test_looping_single_passage_is_salvaged_not_failed(conn):
     assert results[0]["outcome"] == "succeeded"
     assert results[0]["located"] == 1 and results[0]["repeats_dropped"] == 29
     assert results[0]["salvaged_sections"] == 1
+
+
+# --------------------------------------------------------------------------- read-v5
+
+V5 = read.load_prompt("read-v5")
+
+
+def test_read_v5_asks_for_the_ban_position_and_allows_no_unknown_attribution():
+    item = read.response_schema(["P1"], V5.features)["properties"]["statements"]["properties"]["P1"]["items"]
+    assert "ban_position" in item["required"]
+    assert item["properties"]["ban_position"]["enum"] == ["supports", "opposes", "none"]
+    assert "unknown" not in item["properties"]["attribution"]["enum"]
+    for name in item["required"]:
+        assert re.search(rf"\b{name}\b", V5.text), name
+    old = read.response_schema(["P1"])["properties"]["statements"]["properties"]["P1"]["items"]
+    assert "ban_position" not in old["required"]                      # read-v4 runs stay as they were
+
+
+@pytest.mark.parametrize("stance, ban, expected", [
+    ("endorses", "supports", "criticizes"),       # supporting a ban read as endorsing it
+    ("criticizes", "opposes", "endorses"),        # "the ban harms…" read as criticizing
+    ("not_applicable", "supports", "criticizes"),
+    ("unclear", "opposes", "endorses"),
+    ("mixed", "opposes", "mixed"),
+    ("minimizes", "opposes", "minimizes"),
+    ("describes", "supports", "describes"),       # what a bill contains is not a criticism
+    ("reports", "supports", "reports"),           # "22 states have enacted bans"
+    ("reports", "opposes", "reports"),
+    ("describes", "none", "describes"),
+    ("describes", None, "describes"),
+])
+def test_stance_is_set_from_the_ban_position(stance, ban, expected):
+    assert read.stance_from_ban(stance, ban) == expected
+
+
+def test_v5_reading_maps_stance_and_drops_host_and_guest_as_names(conn):
+    answer = good_reply()
+    first, second = answer["statements"]["P1"][0], answer["statements"]["P2"][0]
+    first.update(stance="endorses", ban_position="supports")
+    second.update(speaker="guest", stance="criticizes", ban_position="opposes")
+    for items in answer["statements"].values():
+        for s in items:
+            s.setdefault("ban_position", "none")
+    read.read_sources(conn, FakeClient([answer]), ROLE, [SID], prompt=V5)
+    rows = {r["quote"]: r for r in conn.execute("SELECT * FROM usage WHERE entity_id IS NULL")}
+    closing = rows["We are closing the ministry today."]
+    assert (closing["stance"], closing["ban_position"]) == ("criticizes", "supports")
+    reason = conn.execute("SELECT reason FROM decision WHERE target_id = ?", (closing["id"],)).fetchone()[0]
+    assert "set by software from ban position 'supports' (the reader gave 'endorses')" in reason
+    generation = rows["a new generation is looking for change"]
+    assert (generation["speaker"], generation["stance"]) == ("unknown", "endorses")
+    run = json.loads(conn.execute("SELECT inputs FROM run WHERE role = 'reading'").fetchone()[0])
+    assert run["counts"]["stance_from_ban"] == 2 and run["stance_rule"] == read.STANCE_RULE
+
+
+def test_the_researchers_speaker_map_goes_into_the_header(conn, tmp_path, monkeypatch):
+    monkeypatch.setenv("SOGICE_DATA_DIR", str(tmp_path))
+    assert "Speakers of this recording" not in read.source_header(conn, SID)
+    (tmp_path / "speakers").mkdir()
+    (tmp_path / "speakers" / f"{SID}.json").write_text(json.dumps(
+        {"speakers": [{"name": "Jane Host", "role": "host"}, {"name": "Joe Guest", "role": "guest"}],
+         "note": "The host tells her own story at 12:00."}))
+    header = read.source_header(conn, SID)
+    assert "Speakers of this recording (named by the researcher): Jane Host (host); Joe Guest (guest)" in header
+    assert "The host tells her own story" in header
+    read.read_sources(conn, FakeClient([good_reply()]), ROLE, [SID])
+    inputs = json.loads(conn.execute("SELECT inputs FROM run WHERE role = 'reading'").fetchone()[0])
+    assert len(inputs["speaker_map_sha256"]) == 64
+
+
+def test_the_speakers_command_writes_the_map(conn, tmp_path, monkeypatch, capsys):
+    from archive.__main__ import main
+    monkeypatch.setenv("SOGICE_DATA_DIR", str(tmp_path))
+    db_path = tmp_path / "a.db"
+    assert main(["speakers", SID, "--db", str(db_path), "--set", "Jane Host=host", "--note", "Unlabelled."]) == 0
+    assert main(["speakers", SID, "--db", str(db_path), "--set", "Joe Guest=guest"]) == 0
+    saved = json.loads((tmp_path / "speakers" / f"{SID}.json").read_text())
+    assert [s["name"] for s in saved["speakers"]] == ["Jane Host", "Joe Guest"] and saved["note"] == "Unlabelled."
+    assert "Jane Host (host); Joe Guest (guest)" in read.source_header(conn, SID)

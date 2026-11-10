@@ -271,3 +271,78 @@ The scorer used to miss relations whose evidence quote had been folded into
 the other reader's copy; it now finds relations through any located quote
 in the source. The combined figure above (5 before holding) was re-checked
 with the fixed scorer and holds.
+
+## Prompt read-v5 and the relation rules (11 November)
+
+Both readers read the 16 dev entries with `read-v5` (the trial's rules:
+`docs/REVIEW.md`), on a copy of the database; reconcile v3 and the relation
+rules (`archive/rules.py`) then ran on it. The comparison is with the read-v4
+readings put through the same reconcile and rules. Each reader alone is
+scored in a copy where the other reader is hidden and the rules are applied
+again to that reader's records (`scripts/solo_copy.py --rules`). Judged
+expectations: four readings per packet, shuffled, two blind judges (seven
+packets each) without the key.
+
+| Reading | read-v4 + rules | read-v5 + rules |
+|---|---:|---:|
+| Both, reconciled: automatic (74) | 3 | 5 |
+| Both, reconciled: judged (14) | 2 | 2 |
+| 31B alone: automatic | 4 | 5 |
+| 31B alone: judged | 3* | 4 |
+| Qwen 3.8 27B alone: automatic | 7 | 7 |
+| Qwen 3.8 27B alone: judged | 3* | 3 |
+
+\* from the 10 November judging, before the rules; the rules decide
+relations only.
+
+read-v5 is not better on the dev set, so read-v4 stays the default.
+
+**What the ban field did.** Software set the stance from the speaker's
+position on a ban in 37 of the 31B's statements and 200 of Qwen's. Against
+the same quotes read with read-v4, Qwen had given `endorses` to supporters
+of a ban 57 times and `criticizes` to its opponents 41 times (stance toward
+the ban, not the practice); the 31B 5 times. Stop the Ban now passes, for
+both together and for Qwen alone. Disputes on stance alone fell from 57
+pairs to 31.
+
+**What went wrong:**
+
+- **A law that is not a ban.** The CNN interview is about repealing a 1950
+  California law ordering research into a "cure". Qwen marked Lowenthal as
+  opposing "the law", and software made her criticism `endorses`.
+- **Descriptions became criticism.** The first mapping (`ban/v1`) replaced
+  every stance of a ban supporter, so "la sanction est portée à trois ans"
+  (what a bill contains) and "22 states have enacted bans" became
+  `criticizes` (about 30 Qwen statements). `ban/v2` keeps describes and
+  reports as the reader gave them.
+- **A catalogue title as a speaker.** The French report's title in the
+  archive is "r4501". The 31B named the report's own text by it 116 times
+  (read-v4: never), so 85 of 262 disputed statement pairs are "r4501"
+  against the mission or the commission. Without them, disputes would have
+  fallen from 218 pairs to 177. 820 sources have no title and many have
+  poor ones ("Untitled", "Home", "Accueil").
+- **Two 31B slips.** It gives Rod Benson's quote (introduced at the end of
+  the unit before) to "unknown", and the MoU's exemption for exploratory
+  help `not_applicable`. Qwen gave the exemption `mixed`, but the stances do
+  not clash, so reconcile kept the primary reader's.
+
+**Other effects:**
+
+- Fixed for the 31B: Torrents de Vie as the speaker of Petit's words
+  (p. 42). The list of people heard gets fewer stances (both together: 3
+  forbidden stances became 1).
+- "host"/"guest" against a name: 31 disputed pairs became 13. The host's
+  Pink Therapy remark still fails: the 31B now says "unknown" instead of
+  "guest", Qwen still names the guest. A speaker list for the recording
+  (`python -m archive speakers`) is what would settle it.
+- Reference lists now give relations: 31B 127 → 228, Qwen 272 → 318. Most
+  are held as one reader's (held relations 139 → 223, of which `authored_by`
+  69 and `cites` 61).
+- The review queue grew from 368 packets to 505 (statement disputes 218 →
+  262, held relations 139 → 223); consequential relations 39 → 44.
+- Time on the same 359,859 characters: 31B 61 → 74 min (10.2 → 12.3 s per
+  1,000 characters), Qwen 54 → 63 min (9.0 → 10.6 s). Both are within the
+  15 s budget; the longer prompt costs about 20%.
+
+`read-v6` keeps read-v5 and adds four short clarifications for these
+failures (`docs/READING.md`); it is being tested the same way.

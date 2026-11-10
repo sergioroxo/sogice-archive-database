@@ -43,6 +43,12 @@ The model quotes; software locates. Models never compute offsets.
   until reviewed. The review queue (`docs/REVIEW.md`) is worked by Claude
   Code with `/review-queue`; rulings are recorded decisions, never
   researcher-verified; low-confidence ones go to Sérgio.
+- 10 Nov 2026: the review trial's seven rules adopted. Relations that need
+  no judgement are decided by software after `reconcile` (`archive/rules.py`:
+  ends must be names in the text; role lines are employed_by; a bare
+  profession or a speaker label states nothing; amendments are authorship).
+  Prompt read-v5 asks for the speaker's position on a ban, and software sets
+  the stance from it. See `docs/REVIEW.md`.
 - Releases: GitHub (code, static site); Zenodo or DataverseNO (dataset + DOI).
 - Target: working exhibition demo by 31 March 2027.
 

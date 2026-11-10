@@ -423,6 +423,7 @@ CREATE TABLE IF NOT EXISTS usage (
   stance                 TEXT NOT NULL DEFAULT 'unknown' CHECK (stance IN (
                            'endorses', 'criticizes', 'denies', 'acknowledges', 'minimizes',
                            'reports', 'describes', 'mixed', 'unclear', 'unknown', 'not_applicable')),
+  ban_position           TEXT CHECK (ban_position IS NULL OR ban_position IN ('supports', 'opposes', 'none')),  -- v9: read-v5
   language               TEXT CHECK (language IS NULL OR language GLOB '[a-z][a-z]*'),
   date                   TEXT CHECK (date IS NULL OR date GLOB '[0-9][0-9][0-9][0-9]*'),
   date_certainty         TEXT CHECK (date_certainty IN ('exact', 'approximate', 'inferred', 'unknown')),

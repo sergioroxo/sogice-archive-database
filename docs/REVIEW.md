@@ -1,7 +1,7 @@
 # The review queue
 
-After the two readers and `reconcile`, some records cannot be published on
-the models' word alone. They wait in a review queue, which a Claude Code
+After the two readers, `reconcile` and the relation rules, some records
+cannot be published on the models' word alone. They wait in a review queue, which a Claude Code
 session works through with a saved prompt, and Sérgio samples. Code:
 `archive/review.py`. Prompt: `prompts/review-v2.md`. Command:
 `/review-queue` (`.claude/skills/review-queue/SKILL.md`).
@@ -116,26 +116,76 @@ test-set expectation and the first 30 of the rest in queue order. It took
   identical to one already confirmed in the source is folded into it. The
   prompt is now review-v2.
 
-The reviewer's proposals, for Sérgio to decide and the test set to check
-(its patterns note is in the trial folder, not committed):
+The reviewer proposed seven rules (its patterns note is in the trial
+folder, not committed). Sérgio adopted all seven on 10 November; where each
+now lives:
 
-1. Role lines by rule, not by model: "Name, role, Organisation", or a
-   heading naming an organisation followed by "Name, role", gives
-   employed_by, stated by the publisher; a bare profession states nothing.
-2. Software checks that both ends of a relation are names in the unit and
-   entities (not a profession, title or a transcript's speaker label).
-3. Reading rule: "Amendement CL34 de M. X" means the amendment is
-   authored_by X, not co-signed.
-4. Stance: a separate field for the speaker's position on the ban, mapped to
-   stance by software; criticising LGBT groups or affirming therapists is
-   not "criticizes".
-5. Unlabelled captions: "host" and "guest" are not names; a question the
-   host reads out belongs to whoever sent it; a speaker map per source from
-   Sérgio for videos without labels.
-6. Reconcile: two names for the same speaker (by the entity registry) are
-   one speaker; an intermediary difference that means nothing (empty against
-   the site that hosts the record) is not a disagreement.
-7. Reference-list entries are `cites` relations, not statements.
+| # | Rule | Where |
+|---|---|---|
+| 1 | Role lines: "Name, role, Organisation", or "Name, role" under a heading naming it, is employed_by; a bare profession states nothing | `archive/rules.py` (software) and read-v5/v6 |
+| 2 | Both ends of a relation are names in the text, not a profession, title, description or speaker label | `archive/rules.py` and read-v5/v6 |
+| 3 | "Amendement CL34 de M. X" is the amendment authored_by X, not co-signed | `archive/rules.py` (turns the relation round) and read-v5/v6 |
+| 4 | The speaker's position on a ban is its own field; software sets the stance from it; criticizing LGBT groups or affirming therapists is not "criticizes" | read-v5/v6 (`ban_position`) and `archive/read.py` (rule `ban/v2`) |
+| 5 | "host" and "guest" are not names; a question read out belongs to its sender; a speaker list per recording from Sérgio | read-v5/v6, `archive/read.py`, `python -m archive speakers` |
+| 6 | Two names of one speaker are one speaker; an intermediary that is only the hosting site is no difference | reconcile v3 (`archive/reconcile.py`) |
+| 7 | Reference-list entries are `cites` relations, not statements | read-v5/v6 |
+
+Also from the trial: "unknown" is no longer an allowed attribution in
+read-v5, and a disputed relation whose other copy a rule has settled comes
+to the queue on its own.
+
+## Rules before the queue
+
+`archive/rules.py` runs after `reconcile` (the `reconcile` command and
+`read --both` run both) on every relation still open. Each ruling is a
+decision under `rule:relations/v1` with the quote, the reason and the rule's
+name; a run can be undone with `review undo --run`. A record a reviewer or
+Sérgio has ruled on is never touched, and reconcile leaves ruled records as
+they are.
+
+| Rule | What it does |
+|---|---|
+| end_not_a_name | rejects a relation whose end is a profession, title, office or description ("Psychotherapist", "grand rabbin de France", "organisation évangélique"); capitals are not used as evidence in automatic captions; registry entities always count as names |
+| end_not_in_text | rejects a relation whose end is not written in the passage or the one before, is not a speaker in the source, and is not the document itself (title, publisher, site, file name, first page) |
+| role_line | confirms "Name, role, Organisation" and "Name, role" under a list heading as employed_by (and corrects affiliated_with to it); a portfolio ("en charge de la lutte contre…") or an internal body ("membre du bureau national") points to the heading's organisation; when the line names another body, it does not decide |
+| profession_only | rejects a relation that rests on a profession alone ("Me X, avocate" under a lawyers' association) |
+| speaker_label | rejects a relation that rests on a turn label ("Mme X, rapporteure.") |
+| amendment | turns "X co_signatory_of Amendement CL34" into "Amendement CL34 authored_by X"; confirms it when the quote has the "amendement … de M./Mme X" form |
+| signer_to_signer | rejects co_signatory_of between two people |
+
+Checked on the read-v4 dev readings (both readers, 10 November):
+
+- **Against the trial's 42 relation rulings:** the same outcome 26 times; the
+  same result by another route 6 times (the other reader's affiliated_with
+  copy corrected and folded into the employed_by one, where the reviewer
+  rejected it); better 4 times (amendments turned round, which the review
+  prompt then could not do); the lawyer's packet ("Me X, avocate") rejected
+  by the adopted rule (the reviewer had sent it to Sérgio); left to the
+  queue 4 times (a
+  role naming another body, twice; membership implied by speaking for a
+  group; a co-signature). It never contradicted a ruling.
+- **The queue:** 446 packets became 368; relation packets 218 became 150,
+  and the consequential ones (employment, affiliation, funding, co-signing,
+  training) 98 became 39. Statement disputes went from 228 to 218 (reconcile
+  v3).
+- **The test set:** automatic failures unchanged at 3 (the rules decide
+  relations; the three failing checks are about statements). Held relations
+  199 became 139.
+- **A conflict to settle:** the test set's `fr-p42-no-authorship` forbids
+  any authorship relation on pp. 42–43, and rule 3 makes amendments there
+  `authored_by` their movers. Today they stay held (one reader), so the
+  check passes, but a confirmed one would fail it. Either the expectation is
+  narrowed to exclude amendments or the rule stops at correcting the shape;
+  Sérgio decides.
+
+On the read-v5 dev readings (11 November) the rules made 158 decisions
+(role lines 64, amendments 29, ends that are not names or not in the text
+17, turn labels 12, professions 3, folded copies 33). The queue still grew,
+to 505 packets, because read-v5 records reference lists as relations (held
+when one reader gives them) and because one reader named the French report
+by its catalogue title; `docs/MODELS.md` has the figures. Reference-entry
+relations (`cites`, and `authored_by` within one entry) are the next
+candidates for a rule.
 
 Scale: the dev split is 0.36 M characters; the English corpus is 109 M. At
 this rate the full queue would be far beyond what review sessions can work

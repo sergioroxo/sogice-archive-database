@@ -16,7 +16,7 @@ hard. This page explains how.
 | Which models read the source, and when? | the assessment: `readers` (model, run, prompt, time) |
 | Which of them proposed this record? | the assessment: `proposed_by` |
 | Did they agree? | the assessment: `confidence`, with the fields they differed on |
-| What happened since? | the decision chain (hash-linked, append-only): merges, disputes, audits, researcher corrections, undos |
+| What happened since? | the decision chain (hash-linked, append-only): merges, disputes, audits, rulings by rule (`rule:relations/v1`, with the rule's name) or by the reviewer, researcher corrections, undos |
 | Can it be undone? | yes: every change is a decision with the previous state; `undo` reverses it |
 
 ## Confidence levels
@@ -28,6 +28,7 @@ hard. This page explains how.
 | `readers_disagree` | both recorded it, with different speakers or opposite stances; both records are *disputed* and wait for review | not published as a finding; listed as "under review" |
 | `single_reading` | only one model has read the source so far | "Read by one model" |
 | `confirmed` (review state) | a reviewer (Claude, `/review-queue`) ruled on a disputed or held record, on a quote from the source | "Reviewed" (with the reviewer's reason) |
+| `confirmed` by rule | a software rule read a stated role or an amendment's author from the words of the source (`archive/rules.py`) | "Stated role" / "Stated authorship" (with the line it rests on) |
 | `researcher_verified` (evidence state) | Sérgio checked it | "Checked by the researcher" |
 
 Agreement is not proof. The test set showed both models making the *same*
@@ -114,6 +115,42 @@ From the first review-queue trial (61 packets, 10 November; `docs/REVIEW.md`):
     relations to things that are not entities, stance toward a ban,
     unlabelled captions). Turning those into rules that software applies is
     what makes the method scale; the queue is for what needs judgement.
+
+From turning the trial's patterns into rules (10 November, night):
+
+17. **A rule is checked against the rulings it came from.** The relation
+    rules were run on the same readings the reviewer had seen: they never
+    contradicted a ruling, reached the same result in 32 of 42 records, and
+    left 4 to the queue on purpose (they need judgement). The queue's
+    consequential relations fell from 98 to 39.
+18. **A test set can disagree with a rule.** The test set forbids any
+    authorship relation on pp. 42–43 of the French report; the adopted
+    amendment rule makes "Amendement CL27 de M. Gérard" authorship. Neither
+    is changed to fit the other: the conflict is written down and Sérgio
+    decides.
+19. **Re-running must change nothing.** The first version of the rules
+    passed every test, but a second `reconcile` brought back copies a rule
+    had folded away. It was found by running everything twice and checking
+    that the second run decided nothing new; reconcile now leaves records
+    ruled on by a rule, a reviewer or Sérgio as they are, with the
+    assessment they had.
+
+From testing read-v5 (11 November):
+
+20. **A fix can work and still lose.** Asking for the position on a ban
+    corrected about a hundred of Qwen's stances and halved the stance
+    disputes, yet read-v5 failed more checks than read-v4: the new wording
+    also moved things it was not aimed at. A prompt is judged on the whole
+    dev set, not on the failure it was written for.
+21. **Software that overrides a model needs limits.** Setting the stance
+    from the ban position was right for ban supporters and opponents, and
+    wrong for a quote that only describes a bill and for a law that is not
+    a ban. The rule now replaces only the stances it was made for, and each
+    run records which version of the rule wrote its stances.
+22. **Bad metadata becomes bad readings.** A catalogue title ("r4501")
+    shown in the header was taken as the report's name and became a
+    speaker 116 times. What the readers are told about a source is part of
+    the method and needs the same care as the prompt.
 
 ## The review queue
 
