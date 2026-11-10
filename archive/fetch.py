@@ -136,6 +136,31 @@ class PublicNetworkBackend(httpcore.SyncBackend):
         raise httpcore.ConnectTimeout(f"connecting to {host} timed out")
 
 
+_HTTPCORE_TO_HTTPX = (
+    (httpcore.ConnectTimeout, httpx.ConnectTimeout), (httpcore.ReadTimeout, httpx.ReadTimeout),
+    (httpcore.WriteTimeout, httpx.WriteTimeout), (httpcore.PoolTimeout, httpx.PoolTimeout),
+    (httpcore.ConnectError, httpx.ConnectError), (httpcore.ReadError, httpx.ReadError),
+    (httpcore.WriteError, httpx.WriteError), (httpcore.RemoteProtocolError, httpx.RemoteProtocolError),
+    (httpcore.LocalProtocolError, httpx.LocalProtocolError), (httpcore.ProxyError, httpx.ProxyError),
+    (httpcore.UnsupportedProtocol, httpx.UnsupportedProtocol),
+)
+
+
+@contextmanager
+def _httpx_errors():
+    """Raise httpcore's errors as httpx's, as httpx's own transport does.
+
+    Without this a read timeout (httpcore.ReadTimeout) is not an
+    httpx.TimeoutException, escapes Fetcher._one, and the target is skipped
+    unrecorded (43 targets in the 9 Nov full run).
+    """
+    try:
+        yield
+    except tuple(core for core, _ in _HTTPCORE_TO_HTTPX) as exc:
+        mapped = next(ours for core, ours in _HTTPCORE_TO_HTTPX if isinstance(exc, core))
+        raise mapped(str(exc) or type(exc).__name__) from exc
+
+
 class PublicTransport(httpx.BaseTransport):
     """httpx transport whose every connection goes through PublicNetworkBackend."""
 
@@ -145,18 +170,21 @@ class PublicTransport(httpx.BaseTransport):
                                             network_backend=PublicNetworkBackend())
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
-        response = self.pool.handle_request(httpcore.Request(
-            method=request.method,
-            url=httpcore.URL(scheme=request.url.raw_scheme, host=request.url.raw_host,
-                             port=request.url.port, target=request.url.raw_path),
-            headers=request.headers.raw, content=request.stream, extensions=request.extensions))
+        with _httpx_errors():
+            response = self.pool.handle_request(httpcore.Request(
+                method=request.method,
+                url=httpcore.URL(scheme=request.url.raw_scheme, host=request.url.raw_host,
+                                 port=request.url.port, target=request.url.raw_path),
+                headers=request.headers.raw, content=request.stream, extensions=request.extensions))
 
         class Stream(httpx.SyncByteStream):
             def __iter__(self):
-                yield from response.iter_stream()
+                with _httpx_errors():
+                    yield from response.iter_stream()
 
             def close(self):
-                response.close()
+                with _httpx_errors():
+                    response.close()
 
         return httpx.Response(response.status, headers=response.headers, stream=Stream(),
                               extensions=response.extensions)

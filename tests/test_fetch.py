@@ -272,3 +272,47 @@ def test_turnstile_bot_check_page_is_a_challenge():
                '<body><div class="cf-turnstile"></div><h1>LGBTQ+</h1>' + "<p>Article text. </p>" * 50
                + "</body></html>").encode()
     assert classify_challenge(200, {}, article) is None
+
+
+@pytest.mark.parametrize("raised, expected", [
+    ("ReadTimeout", "ReadTimeout"), ("ConnectTimeout", "ConnectTimeout"),
+    ("RemoteProtocolError", "RemoteProtocolError"),
+])
+def test_public_transport_raises_httpx_errors(raised, expected):
+    """httpcore errors become httpx errors, so Fetcher records them instead of skipping the target."""
+    import httpcore
+    from archive.fetch import PublicTransport
+
+    class Pool:
+        def handle_request(self, request):
+            raise getattr(httpcore, raised)("boom")
+
+    transport = PublicTransport()
+    transport.pool = Pool()
+    with pytest.raises(getattr(httpx, expected)):
+        transport.handle_request(httpx.Request("GET", "https://example.org/"))
+
+
+def test_timeout_while_reading_body_is_mapped():
+    import httpcore
+    from archive.fetch import PublicTransport
+
+    class Response:
+        status, headers, extensions = 200, [], {}
+
+        def iter_stream(self):
+            yield b"partial"
+            raise httpcore.ReadTimeout("slow")
+
+        def close(self):
+            pass
+
+    class Pool:
+        def handle_request(self, request):
+            return Response()
+
+    transport = PublicTransport()
+    transport.pool = Pool()
+    response = transport.handle_request(httpx.Request("GET", "https://example.org/"))
+    with pytest.raises(httpx.ReadTimeout):
+        b"".join(response.stream)
