@@ -111,8 +111,38 @@ What still goes wrong, by model:
   `affiliated_with` edges ("Name, role at organisation") and 3 stances, and
   in the Davidson captions (no speaker labels) the host's words went to
   Davidson twice.
-- **Qwen 3.8 27B:** the Stop the Ban stance; the Le Refuge figure. Not yet run
-  on the long sources.
+- **Qwen 3.8 27B:** the Stop the Ban stance; the Le Refuge figure.
+
+### Full dev set, including the long sources
+
+All 16 dev entries (the 13 short sources above plus the French report, the
+Davidson interview and the Trevor report; 360,000 characters), same settings.
+
+| Model | Expectations failed | Located quotes | Speaker filled | Long sources, s per 1,000 chars |
+|---|---:|---:|---:|---:|
+| `gemma4:31b-mlx` | 7 | 810 on the long sources | 98.4% | 8.7 |
+| `qwen3.8:27b-mlx` | 6 | 1,116 on the long sources | 99.7% | 8.4 |
+
+Long sources one by one (located quotes, minutes):
+
+| Source | 31B | Qwen 3.8 27B |
+|---|---|---|
+| French report 4501 (154,499 chars) | 412, 23.5 min | 612, 25.2 min |
+| Davidson interview (73,676 chars) | 224, 9.6 min | 287, 8.3 min |
+| Trevor report (62,669 chars) | 174, 9.0 min | 217, 7.3 min |
+
+Failures both models share: the French list of people heard (pp. 63–64)
+turned into `affiliated_with` edges (31B 20, Qwen 10) and stances; the host's
+words in the Davidson captions (no speaker labels) credited to Davidson; the
+Le Refuge figure credited to France 24. Only the 31B: no quote for Petit on
+p. 49; a Harvest support-group sentence skipped. Only Qwen: the Stop the
+Ban stance.
+
+The two are level within noise. Qwen quotes 25–50% more on long sources at
+the same speed, and proposes more relations (French report: 94 against 39),
+which is more detail but also more to check. The shared failures point at
+the prompt and the test set (is a stated role in a list an affiliation?),
+not at the model. The 14 judged expectations are not scored yet.
 
 Qwen 3.8 27B and the 31B are level on these sources (2 vs 3 failures out of
 about 50 checks is within noise). The 31B reads (Sérgio, 10 Nov). Add a new
