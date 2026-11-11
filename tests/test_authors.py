@@ -23,12 +23,14 @@ ESSAY = ('<html><head><meta property="og:site_name" content="Example Network">'
     ("Jane Doe and John Smith", ["Jane Doe", "John Smith"]),
     ("Women and Equalities Committee", ["Women and Equalities Committee"]),
     ("View all posts by Editor", ["Editor"]),
+    ("McDermott Will & Emery LLP", ["McDermott Will & Emery LLP"]),
 ])
 def test_split_names(value, names):
     assert authors.split_names(value) == names
 
 
 @pytest.mark.parametrize("name, ok", [("Jane Doe", True), ("admin", False), ("Editor", False), ("Council on", False),
+                                      ("Emery LLP", False), ("Queer theory", False), ("Participant – R", False), ("Exodus International", False),
                                       ("Visualizza il mio profilo completo", False), ("info@example.org", False),
                                       ("Example Network", False), ("Jane", False)])
 def test_plausible(name, ok):

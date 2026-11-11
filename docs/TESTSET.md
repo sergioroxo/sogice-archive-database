@@ -175,9 +175,97 @@ reading files Sample 2's steps under Sample 1.
 
 The cause is the titles run, not these fixes. Besides the title, it set the
 publisher to "Men's Discipleship Group - Sample #1", the first sample's
-heading. The titles run set 344 publishers across the archive. In a sample
-of 40, 17 named people (the text's authors, not its publisher) and three
-only a country. Those need sorting before the corpus is read.
+heading. The titles run set 344 publishers across the archive, and about a third
+were people, not publishers. They were sorted the same day; see
+`docs/TITLES.md`, "Publishers read again".
+
+## In the archive, after the publishers were sorted (11 November 2026)
+
+Then, in the archive itself:
+
+1. the publishers were sorted;
+2. authors were set;
+3. the nine already-read sources whose header changed were read again
+   by both readers, with read-v4, reconcile and the rules.
+
+The nine are the five dev sources above and four holdout sources (APA
+article, Público, LA Times, Genspect). Cohen's video was not re-read: its
+merged copy adds no text.
+
+| Dev, 88 checks, automatic | read-v4 + rules | Fixes, on a copy | Archive now |
+|---|---:|---:|---:|
+| Both, reconciled | 3 | 3 | 4 |
+| 31B alone | 4 | 3 | 3 |
+| Qwen 3.8 27B alone | 7 | 7 | 7 |
+
+Each reader alone fails exactly the checks it failed on the copy. The
+extra combined failure is Ménard on p. 48 of the French report, who
+proposes deleting part of the ban "au nom de la liberté de prescription
+médicale". Both readers make her the speaker. The 31B says `endorses`,
+as the prompt asks for someone opposing a ban; Qwen says `criticizes`.
+Opposite stances make the statement disputed, so the combined reading
+holds it for review.
+
+**Judged checks.** The eight judged checks on these sources went to a new
+blind judge. It was shown three shuffled readings: before the fixes, the
+fixes on the copy, and the archive now.
+
+| Reading | Pass | Fail |
+|---|---:|---:|
+| Before the fixes | 6 | 2 |
+| Fixes on the copy | 4 | 4 |
+| Archive now | 6 | 2 |
+
+**The regression is gone.** With the sample heading no longer the
+publisher, the covenant readings no longer file Sample 2 under Sample 1.
+This judge also failed the copy on the template check, for the same
+heading used as speaker.
+
+The two checks that still fail, failed before too:
+
+- **Christian Concern:** every reading gives one of the interviewer's
+  questions to Jack Sterling.
+- **French pp. 48–49:** no reading keeps Petit's "pauses, d'attentes".
+  Ménard's statement is also missing from the archive's reading, because
+  it is disputed and only what would be published is judged.
+
+### Disputed statements
+
+| Source | Before | After |
+|---|---:|---:|
+| APA article (holdout) | 172 | 70 |
+| Genspect (holdout) | 58 | 20 |
+| Público (holdout) | 22 | 74 |
+| LA Times (holdout) | 0 | 0 |
+| French report | 162 | 142 |
+| Christian Concern | 24 | 22 |
+| France 24 | 12 | 50 |
+| **Total** | **450** | **378** |
+
+The Exodus closure and the Harvest covenants have none, before or after.
+Each disputed statement is counted once per reader.
+
+**Telling the readers the author worked where it was meant to.** The
+APA article's journal-versus-authors disputes and Genspect's van Zyl
+disputes mostly went.
+
+**It also caused a new kind of dispute.** On the two news pages, the 31B
+now credits the article's own narration to its byline (David Rich; Sílvia
+Maia and Susana Venceslau). Qwen still credits the outlet (France 24;
+Público). The prompt allows either ("the outlet or author"). 78 of the 378
+disputed statements differ only in this, with no opposite stance:
+
+- France 24: 40;
+- Público: 30;
+- Christian Concern: 6;
+- APA article: 2.
+
+A reconcile rule that treats a source's author and its publisher as one
+voice for its own narration would bring the total to 300. That is a
+method change, waiting for Sérgio.
+
+These counts measure the review queue, not the gate: the holdout has been
+seen.
 
 ## For the reading stage
 

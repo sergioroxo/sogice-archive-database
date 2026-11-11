@@ -466,6 +466,15 @@ def cmd_titles(args: argparse.Namespace) -> int:
     if not args.no_model:
         cfg = load_models_config()
         client, role = OllamaClient(cfg.base_url, cfg.timeout_seconds), cfg.role(titles.ROLE)
+    if args.reissue:
+        if client is None:
+            raise SystemExit("--reissue needs the model (drop --no-model)")
+        result = titles.reissue(conn, client=client, role=role, source_ids=args.source, limit=args.limit,
+                                dry_run=args.dry_run, log=lambda line: print(line, flush=True))
+        conn.close()
+        print(json.dumps({"runs": result["runs"], "counts": result["counts"]}, indent=2))
+        print(f"report: {titles.write_reissue_report(result, dry_run=args.dry_run)}")
+        return 0
     result = titles.repair(conn, client=client, role=role, source_ids=args.source, exclude=set(args.exclude),
                            limit=args.limit,
                            dry_run=args.dry_run, log=lambda line: print(line, flush=True))
@@ -639,10 +648,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-model", action="store_true", help="page code only; no model call")
     p.add_argument("--exclude", action="append", default=[],
                    help="leave this source out (e.g. a domain now used by someone else); repeatable")
+    p.add_argument("--reissue", action="store_true",
+                   help="read again the first pages whose publisher title-v1 set (issuer and authors apart)")
     p.add_argument("--dry-run", action="store_true", help="report what would change; write nothing")
     p.set_defaults(func=cmd_titles)
 
-    p = sub.add_parser("authors", help="set source authors from DOI records and page code (no model)")
+    p = sub.add_parser("authors", help="set source authors from DOI records, page code and first pages")
     p.add_argument("--db", type=Path, default=paths.database_path())
     p.add_argument("--source", action="append", help="only this source (repeatable)")
     p.add_argument("--again", action="store_true", help="also sources that have an author (never a researcher's)")

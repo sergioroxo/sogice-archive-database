@@ -19,10 +19,11 @@ about themselves (code: `archive/titles.py`):
    someone else). A PDF's own metadata title counts only when its first page
    prints it.
 2. **First page, small local model.** For PDFs, Word files and plain text,
-   Gemma 4 12B (role `titles` in `config/models.yaml`, prompt `title-v1`)
-   copies the title and who issued it from the first page. Software locates
-   both on that page; a title it cannot find is not used. The issuer fills an
-   empty publisher.
+   the small model (role `titles` in `config/models.yaml`, prompt `title-v2`
+   since 11 Nov) copies from the first page the title, the organisation that
+   issued it and the people who wrote it. Software locates each on that page;
+   what it cannot find is not used. The issuer fills an empty publisher. The
+   authors are kept in the decision, for the authors step (`docs/AUTHORS.md`).
 
 Each repair is an `edit` decision on the source: the old title and
 publisher, the method, the copy, the quoted span and the run. A run is
@@ -33,6 +34,7 @@ with no preserved copy (about 370) keep their title until they are fetched.
 ```bash
 python -m archive titles --no-model --dry-run   # what page code alone would change
 python -m archive titles                        # page code, then first pages (local model)
+python -m archive titles --reissue              # re-read first pages whose publisher title-v1 set
 ```
 
 The report (`data/reports/titles-*.md`) lists every change, old and new.
@@ -57,3 +59,62 @@ One repair was wrong and was left out of the archive run (`--exclude`): a
 survivors' site whose domain now hosts an unrelated health blog, so the
 only preserved copy names the blog. The issuer is sometimes a list of
 references rather than the publisher; it only fills an empty publisher.
+
+## Publishers read again (11 November 2026)
+
+Prompt `title-v1` asked for the issuer as "an institution, organisation,
+publisher or author". So of the 344 publishers it set, about a third were
+people, the documents' authors. A few were headings: the Harvest covenant's
+publisher became "Men's Discipleship Group - Sample #1". On the dev set,
+that heading made both readers file the second sample under the first.
+
+`title-v2` asks for the issuing organisation and the authors separately.
+`titles --reissue` read those 344 first pages again (11 minutes) and
+changed a publisher only where the two readings agree:
+
+| Outcome | Sources |
+|---|---:|
+| Both readings give the same publisher: kept (a `confirm` decision) | 214 |
+| The publisher was a person the new reading names as an author: cleared | 79* |
+| The same, and the new issuer is the site's own name: replaced | 25 |
+| The readings name different organisations: kept, listed for review | 26 |
+
+\* One of the 79 was not a person. The new reading listed "Exodus
+International" as an author of its own press release, and the name filter
+let it through. A ruling restored the publisher, and "International" and
+"Global" now mark a name as an organisation's. In two others the old value
+held an organisation and a person ("Covenant Eyes, Inc.; Ronald DeHaas").
+Only the person was kept, as author.
+
+Why the replacement issuer must match the site: a trial without that check
+used whatever the new reading named. On first pages that is often an
+addressee (a committee, a court, the UN Independent Expert), a title
+("The WPATH Files") or the subject: Mia Hughes's report on WPATH got WPATH
+as its publisher. That trial was undone and read again. The 25 replacements
+are mostly Exodus Global Alliance on its own pages, and the Family Research
+Council's and Gender Wholeness's own PDFs.
+
+Of the 26 disagreements, 23 keep the old publisher. In most of them the
+new reading named an addressee (the Federal Trade Commission, a court of
+appeals, the Department of Justice Canada), the Human Rights Council for
+the Independent Expert's own papers, or the same body under another name.
+McDermott Will & Emery's report for the Mattachine Society keeps the law
+firm.
+Claude ruled on the other three (recorded decisions by the review model):
+
+- the covenant's heading was cleared;
+- "Eastern Europe and Central Asia (EECA)", part of a report's title, was
+  cleared;
+- "EUROPOS SĄJUNGOJE", the end of a title, became "Europos piliečių
+  iniciatyva (EPI)".
+
+The new reading also names the people on 194 first pages. Those names are
+used as authors only where both readings agree: the old reading had put one
+of them in the publisher field (104 sources). A single reading's names are
+kept in its decision but not used. In a sample they included addressees
+(the UN Independent Expert for states' submissions to him), committee
+members and a speaker label ("Participant – R").
+
+Effect on reading: the nine already-read sources whose header changed were
+read again. The covenant's judged check, which had regressed when its
+publisher was a sample heading, passes again (`docs/TESTSET.md`).

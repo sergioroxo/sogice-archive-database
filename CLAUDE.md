@@ -5,6 +5,12 @@ efforts) material, worldwide with a European focus. Sole researcher: Sérgio
 Galvão Roxo (UiB). One evidence store feeds six products: lexicon, catalogue/wiki,
 2D network, WebXR exhibition scene, archive search and documentary packets.
 
+Above all it is Sérgio's research tool: a searchable archive of everything he
+has encountered on the topic, and the basis for the socio-educational work he
+makes from it (lexicon, wiki, VR documentary, teaching). Design for finding
+and citing things, and for reuse in outputs not planned yet (`docs/PLAN.md`,
+Purpose).
+
 The full plan is the "SurvivingSOGICE — Project Redesign" doc (9 Nov 2026).
 `docs/PLAN.md` is the working summary. Read it before planning work.
 
@@ -49,6 +55,9 @@ The model quotes; software locates. Models never compute offsets.
   profession or a speaker label states nothing; amendments are authorship).
   Prompt read-v5 asks for the speaker's position on a ban, and software sets
   the stance from it. See `docs/REVIEW.md`.
+- 11 Nov 2026: tags (tactic, practice, function, harm, target) are made in a
+  separate pass after reading, on the readers' statements, not by the
+  readers. Draft and open questions: `docs/TAGGING.md`.
 - Releases: GitHub (code, static site); Zenodo or DataverseNO (dataset + DOI).
 - Target: working exhibition demo by 31 March 2027.
 

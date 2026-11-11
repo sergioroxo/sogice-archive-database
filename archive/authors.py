@@ -12,6 +12,9 @@ whether a journal or "the authors" speak a scholarly article: most of the holdou
    ``rel="author"`` link. A name from page code is used only when the page also prints it: a theme's or
    webmaster's name that the page never shows is not the text's author.
 3. **PDF metadata**: the Author field, only when the first page prints it.
+4. **First page, read by the titles model** (``archive/titles.py``, prompt title-v2): the people it named
+   as authors of a PDF, Word or text copy, each located on that page by software, when the earlier
+   reading (title-v1) had named one of them as the publisher. Only when 1–3 name no one.
 
 Names that are not a person's are dropped: generic ones ("admin", "Staff"), addresses, links, the site's
 or publisher's own name. Copies that name different authors are left alone. Each author set is an
@@ -51,6 +54,16 @@ GENERIC = frozenset({
     "agency", "agencies", "afp", "reuters", "associated press", "ap", "lusa", "efe", "dpa", "ansa",
     "pa media", "press association", "europa press", "the editors", "guest writer", "guest contributor", "guest blogger",
     "editor in chief", "editor-in-chief", "admin user", "site admin", "site administrator"})
+# Words that make a name an organisation's or a topic's, never a person's ("McDermott Will & Emery LLP",
+# "Queer theory"). Kept to words that are not also common surnames.
+ORG_WORDS = frozenset({
+    "llp", "inc", "ltd", "llc", "gmbh", "plc", "corp", "corporation", "company", "society", "association",
+    "institute", "institution", "foundation", "university", "universidad", "université", "universität",
+    "universidade", "college", "academy", "ministry", "ministries", "council", "committee", "commission",
+    "centre", "center", "network", "coalition", "alliance", "federation", "department", "government",
+    "parliament", "assembly", "project", "campaign", "initiative", "journal", "magazine", "services", "agency",
+    "organisation", "organization", "fellowship", "laboratory", "theory", "identity", "sexual", "gender",
+    "participant", "respondent", "witness", "international", "global"})
 # Words that make a comma-separated part a role or affiliation ("Jaco van Zyl, Clinical Psychologist").
 ROLE_WORDS = frozenset({
     "psychologist", "psychotherapist", "therapist", "counsellor", "counselor", "psychiatrist", "professor", "prof",
@@ -104,6 +117,8 @@ def plausible(name: str, others: set[str], *, one_word_ok: bool = False) -> bool
     words = name.split()
     if len(words) > 8 or (len(words) < 2 and not one_word_ok) or words[-1].casefold() in _TAIL:
         return False
+    if {w.strip(".,()&").casefold() for w in words} & ORG_WORDS:
+        return False
     squashed = _squash(name)
     return not any(o and (squashed == o or squashed in o or o in squashed) for o in others if len(o) >= 4)
 
@@ -126,7 +141,9 @@ def split_names(value: str, *, one_name: bool = False) -> list[str]:
                               and not ({w.strip(".()").casefold() for w in r.split()} & ROLE_WORDS)]
         for piece in (k for k in kept if k):
             words = [w for w in (clean_name(x) for x in _WORD_SEPARATORS.split(piece)) if w]
-            names += words if len(words) > 1 and all(len(w.split()) >= 2 for w in words) else [piece]
+            organisation = {w.strip(".,()&").casefold() for w in piece.split()} & ORG_WORDS   # "… Will & Emery LLP"
+            names += words if len(words) > 1 and all(len(w.split()) >= 2 for w in words) and not organisation \
+                else [piece]
     return names
 
 
@@ -320,6 +337,28 @@ def _shares_a_name(a: list[str], b: list[str]) -> bool:
     return bool(words(a) & words(b))
 
 
+def first_page_authors(conn: sqlite3.Connection, family: list[str], others: set[str]) -> dict | None:
+    """The people the titles model named on a copy's first page, as software located them (archive/titles.py),
+    when two readings agree: title-v1 had put one of them in the publisher field. Used only when nothing
+    stronger names anyone. A single reading's names are kept in its decision but not used: on first
+    pages it also names addressees and meeting members."""
+    marks = ",".join("?" for _ in family)
+    for d in conn.execute(f"""SELECT * FROM decision WHERE target_table = 'source' AND target_id IN ({marks})
+                              AND action = 'edit' AND json_extract(new_state, '$.rule') LIKE 'titles/%'
+                              AND json_extract(new_state, '$.authors') IS NOT NULL
+                              AND json_extract(new_state, '$.authors_agree') = 1 ORDER BY seq DESC""", family):
+        if conn.execute("SELECT 1 FROM decision WHERE reverts_decision_id = ?", (d["id"],)).fetchone():
+            continue
+        state = json.loads(d["new_state"])
+        kept = [a for a in state["authors"] if plausible(a["name"], others)]
+        if kept:
+            return {"method": "first page, titles model", "names": [a["name"] for a in kept], "version_id": state.get("version_id"),
+                    "char_start": kept[0]["char_start"], "char_end": kept[0]["char_end"],
+                    "snippet": "; ".join(a["name"] for a in kept), "read_by": state.get("method"),
+                    "titles_decision": d["id"]}
+    return None
+
+
 def find_author(conn: sqlite3.Connection, source: dict, base: Path) -> dict | None:
     """The best author evidence for a source and its merged copies, or None (``source['why']`` says why)."""
     family = _family(conn, source["id"])
@@ -348,6 +387,9 @@ def find_author(conn: sqlite3.Connection, source: dict, base: Path) -> dict | No
             if pick:
                 picks.append(pick)
     if not picks:
+        found = first_page_authors(conn, family, others)
+        if found:
+            return found
         source["why"] = "no author found"
         return None
     best = min(picks, key=lambda p: METHODS.index(p["method"]) if p["method"] in METHODS else len(METHODS))
@@ -385,7 +427,8 @@ def _record(conn: sqlite3.Connection, *, run_id: str, source: dict, found: dict)
                     reason=f"[{RULE}] Author from the {found['method']}.", quote=found["snippet"][:1000],
                     previous_state=before,
                     new_state={"author": author, "method": found["method"], "rule": RULE,
-                               **{k: found[k] for k in ("version_id", "char_start", "char_end", "path", "doi")
+                               **{k: found[k] for k in ("version_id", "char_start", "char_end", "path", "doi", "read_by",
+                                                                 "titles_decision")
                                   if found.get(k) is not None}})
 
 

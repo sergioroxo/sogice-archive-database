@@ -146,3 +146,82 @@ def test_a_title_the_researcher_set_is_never_changed(archive):
                         target_id=sid, reason="I checked: the page is called Home",
                         previous_state={"title": "Home"}, new_state={"title": "Home"})
     assert titles.repair(conn, data_dir=base)["counts"]["poor"] == 0
+
+
+COVENANT = ("Men’s Discipleship Group - Sample #1\nPersonal Covenant for Discipleship and Accountability\n"
+            "Prepared by Jane Q. Writer, Ph.D., for Harvest Example\nWe agree to meet weekly.")
+
+
+def _v1(conn, sid, publisher, title="Personal Covenant for Discipleship and Accountability"):
+    """A publisher set the way title-v1 set it (prompt asked for an issuer 'or author')."""
+    before = review._set(conn, "source", sid, {"title": title, "publisher": publisher})
+    conn.execute("INSERT OR IGNORE INTO run(id, role, inputs, started_at) VALUES ('run_v1', 'extraction', '{}', ?)", (NOW,))
+    record_decision(conn, actor_kind="model", actor_id="small:model", run_id="run_v1", action="edit", target_table="source",
+                    target_id=sid, reason="[titles/v1] test", previous_state=before,
+                    new_state={"title": title, "publisher": publisher, "rule": "titles/v1",
+                               "version_id": f"v1_{sid}", "method": "first page"})
+
+
+def test_first_page_keeps_issuer_and_authors_apart(archive):
+    conn, base = archive
+    with conn:
+        sid = add(conn, base, "https://example.org/covenant.pdf", title="x_1", pdf_text=COVENANT)
+    client = FakeClient([{"title": "Personal Covenant for Discipleship and Accountability",
+                          "issued_by": "Jane Q. Writer", "authors": ["Jane Q. Writer, Ph.D.", "Someone Invented"],
+                          "kind": "form"}])
+    titles.repair(conn, client=client, role=ROLE, data_dir=base)
+    row = conn.execute("SELECT title, publisher FROM source WHERE id = ?", (sid,)).fetchone()
+    assert row["publisher"] is None                     # the issuer it gave is one of the authors
+    state = json.loads(conn.execute("SELECT new_state FROM decision WHERE target_id = ?", (sid,)).fetchone()[0])
+    assert [a["name"] for a in state["authors"]] == ["Jane Q. Writer"]      # the invented name is not on the page
+    assert state["rule"] == "titles/v2"
+
+
+def test_reissue_clears_a_person_publisher_and_keeps_the_author(archive):
+    from archive import authors
+    conn, base = archive
+    with conn:
+        person = add(conn, base, "https://example.org/covenant.pdf", pdf_text=COVENANT)
+        _v1(conn, person, "Jane Q. Writer")
+        heading = add(conn, base, "https://example.org/sample.pdf", pdf_text=COVENANT)
+        _v1(conn, heading, "Men’s Discipleship Group - Sample #1")
+        organisation = add(conn, base, "https://example.org/org.pdf", pdf_text=COVENANT)
+        _v1(conn, organisation, "Harvest Example")
+        addressee = add(conn, base, "https://harvestexample.org/brief.pdf", pdf_text=COVENANT + "\nTo the Example Committee")
+        _v1(conn, addressee, "Jane Q. Writer, Ph.D.")
+        site = add(conn, base, "https://harvestexample.org/other.pdf", pdf_text=COVENANT)
+        _v1(conn, site, "Jane Q. Writer")
+    replies = {person: {"title": "", "issued_by": "", "authors": ["Jane Q. Writer"], "kind": "form"},
+               addressee: {"title": "", "issued_by": "Example Committee", "authors": ["Jane Q. Writer"], "kind": "form"},
+               site: {"title": "", "issued_by": "Harvest Example", "authors": ["Jane Q. Writer"], "kind": "form"},
+               heading: {"title": "", "issued_by": "Harvest Example", "authors": [], "kind": "form"},
+               organisation: {"title": "", "issued_by": "Harvest Example", "authors": [], "kind": "form"}}
+    client = FakeClient([replies[sid] for sid in sorted(replies)])       # sources are read in id order
+    out = titles.reissue(conn, client=client, role=ROLE)
+    publisher = lambda sid: conn.execute("SELECT publisher FROM source WHERE id = ?", (sid,)).fetchone()[0]
+    # a person is cleared; a heading the second reading does not repeat is kept but listed for review
+    assert (publisher(person), publisher(heading), publisher(organisation)) == (
+        None, "Men’s Discipleship Group - Sample #1", "Harvest Example")
+    # an issuer that is not the site's own name (an addressee) is not used; one that is replaces the person
+    assert (publisher(addressee), publisher(site)) == (None, "Harvest Example")
+    assert out["counts"] == {"sources": 5, "authors named": 3, "publisher was an author, cleared": 2,
+                             "publisher was an author, replaced by the site's own name": 1,
+                             "readings differ, kept for review": 1, "publisher kept": 1}
+    actions = dict(conn.execute("SELECT target_id, action || ':' || audit_verdict FROM decision WHERE run_id = ?",
+                                (out["runs"][0],)).fetchall())
+    assert actions == {person: "edit:not_audited", heading: "audit:uncertain", organisation: "confirm:not_audited",
+                       addressee: "edit:not_audited", site: "edit:not_audited"}
+    assert conn.execute("SELECT title FROM source WHERE id = ?", (person,)).fetchone()[0].startswith("Personal")
+    assert titles.reissue_sources(conn) == []           # done once: the v1 publishers are gone or confirmed
+
+    with conn:                                          # one reading alone names someone: not used
+        lone = add(conn, base, "https://example.org/lone.pdf", pdf_text=COVENANT)
+        _v1(conn, lone, "Harvest Example")
+    titles.reissue(conn, client=FakeClient([{"title": "", "issued_by": "Harvest Example",
+                                             "authors": ["Jane Q. Writer"], "kind": "form"}]), role=ROLE)
+    assigned = authors.assign(conn, data_dir=base)
+    author = lambda sid: conn.execute("SELECT author FROM source WHERE id = ?", (sid,)).fetchone()[0]
+    assert (author(person), author(addressee), author(lone)) == ("Jane Q. Writer", "Jane Q. Writer", None)
+    assert assigned["counts"]["first page, titles model"] == 3
+    review.undo(conn, out["runs"][0], reason="test")
+    assert publisher(person) == "Jane Q. Writer" and titles.reissue_sources(conn) != []

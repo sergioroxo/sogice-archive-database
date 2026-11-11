@@ -1,5 +1,22 @@
 # Plan (working summary, 9 Nov 2026)
 
+## Purpose (Sérgio, 11 Nov 2026)
+
+The archive is first of all Sérgio's research tool: a searchable record of
+all the material he has encountered on SOGICE, each item kept with its
+source. It is also the basis for the socio-educational work he will make
+from it: the lexicon, the wiki, the VR documentary and exhibition, and
+teaching material. Some of that work is not planned yet. So:
+
+- **Everything can be found.** Search works on the full text and on what
+  the archive knows about it: who speaks, which term, tactic or practice,
+  which side, where and when.
+- **Everything can be cited.** Each item carries its source, its quote and
+  where in the source it sits. It can then go into a film, a lesson or an
+  exhibit and still be checked.
+- **Products are built from releases.** They are never edited by hand in
+  their own copy, so a new output can be built later from the same store.
+
 ## Pipeline
 
 1. **Preserve (no model).** Fetch each queued URL; look up or capture on
@@ -44,10 +61,11 @@
    across all passages. Each hit is a usage marked `exact_match`. Count
    repeated navigation/promotional blocks separately.
 3. **Read (local model).** One structured call per short document, or per
-   section for long ones. Returns short verbatim quotes for: new terms and
-   senses; entities with type (person, organisation, publication, law,
-   event); speaker, quoted party, intermediary, stance; tactics, practices,
-   harm from the facet lists; claims; relations from the closed vocabulary.
+   section for long ones. Returns short verbatim quotes for statements
+   (speaker, quoted party, intermediary, stance), entities with type
+   (person, organisation, publication, law, event), claims, and relations
+   from the closed vocabulary. Tactics, practices, harm and new terms are
+   not asked of the readers: they are tagged in a separate step (3b).
    Software locates quotes, drops what it cannot find, resolves endpoints.
    Two readers (decided 10 Nov): two different local models read every
    source independently with the same prompt; `reconcile` pairs their
@@ -66,6 +84,15 @@
    (JavaScript-drawn pages, two-column PDFs, chart data), is on the
    preservation report's review lists, not recovered by reading. The full
    text always stays stored and searchable; reading only adds to it.
+
+   **3b. Tag (local models, separate pass; decided 11 Nov 2026).** After
+   reading and reconcile, two taggers give each statement its tactics,
+   practices, functions, harm and target from the closed lists. Each tag
+   is marked as used or only described by the speaker. Taggers also
+   propose new term candidates. Term matches inside a statement are
+   credited to its speaker by software. Document facets (genre, actor
+   type, country, source stance, era) come from software first. Draft:
+   `docs/TAGGING.md`.
 4. **Suggest (embeddings).** EmbeddingGemma 2 over passages, page images,
    audio/video clips (≤ 5 min, with timecodes) and concept descriptions. Used
    for search and for suggesting concept attachments. Never evidence.
