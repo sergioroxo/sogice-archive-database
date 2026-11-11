@@ -461,7 +461,8 @@ def cmd_titles(args: argparse.Namespace) -> int:
     if not args.no_model:
         cfg = load_models_config()
         client, role = OllamaClient(cfg.base_url, cfg.timeout_seconds), cfg.role(titles.ROLE)
-    result = titles.repair(conn, client=client, role=role, source_ids=args.source, limit=args.limit,
+    result = titles.repair(conn, client=client, role=role, source_ids=args.source, exclude=set(args.exclude),
+                           limit=args.limit,
                            dry_run=args.dry_run, log=lambda line: print(line, flush=True))
     conn.close()
     print(json.dumps({"runs": result["runs"], "counts": result["counts"]}, indent=2))
@@ -619,6 +620,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--source", action="append", help="only this source (repeatable)")
     p.add_argument("--limit", type=int, help="at most N poor titles")
     p.add_argument("--no-model", action="store_true", help="page code only; no model call")
+    p.add_argument("--exclude", action="append", default=[],
+                   help="leave this source out (e.g. a domain now used by someone else); repeatable")
     p.add_argument("--dry-run", action="store_true", help="report what would change; write nothing")
     p.set_defaults(func=cmd_titles)
 

@@ -193,3 +193,12 @@ Sérgio samples 30–50 AI decisions a week, including the reviewer's rulings,
 and has the final say on method changes. He works the packets the reviewer
 sends him, and the hard cases above are where his sample looks first. A researcher's decision is never undone by a
 later automatic step.
+
+From Claude as a test reader (11 November):
+
+26. **A stronger reader shows where the yardstick is unsure.** Claude, given
+    the same prompt and text, failed 3 of 88 checks where the 31B failed 8;
+    two of its three were places where the test set and the prompt or an
+    adopted rule say different things. A strong reader is a reference, not
+    an authority: its disagreements with the test set are questions for the
+    researcher, not answers.

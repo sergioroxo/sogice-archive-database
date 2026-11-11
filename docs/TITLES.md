@@ -36,3 +36,23 @@ python -m archive titles                        # page code, then first pages (l
 ```
 
 The report (`data/reports/titles-*.md`) lists every change, old and new.
+
+## First run (11 November 2026)
+
+On a copy first, then on the archive. Of 1,192 poor titles, 556 were
+repaired: 91 from page code and 465 from first pages read by the small
+model; 20 titles the model gave could not be found on the page and were not
+used, 13 more gave no usable title, and 602 sources have no copy with text
+to read (no preserved copy, or a web page with nothing better). A check of
+every ninth first-page repair found the titles right and copied as printed,
+often in capitals or in the document's own language (an EU citizens'
+initiative appears in Polish, Danish, Estonian, Czech and Slovenian
+copies). The French report is now "Rapport fait au nom de la Commission des
+lois … sur la proposition de loi interdisant les pratiques visant à modifier
+l'orientation sexuelle ou l'identité de genre d'une personne (n° 4021)",
+published by the Assemblée nationale.
+
+One repair was wrong and was left out of the archive run (`--exclude`): a
+survivors' site whose domain now hosts an unrelated health blog, so the
+only preserved copy names the blog. The issuer is sometimes a list of
+references rather than the publisher; it only fills an empty publisher.

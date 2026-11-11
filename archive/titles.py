@@ -337,10 +337,12 @@ def _record(conn: sqlite3.Connection, *, run_id: str, actor_id: str, source: dic
 
 
 def repair(conn: sqlite3.Connection, *, client=None, role=None, source_ids: list[str] | None = None,
-           limit: int | None = None, data_dir: Path | None = None, dry_run: bool = False, log=None) -> dict:
-    """Repair poor titles: page code first (software), then the first page (model, if a client is given)."""
+           exclude: set[str] = frozenset(), limit: int | None = None, data_dir: Path | None = None,
+           dry_run: bool = False, log=None) -> dict:
+    """Repair poor titles: page code first (software), then the first page (model, if a client is given).
+    ``exclude``: sources to leave out of this run (found wrong when a trial was checked)."""
     base = data_dir or paths.data_dir()
-    sources = poor_sources(conn, source_ids)
+    sources = [s for s in poor_sources(conn, source_ids) if s["id"] not in exclude]
     if limit:
         sources = sources[:limit]
     counts: Counter = Counter(poor=len(sources))
@@ -350,7 +352,8 @@ def repair(conn: sqlite3.Connection, *, client=None, role=None, source_ids: list
         soft_run = f"run_{uuid.uuid4().hex}"
         with conn:
             conn.execute("INSERT INTO run(id, role, inputs, started_at) VALUES (?, 'other', ?, ?)",
-                         (soft_run, canonical_json({"job": "titles", "rule": RULE, "sources": len(sources)}), utc_now()))
+                         (soft_run, canonical_json({"job": "titles", "rule": RULE, "sources": len(sources),
+                                                        "excluded": sorted(exclude)}), utc_now()))
     left = []
     candidates = {s["id"]: html_candidates(s, base) for s in sources}
     shared = site_wide(candidates, {s["id"]: s for s in sources})

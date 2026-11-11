@@ -402,3 +402,63 @@ stance rule, reconcile) and from what the readers are told about a source.
 The next steps are therefore not a read-v7 but: repair poor source titles
 (`docs/FINGERPRINTS.md`), speaker lists for the three unlabelled recordings,
 and settling the amendment expectation.
+
+## Claude as a test reader (11 November)
+
+Sérgio decided that open models read, because their readings can be
+re-run and checked; Claude is a helper that makes the system better. To
+see how far the local readers are from a strong reader, six Claude Code
+agents read the dev set exactly as a local model does: prompt read-v4, the
+same 73 sections and units, blind to the test set and to every other
+reading (`scripts/claude_reader.py`). Their answers were replayed through
+the normal reading code, so the quotes were located, the records written
+and the rules applied as for any reader, under the role `trial_claude`.
+None of it is stored in the archive.
+
+| Reading (alone, with the rules) | Automatic (74) | Judged (14) | Total (88) |
+|---|---:|---:|---:|
+| Claude (read-v4) | 3 | 0 | 3 |
+| 31B (read-v4) | 4 | 4 | 8 |
+| Qwen 3.8 27B (read-v4) | 7 | 3* | 10 |
+
+\* from the 10 November judging. Claude and the 31B were judged together,
+blind, by one judge.
+
+Claude's three automatic failures are mostly disagreements with the test
+set rather than mistakes: it records the amendments as authorship, as rule
+3 says (`fr-p42-no-authorship`); it gives Torrents de Vie the words Petit
+reads out from its site, with Petit as intermediary, as the prompt's rule
+for quotations inside quotations says, where the test set forbids it
+(`fr-p42-tdv-not-speaker`, which the 31B also fails); and the check on
+pp. 63–64 counts the committee's closing request to adopt the bill, which
+falls inside its window. Both conflicts are for Sérgio to settle. Every one
+of Claude's 2,250 quotes was located.
+
+Compared quote by quote with the local readers:
+
+- Claude records more: 2,250 statements against 1,354 (31B) and 1,691
+  (Qwen); 834 of its statements have no 31B counterpart.
+- On the quotes both recorded, the speaker differs from the 31B's in 199 of
+  1,416 (mostly "Mme la rapporteure" or the website against the named
+  rapporteure) and the stance is opposite in 64; against Qwen, 276 and 172.
+- The opposite stances show the readers' confusions the prompt already
+  rules on: the 31B marks an ex-gay activist who criticises Exodus's
+  president as "criticizes", where the prompt says defending change efforts
+  is "endorses"; Qwen marks speeches for the French ban as "endorses".
+
+Limits of the comparison. The agents were not the same kind of reader: one
+went back and corrected earlier sections of the Davidson recording after
+seeing all of it (a local reader sees one section at a time), and they
+checked their own quotes with small scripts. Their readings cannot be
+re-run: the hosted model will change. The cost was about 1.26 million
+tokens for the 0.36 M characters of the dev set, roughly 3,500 tokens per
+1,000 characters; the English corpus alone (109 M characters) would need
+some 380 million. So Claude cannot be the reader of record here, and was
+not meant to be. What it is good for:
+
+- a reference that shows where the local readers fail and why, by kind,
+  across a whole source rather than on 88 checks;
+- finding where the test set and the rules disagree;
+- drafting corrections that Sérgio checks, as the review queue does now.
+  Using its readings as training data for an open model needs a check of
+  UiB's agreement with Anthropic first.
