@@ -19,6 +19,8 @@
     python -m archive queue-add URL … [--file F] [--origin NAME]        # add pages to the source queue
     python -m archive fingerprints [--again] [--source ID …] [--queue-sites [--skip-site S …]]
                                    # identifiers in page code shared by several sites (report)
+    python -m archive titles [--no-model] [--source ID …] [--limit N] [--dry-run]
+                                   # repair missing and poor source titles (page code, then first page)
 """
 from __future__ import annotations
 
@@ -29,7 +31,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from . import attach, db, dedupe, fingerprints, match, paths, queue_import, read, report, seeds, testset
+from . import attach, db, dedupe, fingerprints, match, paths, queue_import, read, report, seeds, testset, titles
 from .depot import Depot
 from .index_text import TextIndexer, pending_versions
 from .acquire import pending_targets, recheck_stored
@@ -450,6 +452,23 @@ def cmd_fingerprints(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_titles(args: argparse.Namespace) -> int:
+    from .config import load_models_config
+    from .ollama import OllamaClient
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    client = role = None
+    if not args.no_model:
+        cfg = load_models_config()
+        client, role = OllamaClient(cfg.base_url, cfg.timeout_seconds), cfg.role(titles.ROLE)
+    result = titles.repair(conn, client=client, role=role, source_ids=args.source, limit=args.limit,
+                           dry_run=args.dry_run, log=lambda line: print(line, flush=True))
+    conn.close()
+    print(json.dumps({"runs": result["runs"], "counts": result["counts"]}, indent=2))
+    print(f"report: {titles.write_report(result, dry_run=args.dry_run)}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m archive")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -594,6 +613,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--skip-site", action="append", help="with --queue-sites: leave this site out (repeatable)")
     p.add_argument("--origin", help="with --queue-sites: reference for the queued pages")
     p.set_defaults(func=cmd_fingerprints)
+
+    p = sub.add_parser("titles", help="repair missing and poor source titles (page code, then first page by model)")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--source", action="append", help="only this source (repeatable)")
+    p.add_argument("--limit", type=int, help="at most N poor titles")
+    p.add_argument("--no-model", action="store_true", help="page code only; no model call")
+    p.add_argument("--dry-run", action="store_true", help="report what would change; write nothing")
+    p.set_defaults(func=cmd_titles)
 
     args = parser.parse_args(argv)
     return args.func(args)

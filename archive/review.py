@@ -59,7 +59,8 @@ CORRECTABLE = {"usage": ("speaker", "quoted_party", "intermediary", "attribution
                "relation": ("type", "reverse")}
 _ENDS = ("label", "entity_id", "concept_id")
 _SETTABLE = {"usage": set(CORRECTABLE["usage"]),
-             "relation": {"type", "resolution_status"} | {f"{side}_{x}" for side in ("subject", "object") for x in _ENDS}}
+             "relation": {"type", "resolution_status"} | {f"{side}_{x}" for side in ("subject", "object") for x in _ENDS},
+             "source": {"title", "publisher"}}   # title repairs (archive/titles.py) are undone the same way
 CONFIDENCE = ("high", "medium", "low")
 CONTEXT_CHARS = 400
 FOLDERS = ("open", "keys", "verdicts", "done", "researcher")
