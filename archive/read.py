@@ -313,7 +313,7 @@ class Reader:
             self.role.model, messages, schema=response_schema(unit_ids, self.prompt.features),
             temperature=self.role.temperature,
             num_predict=int(extra.get("num_predict", 4096)), num_ctx=extra.get("num_ctx"),
-            keep_alive=extra.get("keep_alive", 0))
+            think=extra.get("think", False), keep_alive=extra.get("keep_alive", 0))
 
     def _read_chunk(self, header: str, chunk: list[dict], carry: dict | None,
                     section: tuple[int, int], *, retried: bool = False) -> list[ChunkReading]:
@@ -760,6 +760,9 @@ def _read_all(conn, reader: Reader, role, source_ids: list[str], *, again: bool,
                   "versions": sorted({u["version_id"] for u in units}), "skipped": skipped}
         if "ban_position" in prompt.features:   # which version of the ban-to-stance rule wrote the stances
             inputs["stance_rule"] = STANCE_RULE
+        if "think" in role.extra:   # a model that cannot read without reasoning (trial roles): its level and cap
+            inputs["think"] = role.extra["think"]
+            inputs["num_predict"] = int(role.extra.get("num_predict", 4096))
         smap = speaker_map(source_id)
         if smap:  # what the researcher told the readers about who speaks
             inputs["speaker_map_sha256"] = hashlib.sha256(canonical_json(smap).encode()).hexdigest()

@@ -462,3 +462,52 @@ not meant to be. What it is good for:
 - drafting corrections that Sérgio checks, as the review queue does now.
   Using its readings as training data for an open model needs a check of
   UiB's agreement with Anthropic first.
+
+## Other open models tried as readers (11 November)
+
+Sérgio asked whether other open models in the Ollama library could help.
+Two could read: gpt-oss:20b and Bonsai 2 27B. The others are built for
+other tasks: clef-flash and autotrust-jev choose between given options,
+mimo-v2.6 writes code, and phonon is text-to-speech.
+
+### gpt-oss:20b
+
+OpenAI's open model (Apache 2.0): a 21B mixture of experts with 3.6B
+active, 13 GB. It read the 16 dev entries as the other readers did (prompt
+read-v4, the same sections, and the source titles they saw then), in a copy
+of the database. It was then scored alone, with the rules
+(`scripts/solo_copy.py --rules`).
+
+- **It cannot answer without reasoning first.** With thinking switched off,
+  Ollama lets it reason anyway: on a 1,600-character section it spent the
+  whole 4,096-token cap reasoning and gave no answer. So its trial role sets
+  its own reasoning level (`think: low`) and a cap of 8,192 tokens. Options
+  a trial role sets replace the reading ones, and each run records them.
+- **At "low" it skips most of the text.** 63 of 88 sections came back
+  empty, in 2 to 3 seconds each. On one French section its whole reasoning
+  was "Hard. Probably minimal.", followed by empty lists.
+- **At "medium" it never finishes.** The same 5,300-character section
+  reasoned for 3 minutes and hit a 16,384-token cap with no answer. That is
+  34 s per 1,000 characters, more than twice the reading budget.
+
+| Reading (alone, with the rules) | Automatic (74) failed | Located statements | Speaker filled |
+|---|---:|---:|---:|
+| gpt-oss:20b (read-v4, low reasoning) | 36 | 199 | 77.9% |
+| 31B (read-v4) | 4 | 1,354 | 96.5% |
+| Qwen 3.8 27B (read-v4) | 7 | 1,691 | 98.2% |
+| Claude (read-v4) | 3 | 2,250 | 100% |
+
+The 14 judged checks were not judged: with 36 automatic failures they
+could not change the result. gpt-oss:20b is not a candidate reader for
+this task. A model that must reason before it answers spends its budget
+reasoning rather than copying quotes. The readers that work here answer
+directly.
+
+### Bonsai 2 27B
+
+Bonsai 2 27B is a 27B model with ternary weights (8.3 GB). Ollama refused
+the download: the model needs a newer Ollama server than 0.40.3, which runs
+the readers. The Ollama app on the Mac Studio is already 0.40.12, but the
+server has not been restarted since the update. Restarting it would change
+the software under the two readers of record, so that is Sérgio's decision.
+The role `trial_bonsai27b` is ready in `config/models.yaml`.

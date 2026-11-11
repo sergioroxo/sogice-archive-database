@@ -400,3 +400,16 @@ def test_the_speakers_command_writes_the_map(conn, tmp_path, monkeypatch, capsys
     saved = json.loads((tmp_path / "speakers" / f"{SID}.json").read_text())
     assert [s["name"] for s in saved["speakers"]] == ["Jane Host", "Joe Guest"] and saved["note"] == "Unlabelled."
     assert "Jane Host (host); Joe Guest (guest)" in read.source_header(conn, SID)
+
+
+def test_a_reasoning_level_goes_to_the_model_and_into_the_run(conn):
+    role = RoleConfig(name="reading", model="reasoner:20b", temperature=0,
+                      extra={"num_predict": 8192, "think": "low"})
+    client = FakeClient([good_reply()])
+    read.read_sources(conn, client, role, [SID])
+    assert client.calls[0]["think"] == "low" and client.calls[0]["num_predict"] == 8192
+    inputs = json.loads(conn.execute("SELECT inputs FROM run WHERE role = 'reading'").fetchone()[0])
+    assert (inputs["think"], inputs["num_predict"]) == ("low", 8192)
+    plain = FakeClient([good_reply()])
+    read.read_sources(conn, plain, ROLE, [SID], again=True)
+    assert plain.calls[0]["think"] is False                       # the readers of record never reason

@@ -288,7 +288,10 @@ def cmd_read(args: argparse.Namespace) -> int:
         if args.model_role.startswith("trial_") and Path(args.db).resolve() == paths.database_path().resolve():
             print("trial models read into a copy of the database only (--db data/scratch/…)", file=sys.stderr)
             return 2
-        role = dataclasses.replace(role, model=cfg.model_for(args.model_role))
+        other = cfg.role(args.model_role)
+        # a trial role may set its own options (a reasoning level, a larger cap) over the reading settings
+        extra = {**role.extra, **other.extra} if args.model_role.startswith("trial_") else role.extra
+        role = dataclasses.replace(role, model=other.model, extra=extra)
     client = OllamaClient(cfg.base_url, cfg.timeout_seconds)
     log = lambda line: print(line, flush=True)
     if args.both:  # two independent readings, batch by batch (one resident model at a time), then compare

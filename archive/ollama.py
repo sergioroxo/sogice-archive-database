@@ -129,13 +129,14 @@ class OllamaClient:
 
     def chat_json(self, model: str, messages: list[dict], *, schema: dict | None = None,
                   temperature: float | None = 0, num_predict: int = DEFAULT_NUM_PREDICT,
-                  num_ctx: int | None = None, think: bool | None = False,
+                  num_ctx: int | None = None, think: bool | str | None = False,
                   keep_alive: int | str = DEFAULT_KEEP_ALIVE) -> ChatResult:
         """One non-streaming chat call whose reply must be JSON.
 
         ``schema`` constrains the reply; without it Ollama's plain JSON mode is
         used. ``think=None`` leaves the model's thinking setting alone (for
-        models without that capability).
+        models without that capability); a level ("low", "medium", "high") is
+        for models that always reason (gpt-oss ignores ``False``).
         """
         if num_predict <= 0:
             raise ValueError("num_predict must be positive: output is always capped")
