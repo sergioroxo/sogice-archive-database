@@ -501,7 +501,9 @@ The 14 judged checks were not judged: with 36 automatic failures they
 could not change the result. gpt-oss:20b is not a candidate reader for
 this task. A model that must reason before it answers spends its budget
 reasoning rather than copying quotes. The readers that work here answer
-directly.
+directly. Sérgio's conclusion: the 31B stays the best open reader here,
+and gpt-oss:20b was removed from the Mac Studio. Its trial role stays in
+`config/models.yaml` so the settings behind these figures are on record.
 
 ### Bonsai 2 27B
 

@@ -57,7 +57,7 @@ roles:
     model: qwen3.6:35b-mlx   # digest 1b50c6fdc2d4; 35.1B mixture of experts, nvfp4
     description: Trial only
   trial_gptoss20b:
-    model: gpt-oss:20b       # digest f38aa0c53da5; 21B mixture of experts, MXFP4; failed 36 of 74 checks (docs/MODELS.md)
+    model: gpt-oss:20b       # digest f38aa0c53da5; failed 36 of 74 checks (docs/MODELS.md); removed from the Mac Studio 11 Nov
     description: Trial only
     think: low               # it always reasons: with thinking "off" a 1,600-char section spent the whole cap reasoning
     num_predict: 8192        # room for the reasoning on top of the reading cap of 4,096

@@ -284,7 +284,11 @@ def main(argv: list[str] | None = None) -> int:
     except OllamaError as exc:
         print(f"FAIL server: {exc}")
         return 2
-    missing = [m["tag"] for m in report["server"]["models"].values() if not m["installed"]]
+    models = report["server"]["models"]
+    absent = [m["tag"] for name, m in models.items() if name.startswith("trial_") and not m["installed"]]
+    if absent:  # trial roles keep their settings on record after the model is removed (or was never local)
+        print(f"WARN trial models not installed: {', '.join(absent)}")
+    missing = [m["tag"] for name, m in models.items() if not name.startswith("trial_") and not m["installed"]]
     if missing:
         print(f"FAIL not installed: {', '.join(missing)}")
         return 2
