@@ -66,8 +66,8 @@ From the first review trial (`docs/REVIEW.md`), adopted by Sérgio on
   relation, even under an organisation's heading.
 
 read-v5 did not test better than read-v4 on the dev set (`docs/MODELS.md`),
-so read-v4 stays the default. `read-v6` keeps read-v5 and adds four
-clarifications for what went wrong with it: a quote belongs to the speaker
+so read-v4 stays the default. `read-v6` (tested, not adopted either) keeps
+read-v5 and adds four clarifications for what went wrong with it: a quote belongs to the speaker
 introduced at the end of the unit before; a report's own text belongs to
 the body or person it names as its author, never a file name or code; a list
 of people heard gives no statements; and a law that orders, funds or

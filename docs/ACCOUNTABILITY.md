@@ -168,6 +168,15 @@ From the first fingerprint scan (11 November; `docs/FINGERPRINTS.md`):
     provider. The report now shows, for every cluster, the servers its sites
     share and how many of that server's sites carry the identifier.
 
+From testing read-v6 (11 November):
+
+25. **Wording is a blunt tool at this size.** Four clarifications, each
+    aimed at one failure, fixed none of them and moved three other answers.
+    The readers agree more with each version, but agreement is not
+    correctness. What held was software and better information about the
+    source: when a header calls a report "r4501", no sentence in the prompt
+    stops a reader from using it.
+
 ## The review queue
 
 Disputed statements and relations, and relations only one reader proposed

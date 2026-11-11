@@ -344,5 +344,61 @@ pairs to 31.
   1,000 characters), Qwen 54 → 63 min (9.0 → 10.6 s). Both are within the
   15 s budget; the longer prompt costs about 20%.
 
-`read-v6` keeps read-v5 and adds four short clarifications for these
-failures (`docs/READING.md`); it is being tested the same way.
+## Prompt read-v6 (11 November)
+
+`read-v6` keeps read-v5 and adds four short clarifications aimed at its
+failures (`docs/READING.md`). Same dev set, same reconcile and rules, and
+the narrower ban rule (`ban/v2`). Automatic checks (74):
+
+| Reading | read-v4 + rules | read-v5 + rules | read-v6 + rules |
+|---|---:|---:|---:|
+| Both, reconciled | 3 | 5 | 7 |
+| 31B alone | 4 | 5 | 8 |
+| Qwen 3.8 27B alone | 7 | 7 | 7 |
+
+One of the read-v6 failures in each row is `fr-p42-no-authorship`: both
+readers now give the amendments as authorship, as adopted rule 3 says, so
+the relation is no longer held and the test set's opposite expectation
+fails (`docs/REVIEW.md`). Without it, read-v6 fails 6, 7 and 6. The judged
+expectations were not run: on the automatic checks alone read-v6 is not
+better, so it is not adopted and read-v4 stays the default.
+
+None of the four clarifications did what it was written for:
+
+- **The catalogue title.** The 31B still names the French report "r4501"
+  (111 statements) although the prompt now says never to use a file name or
+  code: it is what the header calls the report. The fix is the title, not
+  the prompt.
+- **The law that is not a ban.** Qwen still marks Lowenthal as opposing "the
+  law", although the prompt now names a law ordering research into a "cure"
+  as the example; its own stance was `criticizes`, and software turned it
+  into `endorses`. The 31B said `supports` (the repeal bill), which keeps
+  her stance right.
+- **Benson.** The 31B still gives his quote to "unknown".
+- **The MoU exemption.** Still `not_applicable` from the 31B, which reconcile
+  keeps as the primary reader's.
+
+And the new wording moved other things: the 31B now misses Petit's "pauses"
+(p. 49) and the Exodus affiliates' continuation, and Qwen gives the
+Davidson host's own story to the guest, which carries into the combined
+reading.
+
+The readers agree more. Disputed statement pairs: read-v4 218, read-v5 262,
+read-v6 198. The "r4501" disputes alone are 78 of the 198; without them the
+pairs fall to 120, and those on "unknown" (49 → 22), on host and guest
+labels (31 → 8) and on two different names (81 → 57) all fell. Agreement is
+not correctness, but it is what makes the review queue smaller: 479
+packets, of which 33 consequential relations (read-v4 with rules: 368 and
+39). Time: 31B 12.5 s and Qwen 10.7 s per 1,000 characters.
+
+What this says about working with these models: at temperature 0 the
+readings are repeatable, but any change of wording moves answers well away
+from the passage it was written for, so a dev set of 74 checks can only
+tell large effects from small ones. read-v5 fixed two of the cases it was
+written for (Stop the Ban, stances on the list of people heard) and broke
+three other checks; read-v6 fixed none of its four and broke three.
+The gains that held came from software (relation rules, the ban field's
+stance rule, reconcile) and from what the readers are told about a source.
+The next steps are therefore not a read-v7 but: repair poor source titles
+(`docs/FINGERPRINTS.md`), speaker lists for the three unlabelled recordings,
+and settling the amendment expectation.
