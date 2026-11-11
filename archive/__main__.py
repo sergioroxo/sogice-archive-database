@@ -16,6 +16,9 @@
     python -m archive reconcile [--testset|--all|--source ID] [--report-only] [--no-rules]
     python -m archive review prepare|apply|status|undo   # the review queue (data/review/)
     python -m archive speakers SOURCE [--set "Name=role" …] [--note TEXT]   # who speaks in a recording
+    python -m archive queue-add URL … [--file F] [--origin NAME]        # add pages to the source queue
+    python -m archive fingerprints [--again] [--source ID …] [--queue-sites [--skip-site S …]]
+                                   # identifiers in page code shared by several sites (report)
 """
 from __future__ import annotations
 
@@ -26,7 +29,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from . import attach, db, dedupe, match, paths, queue_import, read, report, seeds, testset
+from . import attach, db, dedupe, fingerprints, match, paths, queue_import, read, report, seeds, testset
 from .depot import Depot
 from .index_text import TextIndexer, pending_versions
 from .acquire import pending_targets, recheck_stored
@@ -412,6 +415,41 @@ def cmd_speakers(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_queue_add(args: argparse.Namespace) -> int:
+    """Add pages (live URLs or Wayback captures) to the source queue; existing sources stay as they are."""
+    urls = list(args.urls or [])
+    if args.file:
+        urls += [line.strip() for line in args.file.read_text(encoding="utf-8").splitlines()
+                 if line.strip() and not line.lstrip().startswith("#")]
+    if not urls:
+        print("give URLs or --file", file=sys.stderr)
+        return 2
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    added = queue_import.add_urls(conn, urls, origin=args.origin or f"manual-{time.strftime('%Y-%m-%d')}")
+    conn.close()
+    print(json.dumps({k: v for k, v in added.items() if k != "targets"}, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_fingerprints(args: argparse.Namespace) -> int:
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    if not args.report_only:
+        counts = fingerprints.scan(conn, again=args.again, source_ids=args.source,
+                                   log=lambda line: print(line, flush=True))
+        print(json.dumps(counts, indent=2))
+    if args.queue_sites:
+        queued = fingerprints.queue_sites(conn, skip=set(args.skip_site or []), origin=args.origin)
+        print(json.dumps({k: v for k, v in queued.items() if k not in ("targets", "sites")}, indent=2))
+        for site, info in queued["sites"].items():
+            print(f"  {site}: {', '.join(info['urls'])}  [{'; '.join(info['why'])}]")
+    path = fingerprints.write_report(conn)
+    conn.close()
+    print(f"report: {path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m archive")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -539,6 +577,23 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--remove", action="append", metavar="NAME", help="remove a speaker")
     p.add_argument("--note", help="a note for the readers (e.g. 'the host tells her own story at 12:00')")
     p.set_defaults(func=cmd_speakers)
+
+    p = sub.add_parser("queue-add", help="add pages (live URLs or Wayback captures) to the source queue")
+    p.add_argument("urls", nargs="*", help="URLs to add")
+    p.add_argument("--file", type=Path, help="a file with one URL per line (# starts a comment)")
+    p.add_argument("--origin", help="where they came from (kept as their reference), e.g. 'fingerprints-2026-11-11'")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.set_defaults(func=cmd_queue_add)
+
+    p = sub.add_parser("fingerprints", help="identifiers in page code shared by several sites (no model)")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--source", action="append", help="scan only this source (repeatable)")
+    p.add_argument("--again", action="store_true", help="scan pages already scanned by this scanner version")
+    p.add_argument("--report-only", action="store_true", help="write the report without scanning")
+    p.add_argument("--queue-sites", action="store_true", help="add the home pages of clustered sites to the queue")
+    p.add_argument("--skip-site", action="append", help="with --queue-sites: leave this site out (repeatable)")
+    p.add_argument("--origin", help="with --queue-sites: reference for the queued pages")
+    p.set_defaults(func=cmd_fingerprints)
 
     args = parser.parse_args(argv)
     return args.func(args)

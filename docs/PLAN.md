@@ -35,6 +35,11 @@
    flagged `challenge_page`, never read, and its target is fetched again.
    Large pages with almost no extracted text (usually JavaScript-rendered)
    are listed in the preservation report for review, not fixed automatically.
+   **Fingerprints (no model):** each preserved page's own code is scanned for
+   identifiers only its owner or web manager can put there (analytics and
+   donation accounts, charity and tax numbers, declared profiles) and for
+   its self-description; sites sharing one are reported, with platform and
+   provider identifiers set apart (`docs/FINGERPRINTS.md`).
 2. **Match (no model).** Search every seed concept variant and entity name
    across all passages. Each hit is a usage marked `exact_match`. Count
    repeated navigation/promotional blocks separately.

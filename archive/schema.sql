@@ -653,3 +653,39 @@ CREATE TABLE IF NOT EXISTS assessment (
 );
 CREATE INDEX IF NOT EXISTS idx_assessment_target ON assessment(target_table, target_id, current);
 CREATE INDEX IF NOT EXISTS idx_assessment_source ON assessment(source_id, current);
+
+-- Fingerprints (v10): identifiers in a preserved page's own code (analytics and tag-manager accounts,
+-- Facebook apps and pixels, donation, newsletter and advertising accounts, charity, company and tax
+-- numbers, declared profiles, contact emails) and its self-description (title, site name, organisation
+-- in structured data, copyright line). Found by software (archive/fingerprints.py), no model.
+-- char_start/char_end index the page code decoded as UTF-8 with undecodable bytes replaced, so the
+-- snippet can be found again in the stored object. place: where in the page it sits; shown: the value
+-- also appears in the visible text. A shared fingerprint is a finding about page code, not a relation.
+CREATE TABLE IF NOT EXISTS fingerprint (
+  id          TEXT PRIMARY KEY,
+  version_id  TEXT NOT NULL REFERENCES source_version(id),
+  source_id   TEXT NOT NULL REFERENCES source(id),
+  site        TEXT NOT NULL,          -- registrable domain of the source URL (full host on a hosting platform)
+  kind        TEXT NOT NULL,
+  value       TEXT NOT NULL,          -- normalised (a Google Analytics property becomes its account)
+  char_start  INTEGER NOT NULL CHECK (char_start >= 0),
+  char_end    INTEGER NOT NULL CHECK (char_end > char_start),
+  snippet     TEXT NOT NULL,          -- as written in the page code
+  place       TEXT NOT NULL CHECK (place IN ('script', 'data', 'meta', 'link', 'comment', 'text')),
+  shown       INTEGER NOT NULL DEFAULT 0 CHECK (shown IN (0, 1)),
+  run_id      TEXT REFERENCES run(id),
+  created_at  TEXT NOT NULL,
+  UNIQUE (version_id, kind, value, place)
+);
+CREATE INDEX IF NOT EXISTS idx_fingerprint_value ON fingerprint(kind, value);
+CREATE INDEX IF NOT EXISTS idx_fingerprint_site ON fingerprint(site, kind);
+
+-- Which preserved copies a scanner version has read (also those with no fingerprints).
+CREATE TABLE IF NOT EXISTS fingerprint_scan (
+  version_id  TEXT NOT NULL REFERENCES source_version(id),
+  scanner     TEXT NOT NULL,
+  run_id      TEXT REFERENCES run(id),
+  found       INTEGER NOT NULL DEFAULT 0,
+  scanned_at  TEXT NOT NULL,
+  PRIMARY KEY (version_id, scanner)
+);

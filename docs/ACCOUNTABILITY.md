@@ -152,6 +152,22 @@ From testing read-v5 (11 November):
     speaker 116 times. What the readers are told about a source is part of
     the method and needs the same care as the prompt.
 
+From the first fingerprint scan (11 November; `docs/FINGERPRINTS.md`):
+
+23. **An identifier is not an owner.** The first scan linked a ministry and
+    a watchdog through one donation account (the watchdog quotes the
+    ministry's button as evidence) and 13 unrelated sites through one
+    advertising ID (Google Site Kit's own). Software now records where in
+    the page an identifier sits and sets apart identifiers that follow a
+    platform or provider; what remains is reported as shared page code,
+    never as affiliation.
+24. **Check a finding before telling it.** Two links first described to
+    Sérgio as possible shared management (three sites with one analytics
+    property, four ministries with one Facebook app) turned out on a closer
+    look to sit on sites built with one website builder and one church-site
+    provider. The report now shows, for every cluster, the servers its sites
+    share and how many of that server's sites carry the identifier.
+
 ## The review queue
 
 Disputed statements and relations, and relations only one reader proposed

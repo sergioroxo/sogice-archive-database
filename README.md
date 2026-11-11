@@ -33,6 +33,8 @@ python -m archive read --testset --split dev             # Phase 3: local readin
 python -m archive read --status                          # runs in progress; exit 1 if one has stalled
 python -m archive read --testset --both                  # two readers, reconcile, relation rules (docs/ACCOUNTABILITY.md)
 python -m archive speakers src_… --set "Name=host"       # who speaks in a recording without labels (read-v5)
+python -m archive fingerprints                          # identifiers in page code shared by sites (docs/FINGERPRINTS.md)
+python -m archive queue-add URL … --origin NAME         # add pages to the source queue
 python -m archive review prepare                         # review queue; then /review-queue in Claude Code (docs/REVIEW.md)
 python -m archive testset score         # check expectations and the Phase 3 gate
 ```
