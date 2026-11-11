@@ -212,3 +212,10 @@ From the holdout (11 November):
     of a merged work that were never read, and no author given in the
     source header. The dev figures say how well the method fits the dev
     set; the next gate needs new unseen entries (`docs/TESTSET.md`).
+28. **What the reader is told moves the yardstick.** Once the header named
+    authors, the readers credited articles' own voice to their bylines,
+    and two expectations that named only the outlet or "author" failed
+    correct readings. A titles fix made earlier put a heading in the
+    publisher field, and a judged check that had passed failed. When the
+    input changes, re-check the expectations that name roles, and the
+    fields the header shows.

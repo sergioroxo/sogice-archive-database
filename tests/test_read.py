@@ -167,7 +167,8 @@ def test_skips_bot_check_furniture_merged_and_repeats(conn):
         dup = add_source(conn, "https://example.org/copy", [TEXT_B])
         conn.execute("UPDATE source SET merged_into = ? WHERE id = ?", (SID, dup))
     units, skipped = read.source_units(conn, SID)
-    assert [u["text"] for u in units] == [TEXT_A, TEXT_B] and skipped["repeated_passages"] == 1
+    assert [u["text"] for u in units] == [TEXT_A, TEXT_B]
+    assert skipped["repeated_passages"] == 2       # the same text again, and the merged copy's (the keeper has it)
     units, skipped = read.source_units(conn, bot)
     assert units == [] and skipped["flagged_versions"][0]["flags"] == ["challenge_page"]
     s0 = source_id_for("https://example.org/s0")
@@ -413,3 +414,23 @@ def test_a_reasoning_level_goes_to_the_model_and_into_the_run(conn):
     plain = FakeClient([good_reply()])
     read.read_sources(conn, plain, ROLE, [SID], again=True)
     assert plain.calls[0]["think"] is False                       # the readers of record never reason
+
+
+def test_copies_of_merged_sources_are_read_with_their_keeper(conn):
+    keeper = add_source(conn, "https://journal.example/full/10.1/x", [TEXT_A, TEXT_B])
+    merged = add_source(conn, "https://doi-landing.example/10.1/x",
+                        ["The results indicated that a majority failed to change.", TEXT_A])
+    conn.execute("UPDATE source SET merged_into = ? WHERE id = ?", (keeper, merged))
+    units, skipped = read.source_units(conn, keeper, set())
+    assert [u["text"] for u in units] == [TEXT_A, TEXT_B, "The results indicated that a majority failed to change."]
+    assert skipped["repeated_passages"] == 1                       # the text both copies hold is read once
+    assert read.source_units(conn, read.keeper(conn, merged), set())[0] == units
+
+
+def test_the_author_is_in_the_header_and_recorded_with_the_run(conn):
+    conn.execute("UPDATE source SET author = 'Jane Q. Writer' WHERE id = ?", (SID,))
+    client = FakeClient([good_reply()])
+    read.read_sources(conn, client, ROLE, [SID])
+    assert "Author: Jane Q. Writer" in client.calls[0]["messages"][1]["content"]
+    inputs = json.loads(conn.execute("SELECT inputs FROM run WHERE role = 'reading'").fetchone()[0])
+    assert inputs["author"] == "Jane Q. Writer"

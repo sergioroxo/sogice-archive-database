@@ -155,13 +155,17 @@ def keeper(conn: sqlite3.Connection, source_id: str) -> str:
 def source_units(conn: sqlite3.Connection, source_id: str, furniture: set | None = None) -> tuple[list[dict], dict]:
     """Passages to read for a source, in reading order, each text once.
 
+    The copies of sources merged into it are read with it (one work, one source: an abstract page merged
+    into the full text says things the full text may not). Text they share with the keeper is read once.
     Returns (units, skipped) where skipped counts what was left out and why.
     """
     furniture = furniture_hashes(conn) if furniture is None else furniture
     skipped = {"flagged_versions": [], "furniture_passages": 0, "repeated_passages": 0}
     versions = conn.execute(
-        "SELECT id, mime_type, quality_flags FROM source_version WHERE source_id = ? ORDER BY created_at, id",
-        (source_id,)).fetchall()
+        """WITH RECURSIVE family(id) AS (SELECT ? UNION SELECT s.id FROM source s JOIN family f ON s.merged_into = f.id)
+           SELECT v.id, v.mime_type, v.quality_flags FROM source_version v
+           WHERE v.source_id IN family ORDER BY v.source_id != ?, v.created_at, v.id""",
+        (source_id, source_id)).fetchall()
     units, seen = [], set()
     for v in versions:
         flags = set(json.loads(v["quality_flags"] or "[]"))
@@ -242,6 +246,9 @@ def source_header(conn: sqlite3.Connection, source_id: str) -> str:
         lines.append(f"Title: {s['title']}")
     if s["publisher"]:
         lines.append(f"Publisher: {s['publisher']}")
+    if "author" in s.keys() and s["author"]:   # from the DOI record or the page itself (archive/authors.py)
+        from .authors import shown
+        lines.append(f"Author: {shown(s['author'])}")
     if s["published_date"]:
         lines.append(f"Published: {s['published_date']} ({s['published_date_certainty']})")
     if s["captured_date"]:
@@ -763,6 +770,9 @@ def _read_all(conn, reader: Reader, role, source_ids: list[str], *, again: bool,
         if "think" in role.extra:   # a model that cannot read without reasoning (trial roles): its level and cap
             inputs["think"] = role.extra["think"]
             inputs["num_predict"] = int(role.extra.get("num_predict", 4096))
+        author = conn.execute("SELECT author FROM source WHERE id = ?", (source_id,)).fetchone()[0]
+        if author:  # what the header told the readers about who wrote the text
+            inputs["author"] = author
         smap = speaker_map(source_id)
         if smap:  # what the researcher told the readers about who speaks
             inputs["speaker_map_sha256"] = hashlib.sha256(canonical_json(smap).encode()).hexdigest()

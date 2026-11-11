@@ -180,6 +180,7 @@ CREATE TABLE IF NOT EXISTS source (
   id                      TEXT PRIMARY KEY,
   title                   TEXT,
   publisher               TEXT,
+  author                  TEXT,       -- who wrote the text, '; '-separated (archive/authors.py)
   url                     TEXT,
   archive_url             TEXT,       -- Wayback (or other) capture of url
   published_date          TEXT CHECK (published_date IS NULL OR published_date GLOB '[0-9][0-9][0-9][0-9]*'),

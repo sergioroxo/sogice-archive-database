@@ -11,16 +11,20 @@ the current one is `read-v4`).
 
 - Every passage of every readable copy of the source, in order, in sections
   of about 6,000 characters. A section never splits a passage.
-- A header: URL, site, title, publisher, publication date if known, and the
-  Wayback capture date marked as *not* a publication date. For a recording
+- A header: URL, site, title, publisher, author if known (`docs/AUTHORS.md`),
+  publication date if known, and the Wayback capture date marked as *not* a
+  publication date. For a recording
   without speaker labels, also the speakers Sérgio has named
   (`python -m archive speakers SOURCE --set "Name=host"`, stored in
   `data/speakers/`; the map's hash goes into the run's inputs).
 - The end of the previous section and its last speaker, as context only, so a
   speaker's turn carries across sections.
-- Left out on purpose: merged duplicates (their keeper is read), copies
-  flagged `challenge_page` or with a missing/unreadable file, passages
-  repeated on 3+ sources (site furniture), and word-for-word repeats.
+- The copies of sources merged into this one (since 11 Nov), after its own
+  copies; what repeats the keeper's text word for word is dropped. A merged
+  source is never read on its own.
+- Left out on purpose: copies flagged `challenge_page` or with a
+  missing/unreadable file, passages repeated on 3+ sources (site furniture),
+  and word-for-word repeats.
 
 ## What it returns
 

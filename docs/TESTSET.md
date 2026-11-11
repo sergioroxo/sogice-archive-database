@@ -95,8 +95,10 @@ What the nine failures are:
 - **Copies of a merged work are not read (2 checks).** The APA article's
   abstract page holds both anchor sentences. It was merged into the
   full-text copy, and reading takes only the keeper's own copies, although
-  the plan says every readable copy is read. Across the archive, 22 merged
-  sources (230,000 characters) are skipped this way.
+  the plan says every readable copy is read. Across the archive, 22 sources
+  are merged into others; most only repeat their keeper's text, but 8 hold
+  text the keeper lacks (11 passages, about 9,400 characters). Fixed the
+  same day: their copies are read with the keeper (see below).
 - **The readers are not told who wrote a text (1 automatic check and the
   judged one).** The Genspect essay is by Jaco van Zyl. Both readers
   credited its critique of the MoU to Genspect, the publisher. One reader
@@ -129,6 +131,53 @@ missing author, so fixing that matters for the queue too.
 
 This holdout has now been seen. Fixes made because of it must be tested on
 the dev set, and the next gate needs new holdout entries.
+
+## The two fixes, tested on dev (11 November 2026)
+
+- **Merged copies are read with their keeper.** No dev source has merged
+  copies, so dev cannot show this fix; a unit test does.
+- **Readers are told the author** (`docs/AUTHORS.md`).
+
+The test was run on a copy of the archive with authors set. That copy also
+holds the titles run's repaired titles, so the two cannot be told apart
+here. Five dev sources' headers changed:
+
+- two gained an author: France 24 and Christian Concern;
+- three gained a repaired title and publisher: the French report, the
+  Exodus closure and the Harvest covenants.
+
+Both readers re-read these five, with read-v4, reconcile and the rules.
+
+| Dev, 88 checks, automatic | Before (read-v4 + rules) | After |
+|---|---:|---:|
+| Both, reconciled | 3 | 3 |
+| 31B alone | 4 | 3 |
+| Qwen 3.8 27B alone | 7 | 7 |
+
+The three combined failures are the same as before. The solo changes are
+all on the French report, re-read with its new title.
+
+**Two expectations were widened.** With the author in the header, both
+readers credit each article's own voice to its byline. Two expectations
+had named only the outlet or "author" as the speaker:
+
+- France 24's 700,000 estimate now also accepts David Rich (the page prints
+  "By: David RICH");
+- Christian Concern's introduction now also accepts Sean Redfearn ("Sean
+  Redfearn talks to Jack Sterling").
+
+Before the change, these two checks failed on the new readings.
+
+**Judged checks.** The eight judged checks on the re-read sources went to a
+blind judge, old and new readings shuffled. Seven ruled the same for both:
+5 pass, 2 fail. One regressed, Harvest covenants' exceptions: the new
+reading files Sample 2's steps under Sample 1.
+
+The cause is the titles run, not these fixes. Besides the title, it set the
+publisher to "Men's Discipleship Group - Sample #1", the first sample's
+heading. The titles run set 344 publishers across the archive. In a sample
+of 40, 17 named people (the text's authors, not its publisher) and three
+only a country. Those need sorting before the corpus is read.
 
 ## For the reading stage
 

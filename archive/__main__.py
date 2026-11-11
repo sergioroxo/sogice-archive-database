@@ -21,6 +21,8 @@
                                    # identifiers in page code shared by several sites (report)
     python -m archive titles [--no-model] [--source ID …] [--limit N] [--dry-run]
                                    # repair missing and poor source titles (page code, then first page)
+    python -m archive authors [--source ID …] [--again] [--dry-run]
+                                   # source authors from DOI records and page code (no model)
 """
 from __future__ import annotations
 
@@ -473,6 +475,18 @@ def cmd_titles(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_authors(args: argparse.Namespace) -> int:
+    from . import authors
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    result = authors.assign(conn, source_ids=args.source, again=args.again, dry_run=args.dry_run,
+                            log=lambda line: print(line, flush=True))
+    conn.close()
+    print(json.dumps({"runs": result["runs"], "counts": result["counts"]}, indent=2))
+    print(f"report: {authors.write_report(result, dry_run=args.dry_run)}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m archive")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -627,6 +641,13 @@ def main(argv: list[str] | None = None) -> int:
                    help="leave this source out (e.g. a domain now used by someone else); repeatable")
     p.add_argument("--dry-run", action="store_true", help="report what would change; write nothing")
     p.set_defaults(func=cmd_titles)
+
+    p = sub.add_parser("authors", help="set source authors from DOI records and page code (no model)")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--source", action="append", help="only this source (repeatable)")
+    p.add_argument("--again", action="store_true", help="also sources that have an author (never a researcher's)")
+    p.add_argument("--dry-run", action="store_true", help="report what would change; write nothing")
+    p.set_defaults(func=cmd_authors)
 
     args = parser.parse_args(argv)
     return args.func(args)

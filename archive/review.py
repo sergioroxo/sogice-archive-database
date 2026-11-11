@@ -60,7 +60,7 @@ CORRECTABLE = {"usage": ("speaker", "quoted_party", "intermediary", "attribution
 _ENDS = ("label", "entity_id", "concept_id")
 _SETTABLE = {"usage": set(CORRECTABLE["usage"]),
              "relation": {"type", "resolution_status"} | {f"{side}_{x}" for side in ("subject", "object") for x in _ENDS},
-             "source": {"title", "publisher"}}   # title repairs (archive/titles.py) are undone the same way
+             "source": {"title", "publisher", "author"}}   # title and author repairs (titles.py, authors.py)
 CONFIDENCE = ("high", "medium", "low")
 CONTEXT_CHARS = 400
 FOLDERS = ("open", "keys", "verdicts", "done", "researcher")
