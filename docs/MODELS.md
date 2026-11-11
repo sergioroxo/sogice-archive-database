@@ -513,3 +513,10 @@ the readers. The Ollama app on the Mac Studio is already 0.40.12, but the
 server has not been restarted since the update. Restarting it would change
 the software under the two readers of record, so that is Sérgio's decision.
 The role `trial_bonsai27b` is ready in `config/models.yaml`.
+
+## Holdout (11 November)
+
+The chosen method was read once on the five holdout entries. It failed 9
+of 24 checks (31B alone 7, Qwen alone 6), against 5 of 88 on the dev set.
+Two causes are outside the models: copies of a merged work were not read,
+and the readers are not told a text's author. Details: `docs/TESTSET.md`.

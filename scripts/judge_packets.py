@@ -2,7 +2,7 @@
 
     python scripts/judge_packets.py --a data/archive.db --b data/scratch/other.db [more.db …] --out data/scratch/judging
 
-For each judged expectation in the dev split, writes ``<id>.md`` with the
+For each judged expectation in the split (dev unless ``--split holdout``), writes ``<id>.md`` with the
 criterion, the source text it concerns (pages for paged entries) and each
 reading's records (statements, claims, relations), labelled A, B, C… in a
 random order per packet. Disputed and superseded records are not shown: a
@@ -94,6 +94,7 @@ def main() -> int:
     ap.add_argument("--b", type=Path, nargs="+", required=True)
     ap.add_argument("--out", type=Path, default=paths.data_dir() / "scratch" / "judging")
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--split", choices=["dev", "holdout"], default="dev")
     ap.add_argument("--split-verdicts", action="store_true", help="verdicts.json -> one judgements file per database")
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
@@ -114,7 +115,7 @@ def main() -> int:
     rng = random.Random(args.seed)
     key = {}
     for entry in data["entries"]:
-        if entry["split"] != "dev":
+        if entry["split"] != args.split:
             continue
         for exp in entry.get("expect", []):
             if exp["check"] != "judged":

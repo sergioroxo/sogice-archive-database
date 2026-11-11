@@ -202,3 +202,13 @@ From Claude as a test reader (11 November):
     adopted rule say different things. A strong reader is a reference, not
     an authority: its disagreements with the test set are questions for the
     researcher, not answers.
+
+From the holdout (11 November):
+
+27. **Only unseen sources say how the method reads.** The dev set had been
+    read and re-read until its failures were understood. The five holdout
+    entries, read once, failed 9 of 24 checks, against 5 of 88 on the dev
+    set. Most were not wording problems but gaps around the readers: copies
+    of a merged work that were never read, and no author given in the
+    source header. The dev figures say how well the method fits the dev
+    set; the next gate needs new unseen entries (`docs/TESTSET.md`).
