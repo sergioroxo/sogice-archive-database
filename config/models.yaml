@@ -20,7 +20,7 @@ ollama:
 # /review-queue command, not through an API. Its decisions are recorded under this name.
 review:
   model: claude-opus-5-5
-  prompt: review-v2
+  prompt: review-v3
 
 roles:
   reading:
@@ -74,6 +74,11 @@ roles:
   trial_qwen36_35b:
     model: qwen3.6:35b-mlx   # digest 1b50c6fdc2d4; 35.1B mixture of experts, nvfp4
     description: Trial only
+  trial_qwen36_35b_think:
+    model: qwen3.6:35b-mlx   # the same MoE with reasoning on: checker trial, 12 Nov (docs/TAGGING.md)
+    description: Trial only
+    think: true
+    num_predict: 4096        # room for the reasoning on top of the checker's 512
   trial_gptoss20b:
     model: gpt-oss:20b       # digest f38aa0c53da5; failed 36 of 74 checks (docs/MODELS.md); removed from the Mac Studio 11 Nov
     description: Trial only

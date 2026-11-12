@@ -337,18 +337,24 @@ def attach_tags(conn: sqlite3.Connection, view: EntryView, tagger: str | None = 
         return
     rmarks = ",".join("?" for _ in runs)
     agreed = ("" if tagger else
-              """ AND (x.review_state = 'confirmed' OR EXISTS (SELECT 1 FROM assessment a WHERE a.target_table = '{t}'
+              """ AND (((x.review_state = 'confirmed' OR EXISTS (SELECT 1 FROM assessment a WHERE a.target_table = '{t}'
                    AND a.target_id = x.id AND a.current = 1 AND a.confidence = 'two_readers_agree'))
-                   AND x.review_state IN ('proposed', 'confirmed')""")
+                   AND x.review_state IN ('proposed', 'confirmed')){by_stance})""")
+    # a term in a statement that does not endorse is 'describes' whatever the taggers said (view term_use)
+    by_stance = " OR (c.scheme = 'term' AND u.stance <> 'endorses' AND x.review_state IN ('proposed', 'disputed'))"
     view.tags = [dict(r) for r in conn.execute(
         f"""SELECT x.*, c.scheme, c.pref_label, u.passage_id, u.char_start AS u_start, u.char_end AS u_end,
-                   u.review_state AS u_state
+                   u.review_state AS u_state, tu.use AS term_use
             FROM tag x JOIN concept c ON c.id = x.concept_id JOIN usage u ON u.id = x.usage_id
-            WHERE x.run_id IN ({rmarks}) AND x.review_state <> 'rejected'""" + agreed.format(t="tag")
+            LEFT JOIN term_use tu ON tu.tag_id = x.id
+            WHERE x.run_id IN ({rmarks}) AND x.review_state <> 'rejected'""" + agreed.format(t="tag", by_stance=by_stance)
         + ("" if tagger else " AND u.review_state NOT IN ('disputed', 'rejected', 'superseded')"), runs)]
+    for t in view.tags:   # a term's mode is its use (view term_use): the tagger's answer is the word
+        if t["term_use"]:
+            t["word"], t["mode"] = t["mode"], t["term_use"]
     view.assets = [dict(r) for r in conn.execute(
         f"SELECT x.* FROM asset x WHERE x.run_id IN ({rmarks}) AND x.review_state <> 'rejected'"
-        + agreed.format(t="asset"), runs)]
+        + agreed.format(t="asset", by_stance=""), runs)]
 
 
 def _tag_fits(tag: dict, options: list[str]) -> bool:

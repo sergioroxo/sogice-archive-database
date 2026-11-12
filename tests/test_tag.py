@@ -360,3 +360,26 @@ def test_tag_expectations_score_what_would_be_published(conn, tmp_path):
     bad.write_text(json.dumps({"entries": [{"key": "a", "expect": [{"id": "u", "check": "usage", "anchor": "x"}]}]}))
     with pytest.raises(testset.TestsetError):
         testset.load_with_tags(base, bad)
+
+
+def test_a_term_is_used_only_in_a_statement_that_endorses(conn, tmp_path):
+    reply = first_reply()
+    reply["statements"]["S1"]["terms"] = [{"term": "ex-gay", "mode": "uses"}]               # a critic, plainly
+    reply["statements"]["S3"]["terms"] = [{"term": "conversion therapy", "mode": "uses"}]   # a report, plainly
+    tag.tag_sources(conn, FakeClient([reply]), FIRST, [SID], primary_model="reader-a", prompt=V1)
+    use = lambda: {r["usage_id"]: (r["word"], r["use"]) for r in conn.execute("SELECT * FROM term_use")}
+    assert use() == {"use_s1": ("uses", "describes"), "use_s3": ("uses", "describes")}   # the word is kept
+    why = conn.execute("SELECT why FROM term_use WHERE usage_id = 'use_s1'").fetchone()[0]
+    assert why == "own word, the statement does not endorse (stance criticizes)"
+    with conn:   # a reviewer corrects the stance: the use follows
+        conn.execute("UPDATE usage SET stance = 'endorses' WHERE id = 'use_s3'")
+    assert use()["use_s3"] == ("uses", "uses")
+    base = tmp_path / "testset.json"
+    base.write_text(json.dumps({"version": "t", "entries": [{"key": "a", "urls": [URL], "split": "dev", "expect": []}]}))
+    tags = tmp_path / "tags.json"
+    tags.write_text(json.dumps({"version": "tags-t", "entries": [{"key": "a", "expect": [
+        {"id": "critic", "check": "tag", "anchor": "not ex-gay", "tag_any": ["term: ex-gay"], "mode": "describes"},
+        {"id": "endorser", "check": "tag", "anchor": "Critics call it", "tag_any": ["term: conversion therapy"],
+         "mode": "uses"}]}]}))
+    report = testset.score(conn, testset.load_with_tags(base, tags), tagger="tagger-a")
+    assert {r["id"]: r["status"] for r in report["results"]} == {"critic": "pass", "endorser": "pass"}

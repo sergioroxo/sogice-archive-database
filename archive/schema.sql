@@ -680,6 +680,24 @@ CREATE TABLE IF NOT EXISTS tag (
 CREATE INDEX IF NOT EXISTS idx_tag_usage ON tag(usage_id);
 CREATE INDEX IF NOT EXISTS idx_tag_concept ON tag(concept_id, mode);
 CREATE INDEX IF NOT EXISTS idx_tag_run ON tag(run_id);
+
+-- Term use (v14; Sérgio, 12 Nov 2026, question 1 in docs/TAGGING.md): a lexicon term is the speaker's
+-- own ("uses") only when they adopt it approvingly; a critic's or a reporter's plain use is "describes".
+-- The taggers record the word itself (tag.mode for a term: 'uses' = the speaker's own word, 'describes' =
+-- held at a distance: quoted, in scare quotes, "so-called", rejected as a label). Software derives the use
+-- from that and the statement's stance, so a corrected stance corrects the use (rule terms/v1): the
+-- speaker's own word in a statement that endorses change efforts → uses; anything else → describes.
+-- by_stance = 1: the statement does not endorse, so the use is 'describes' whatever the taggers said; such
+-- a term needs neither the taggers' agreement nor review (only the statement's own).
+DROP VIEW IF EXISTS term_use;   -- views are rebuilt on every start, so a changed rule reaches old databases
+CREATE VIEW term_use AS
+SELECT g.id AS tag_id, g.usage_id, g.concept_id, g.review_state, u.speaker, u.stance, g.mode AS word,
+  CASE WHEN g.mode = 'uses' AND u.stance = 'endorses' THEN 'uses' ELSE 'describes' END AS use,
+  CASE WHEN u.stance = 'endorses' THEN 0 ELSE 1 END AS by_stance,
+  CASE WHEN g.mode = 'describes' THEN 'held at a distance'
+       WHEN u.stance = 'endorses' THEN 'own word, the statement endorses'
+       ELSE 'own word, the statement does not endorse (stance ' || u.stance || ')' END AS why
+FROM tag g JOIN concept c ON c.id = g.concept_id AND c.scheme = 'term' JOIN usage u ON u.id = g.usage_id;
 CREATE TRIGGER IF NOT EXISTS tag_cue_located_insert BEFORE INSERT ON tag
 WHEN NEW.cue IS NOT NULL
  AND NEW.cue IS NOT (SELECT substr(text, NEW.cue_start + 1, NEW.cue_end - NEW.cue_start)

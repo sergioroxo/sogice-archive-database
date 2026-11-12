@@ -3,7 +3,7 @@
 After the two readers, `reconcile` and the relation rules, some records
 cannot be published on the models' word alone. They wait in a review queue, which a Claude Code
 session works through with a saved prompt, and Sérgio samples. Code:
-`archive/review.py`. Prompt: `prompts/review-v2.md`. Command:
+`archive/review.py`. Prompt: `prompts/review-v3.md`. Command:
 `/review-queue` (`.claude/skills/review-queue/SKILL.md`).
 
 ## What waits for review
@@ -13,6 +13,14 @@ session works through with a saved prompt, and Sérgio samples. Code:
 | statement dispute | both readers recorded the same words with a different speaker or opposite stance | both copies `disputed`; neither published |
 | relation dispute | the same two names with a different relation type | both copies `disputed` |
 | relation held | a relation only one reader proposed (decided 10 Nov 2026) | `proposed` but held: not published until a reviewer confirms it |
+| tag dispute | both taggers gave the same label to a statement, one as "uses", the other "describes" | both copies `disputed` |
+| tag held | a tag only one tagger gave (decided 12 Nov 2026: reviewed one by one); one packet per speaker, label and mode (at most 8 statements, each ruled on, `except` for those that do not show it); an actor type is one packet per speaker and type | `proposed` but held |
+| tag checked | both taggers agree, but the checker (`archive/check.py`) said the statement does not show it | `proposed` but held |
+| excerpt held, excerpt checked | the same for excerpts and new terms | `proposed` but held |
+| stance check | both taggers say the statement argues for change efforts (SSA-Rhetoric, Pastoral-Coercion, Pseudo-Science, Policy-Resistance), both readers marked it "criticizes"; the stance first, then the tag if it stands | the statement `proposed` |
+
+A term in a statement that does not endorse is never in the queue: its use
+is "describes" whatever the taggers said (`docs/TAGGING.md`).
 
 Statements found by one reader only are published, labelled "found by one
 reader"; they are not in the queue. Sérgio's weekly sample covers them.
@@ -27,7 +35,12 @@ reader"; they are not in the queue. Sérgio's weekly sample covers them.
    names and terms the archive already knows in the passage (entity
    registry, lexicon definitions). File names start with a priority:
    1 consequential relations (employment, affiliation, funding, operation,
-   co-signing, training), 2 statement disputes, 3 other relations.
+   co-signing, training), 2 statement disputes and stance checks, 3 other relations, 4 tag
+   disputes, items the checker flagged and actor types, 5 other held tags,
+   excerpts and new terms. A tag packet shows the statement, the label with
+   its definition, what the mode means for that kind of tag, and the words
+   the tagger gave; an excerpt packet shows the excerpt as marked, with the
+   definitions of all excerpt kinds.
    Which record and model is A or B is in `data/review/keys/`; the reviewer
    never opens it.
 2. In Claude Code, `/review-queue 40` takes the next 40 packets. For each,
@@ -41,9 +54,11 @@ reader"; they are not in the queue. Sérgio's weekly sample covers them.
    - the records must still be as the packet showed them (not re-read or
      ruled on since);
    - the chosen reading becomes `confirmed`, the other `rejected`; with a
-     correction, reading A is edited and confirmed; low confidence or
-     needs_researcher changes nothing and the packet goes to
-     `data/review/researcher/`.
+     correction, reading A is edited and confirmed (for a tag the mode, for
+     an excerpt its kind); low confidence or needs_researcher changes
+     nothing and the packet goes to `data/review/researcher/`;
+   - a ruling on an actor type covers each of the speaker's statements in
+     the packet, and is stale if any of them changed since.
 
    Every change is a decision under the reviewer's model name
    (`config/models.yaml`, `review.model`) with the review prompt's version
@@ -192,6 +207,14 @@ this rate the full queue would be far beyond what review sessions can work
 through, so these proposals matter more than the queue itself: each one
 turns a recurring mistake into a rule, and the queue is left with the cases
 that need judgement.
+
+Tags add to it. On the tag-v3 dev results (0.40 M characters) the tag and
+excerpt packets were 759, about 1.9 per 1,000 characters; with terms the
+stance settles left out and held tags grouped per speaker and label, 476
+(about 1.2 per 1,000): some 130,000 for the English corpus at today's
+agreement. What brings that down is the same
+as for relations: rules for recurring mistakes, and better agreement
+between the taggers.
 
 ```bash
 python -m archive review prepare                       # all reconciled sources

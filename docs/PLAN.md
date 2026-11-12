@@ -92,9 +92,14 @@ teaching material. Some of that work is not planned yet. So:
    described by the speaker. They also mark excerpts to keep whole
    (testimonies, prayer and conversion scripts, course structures,
    counter-sermons, new terms). Software compares them and a third model
-   checks agreed items (`archive/check.py`). Document facets come from
-   software first. See `docs/TAGGING.md`, which also has the dev trials:
-   tagging takes about two-thirds of reading time.
+   checks agreed items (`archive/check.py`). What the two taggers do not
+   settle (one tagger only, opposite modes, agreed but flagged by the
+   check) is reviewed one by one in the review queue before publication
+   (Sérgio, 12 Nov). A term counts as the speaker's own word in the lexicon
+   only when the statement endorses change efforts; a critic's plain use is
+   "describes" (Sérgio, 12 Nov; software, view `term_use`). Document facets
+   come from software first. See `docs/TAGGING.md`, which also has the dev
+   trials: tagging takes about two-thirds of reading time.
 4. **Suggest (embeddings).** EmbeddingGemma 2 over passages, page images,
    audio/video clips (≤ 5 min, with timecodes) and concept descriptions. Used
    for search and for suggesting concept attachments. Never evidence.

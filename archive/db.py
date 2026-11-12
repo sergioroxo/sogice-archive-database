@@ -25,13 +25,14 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
-SCHEMA_VERSION = 13  # v2 source_target; v3 fetch_attempt; v4 time_start/time_end; v5 local_file route;
+SCHEMA_VERSION = 14  # v2 source_target; v3 fetch_attempt; v4 time_start/time_end; v5 local_file route;
                      # v6 source.merged_into; v7 run.progress, run.heartbeat_at; v8 assessment;
                      # v9 usage.ban_position (the speaker's position on a ban, read-v5);
                      # v10 fingerprint, fingerprint_scan (identifiers in page code);
                      # v11 source.author (who wrote the text, archive/authors.py);
                      # v12 tag, asset (docs/TAGGING.md); decisions and assessments may target them;
                      # v13 concept scheme 'cluster' (the ontology's seven clusters, tagged since tag-v2)
+                     # v14 view term_use (a term is 'uses' only in a statement that endorses, rule terms/v1)
 
 # Column additions for databases created by an older schema.sql. New tables
 # and indexes need no entry: schema.sql creates them IF NOT EXISTS.
@@ -104,7 +105,7 @@ def init_db(conn: sqlite3.Connection) -> int:
     if conn.in_transaction:
         conn.commit()
     _migrate(conn)
-    conn.executescript(sql)  # every statement is CREATE ... IF NOT EXISTS
+    conn.executescript(sql)  # CREATE ... IF NOT EXISTS, except views (dropped and made again)
     with conn:
         conn.execute(
             "INSERT OR IGNORE INTO schema_version(version, applied_at, schema_sha256) VALUES (?, ?, ?)",

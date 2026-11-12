@@ -46,15 +46,43 @@ statements, so their answers can be compared one by one.
 | Tag | List | Mode |
 |---|---|---|
 | Actor | Who the speaker is, as the text states it (below) | the speaker **is** it |
-| Term used | The lexicon terms software found inside the statement (151,271 matches so far) | **uses** (the speaker's own word) or **describes** (quoted, in scare quotes, or criticised) |
+| Term used | The lexicon terms software found inside the statement (151,271 matches so far) | the tagger: the speaker's **own word**, or **held at a distance** (quoted, in scare quotes, "so-called", rejected). The lexicon's **uses** then needs a statement that endorses change efforts (below) |
 | Cluster | The ontology's 7 clusters, C1–C7 (since tag-v2; tag-v1 offered the 44 tactics) | **uses** (argues this way) or **describes** |
 | Practice | 14 (ILGA-Europe aligned) | **uses** (first-hand: does, offers, runs or went through it) or **describes** (reports, explains, promotes or criticises it from outside) |
 | Function | 11 of the 12, now defined (slur, euphemism, pseudo-diagnostic…) | **uses** or **describes**, with the words that do it |
 
 **Uses and describes.** A critic who says that a ministry "prays the gay
-away" describes a practice, and is never tagged as using it. The lexicon
-counts a term as someone's own word only when they use it; what "use"
-means for a critic's plain wording is question 1 below.
+away" describes a practice, and is never tagged as using it.
+
+**Terms: only an endorsing speaker uses them** (Sérgio, 12 November,
+question 1 below: option B). A critic's or a reporter's plain
+"conversion therapy" is "describes". The taggers are not asked to judge the
+side: they mark only whether the term is the speaker's own word or held at a
+distance, which they agree on (90% on dev). Software then sets the use from
+the statement's stance, which both readers have already agreed on (view
+`term_use`, rule `terms/v1`):
+
+- held at a distance → describes;
+- the speaker's own word, in a statement that endorses change efforts →
+  uses;
+- the speaker's own word in any other statement (criticizes, reports,
+  describes, mixed…) → describes.
+
+The taggers' answer stays stored, so the archive can still show who
+distances themselves from a word. A stance corrected in review corrects the
+use at once. A term in a statement that does not endorse needs no agreement
+between the taggers and no review: its use is "describes" whatever they
+said (the view's `by_stance`). On the tag-v3 dev results, of 384 agreed term tags, 71 are
+held at a distance and 313 are the speaker's own word; 30 of those are in
+an endorsing statement, so 30 count as "uses" and 354 as "describes".
+
+A first version also counted a speaker as approving when they endorsed
+elsewhere in the same source and criticised nowhere in it. It was dropped:
+the readers' stances on statements that are not about change efforts are
+not reliable enough (a counter-sermon's statements on inclusive worship were
+marked "endorses"), and one organisation can appear under several speaker
+labels. A promoter's descriptive sentence therefore counts as "describes";
+their endorsing sentences carry the term.
 
 **Actor types.** The tagger gives up to two, only when the text says them:
 a job title, a self-description, or a role line ("Alan Chambers, Exodus
@@ -79,7 +107,7 @@ Registry, which Sérgio keeps.
 
 **Terms in use**, without a model: software credits each term match inside
 a statement to that statement's speaker, with its stance. The tagger adds
-whether it is the speaker's own word. Matches outside any statement stay
+whether it is the speaker's own word; software sets the use (above). Matches outside any statement stay
 plain matches: they can be searched, but are not credited to anyone.
 
 **Tactics** are not tagged since tag-v2: the families overlapped too much
@@ -136,8 +164,8 @@ and how it was checked. Four layers, each recorded on the item:
 
    The checker sees only the item, its speaker and the definition: "Does
    this show X? Answer yes or no, and copy the words that show it." Those
-   words must be found inside the item. A "no", or words that cannot be
-   found, sends the item to the review queue. Each answer is an audit
+   words must be found inside the item. A "no" sends the item to the review
+   queue. Each answer is an audit
    decision on the item: pass, fail, or uncertain (yes, but the words are
    not in the item).
 
@@ -147,7 +175,11 @@ and how it was checked. Four layers, each recorded on the item:
    checker says yes to the real labels and no to the decoys. Gemma 4 12B is
    proposed after the dev trial (below).
 4. **Review and samples.**
-   - Claude Code works the queue: held, disputed and failed checks.
+   - Claude Code works the queue (`docs/REVIEW.md`), one item at a time
+     (Sérgio, 12 November): every tag or excerpt only one tagger gave,
+     every disputed mode, and every agreed item the checker said no to.
+     Actor types are ruled on per speaker and type. Nothing in these groups
+     is published until a reviewer confirms it.
    - Sérgio samples each week.
    - Each kind of tag gets a measured error rate. A kind above the agreed
      rate is not published until it is fixed.
@@ -266,12 +298,18 @@ tagging. Writing them raised seven questions. Sérgio settled six the same
 day; prompt `tag-v2` and `seeds/tag_lists_2026-11-12.json` carry the
 answers.
 
-1. **Is a critic's plain name for the practice "uses"?** Open: Sérgio
-   asked for the options. Prompt tag-v2 holds the recommended one, "uses"
-   for the speaker's own word whatever their side; "describes" only when
-   the word itself is held at a distance (quoted, scare quotes,
-   "so-called", rejected as a label). The statement's stance shows the
-   side.
+1. **Is a critic's plain name for the practice "uses"?** No: "describes"
+   (Sérgio, 12 November, option B: only a speaker who adopts the term
+   approvingly uses it). The taggers keep the question they agree on (the
+   speaker's own word, or held at a distance) and software sets the use
+   from the statement's stance (above, "Terms: only an endorsing speaker
+   uses them"). The options were: A, the speaker's own word whatever their
+   side, with the stance showing the side; B, promoters only; C, three
+   modes. The dev expectations already fit B. Three holdout expectations on
+   terms were written under A, and two of them ask for "uses". They are to
+   be re-checked under B by someone who does not tune the taggers. Claude
+   saw them by mistake on 12 November, in a listing that was not filtered by
+   split.
 2. **Advocating a practice** (Claude's choice, on Sérgio's word). For a
    practice, "uses" means first-hand: the speaker or their organisation
    does, offers or runs it, or went through it. Promoting or defending it
@@ -503,18 +541,147 @@ check-v1. Claude judged 8 of them right in their context and 6 weak.
   38% of those clusters, Qwen 35B 63%, and the decoys show how far a "yes"
   can be trusted.
 
-**Proposal for what one tagger alone gives** (for Sérgio):
+**What one tagger alone gives is reviewed one by one** (Sérgio, 12
+November; Claude had proposed keeping it searchable but unpublished, with
+samples only). The review queue (`docs/REVIEW.md`) holds:
 
-- It stays in the archive, searchable and marked "one tagger": it is
-  research material.
-- It is not published.
-- It is not reviewed one by one; the weekly samples measure how often such
-  tags are right.
-
-The review queue then holds:
-
+- every tag or excerpt only one tagger gave; actor types per speaker and
+  type;
 - disputes, where the taggers gave opposite modes;
-- agreed items the checker rejected: with check-v2 about a quarter of the
+- agreed items the checker said no to: with check-v2 about a quarter of the
   agreed clusters, and few practices or excerpts.
 
+On the tag-v3 dev results (18 sources, 0.40 million characters, with the
+Gemma 12B check) that was first 759 packets: 628 held tags (50 of them actor
+types per speaker), 36 disputes, 39 tags and 1 excerpt the checker flagged,
+55 held excerpts and new terms. The changes after the review trial (below)
+bring it to 476.
+
 The checker costs little: on dev, about 8 questions per source.
+
+## Review trial on tag packets (12 November 2026)
+
+A fresh Claude Code session, blind to the taggers, the check and this
+document, worked 34 tag and excerpt packets from the dev queue with
+`prompts/review-v3.md`, on a copy of the archive. The sample was chosen by
+kind: 6 actor types, 17 other held tags, 3 disputes, 3 tags the checker
+flagged, 5 held excerpts and new terms. It took 5½ minutes for the packets
+(7 minutes with reading the prompts); every verdict applied on the first
+run, none was low confidence or for Sérgio.
+
+| Kind | Packets | Confirmed | Rejected |
+|---|---:|---:|---:|
+| Actor type, one tagger | 6 | 1 | 5 |
+| Other tag, one tagger | 17 | 11 | 6 |
+| Tag dispute | 3 | 2 | 1 (label does not fit) |
+| Tag the checker flagged | 3 | 3 | 0 |
+| Excerpt or new term, one tagger | 5 | 3 | 2 |
+
+- **Held one-tagger tags are right about half the time** (12 of 23), so
+  reviewing them before publication catches real mistakes.
+- **Actor types from one tagger are mostly wrong.** Three gave "politician
+  or legislator" to French deputies with only the speaker label as words
+  (likely true, but the text read does not say it); two gave a TV anchor her
+  guest's types from her own introduction of him.
+- **Policy-Resistance "describes" on statements for a ban** was wrong all
+  three times.
+- **The checker flagged three right tags:** speakers against a ban whose
+  statement does not name the ban (the section around it does).
+- **Rulings the reviewer could not give:** a different label (the right
+  practice was Psychotherapy, not Identity Realignment); corrections cover
+  only the mode.
+- It also found two reader stances to correct: pro-change statements
+  against the memorandum of understanding marked "criticizes".
+
+Proposals from the trial, for Sérgio (none adopted):
+
+1. Software rejects an actor type whose words are only the speaker's name
+   or a role line about someone else.
+2. In a parliamentary record, the members speaking are deputies: a
+   software rule from the source type, instead of the tagger.
+3. Policy-Resistance "describes" needs words that name the argument against
+   a ban.
+4. Is affirming theology that never mentions change efforts a
+   counter-sermon? The definition says it must answer them.
+
+At this pace (about 10 seconds a packet) the dev queue's 759 tag packets
+take about 2 hours of review sessions; the English corpus, about 200,000
+packets at today's agreement, some 550 hours. Rules such as 1–3 shrink it
+only a little: on dev, actor types (50 packets) and Policy-Resistance
+"describes" (39) are 89 of the 628 held-tag packets. Most of the queue is
+clusters and functions only one tagger gave; better agreement there is what
+would shrink it.
+
+### Changes after the review trial (12 November)
+
+Sérgio asked for better ideas before going further. Measured on the dev
+queue, these were made (none changes what is published without review):
+
+- **Terms the stance settles leave the queue.** Under option B a term in a
+  statement that does not endorse is "describes" whatever the taggers said,
+  so a dispute or a one-tagger answer there needs no ruling. Of the 42 term
+  packets, 35 were of this kind (16 of 18 disputes, 19 of 24 held terms). It also fixes one dev
+  expectation (a ban opponent's scare quotes, where one tagger had left the
+  term out): 38 of 52 dev expectations pass, up from 37.
+- **Held tags are grouped per speaker, label and mode**, at most eight
+  statements a packet, in text order. Each statement is still ruled on: the
+  reviewer lists those that do not show the label in `except`. Half the held
+  clusters (138 of 266) were for a label both taggers already agree this
+  speaker argues elsewhere in the source; the packet says so.
+- **A reviewer can correct the label** to another of the same kind (the
+  packet lists them), not only the mode.
+- **Stance checks.** When both taggers say a statement argues SSA-Rhetoric,
+  Pastoral-Coercion, Pseudo-Science or Policy-Resistance (arguments only
+  someone defending change efforts makes) and both readers marked it
+  "criticizes", one of the two passes is wrong. The statement's stance goes
+  to review first (in a sample of such cases on dev, mostly the readers'
+  error: Mike Davidson and Life Builders attacking "LGBT ideology" marked
+  "criticizes");
+  if it stands, the tag goes to review. Under option B this matters: a wrong
+  "criticizes" turns a promoter's own words into "describes". Anti-Gender,
+  Anti-Trans/ROGD and Pro-Trans-SOGICE are left out, since critics of change
+  efforts for LGB people can argue them (a French deputy for the ban did).
+
+The dev queue's tag side went from 759 packets to 476 (353 held-tag
+packets holding 1,812 statements' tags, 20 disputes, 39 checked tags, 56
+excerpts and new terms, 8 stance checks): about 130,000 packets for the
+English corpus at today's agreement.
+
+**The Qwen MoE as checker, with reasoning on** (Sérgio asked whether it
+could do better). The same Qwen 3.6 35B mixture of experts, allowed to
+reason before answering (trial role `trial_qwen36_35b_think`), was stopped
+after 63 of the 143 agreed items: it took about 22 seconds a question,
+against 1.0 without reasoning and 1.5 for Gemma 4 12B, so checking the
+corpus would take some 240 hours instead of about 16. On those 63 items it
+accepted 51 (without reasoning 52, Gemma 12B 44), and on the 10 of the 14
+hard cases it reached it agreed with Claude's reading 8 times, as Gemma
+did. Reasoning does not make it stricter, and it is far slower: Gemma 4 12B
+with check-v2 stays the proposal.
+
+**Proposals, for Sérgio** (method changes, not made):
+
+1. **Actor types from what the archive knows of the speaker.** Taggers
+   give a type from a bare name ("M. Paul Molac" → politician) often, and
+   both agree on it; the reviewer rejects it when one tagger alone does,
+   since the text read does not state it. Instead: the Entity Registry's
+   type when the speaker is in it; members speaking in a parliamentary
+   record are politicians (a rule from the source type); the tagger only
+   for the rest, and a type whose words are only the speaker's name is
+   dropped.
+2. **New terms leave the review queue** for a list of lexicon candidates
+   that Sérgio works with the lexicon: they are proposals, never published
+   as entries (32 one-tagger new terms on dev).
+3. **A larger calibration review before the corpus run:** about 150
+   packets (half an hour of a review session), to measure per kind and per
+   tagger how often one-tagger tags are right. Qwen alone gives most held
+   Policy-Resistance (65 of 81), Euphemism (39 of 42) and Pastoral Rhetoric
+   (34 of 41) tags; if those are mostly wrong, tag-v4 should say so, or that
+   tagger should not give them.
+4. **The checker on clusters:** the three flagged clusters in the review
+   trial were all right. If the calibration review confirms that, the
+   checker keeps practices and excerpts only (39 cluster packets on dev).
+5. **Functions from the lexicon.** 138 lexicon terms carry a function
+   (SSA: Euphemism); software could add that function to a statement that
+   uses the term (36 term uses on dev). Few of the taggers' function tags
+   coincide with such a term (7 of 237), so this adds evidence rather than
+   replacing the taggers.
