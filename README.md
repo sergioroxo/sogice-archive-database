@@ -33,6 +33,7 @@ python -m archive read --testset --split dev             # Phase 3: local readin
 python -m archive read --status                          # runs in progress; exit 1 if one has stalled
 python -m archive read --testset --both                  # two readers, reconcile, relation rules (docs/ACCOUNTABILITY.md)
 python -m archive tag --testset --split dev             # two taggers label the statements, mark excerpts (docs/TAGGING.md)
+python -m archive check --testset --split dev           # a third model checks agreed excerpts and 'uses' tags (yes/no + words)
 python -m archive speakers src_… --set "Name=host"       # who speaks in a recording without labels (read-v5)
 python -m archive fingerprints                          # identifiers in page code shared by sites (docs/FINGERPRINTS.md)
 python -m archive queue-add URL … --origin NAME         # add pages to the source queue

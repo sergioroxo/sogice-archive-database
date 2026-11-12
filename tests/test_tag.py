@@ -149,12 +149,16 @@ def test_lists_are_seeded_once_and_follow_the_prompt(conn):
     assert edit["action"] == "edit" and edit["actor_id"] == "claude-test" and edit["run_id"]
     old = tag.vocabulary(conn, "tag-v1")
     assert old.tags["tactic: Identity-Erasure"] == "tactic:identity-erasure"
-    vocab = tag.vocabulary(conn)                      # tag-v2: clusters, not tactics
+    vocab = tag.vocabulary(conn)                      # from tag-v2: clusters, not tactics
     assert "cluster: SSA-Rhetoric" in vocab.tags and "cluster: Pro-Trans-SOGICE" in vocab.tags
     assert not any(label.startswith("tactic:") for label in vocab.tags)
     assert "function: Euphemism" in vocab.tags and "activist or campaigner" in vocab.actors
     assert "Does it rename or reframe homosexuality" in vocab.text and "A softer word" in vocab.text
     assert vocab.sha256 != old.sha256
+    # tag-v3 changes the wording, not the lists: actor types once per speaker, scare quotes, practices, clusters
+    assert tag.vocabulary(conn, "tag-v3").sha256 == tag.vocabulary(conn, "tag-v2").sha256
+    v3 = read.load_prompt("tag-v3").text
+    assert "once, on their first statement" in v3 and "never left out" in v3 and "never the\n    ban itself" in v3
 
 
 def test_tag_v2_takes_two_stated_roles_and_clusters(conn):
@@ -172,10 +176,32 @@ def test_tag_v2_takes_two_stated_roles_and_clusters(conn):
     item = client.calls[0]["schema"]["properties"]["statements"]["properties"]["S1"]
     assert item["properties"]["actors"]["maxItems"] == 2 and "actor" not in item["properties"]
     run = conn.execute("SELECT prompt_version FROM run WHERE role = 'extraction'").fetchone()
-    assert run[0] == "tag-v2"
+    assert run[0] == "tag-v3"   # the default since the third trial; same lists as tag-v2
     concepts = {r[0] for r in conn.execute("SELECT concept_id FROM tag")}
     assert concepts == {"actor_type:leader-or-founder", "actor_type:went-through-change-efforts",
                         "term:ex-gay", "cluster:ssa-rhetoric"}
+
+
+def test_a_stated_role_applies_to_all_the_speakers_statements(conn):
+    # S3 and S4 have the same speaker; the role is stated once. S4 gets it with no words, or not at all.
+    reply = {"statements": {
+        "S1": {"actors": [], "terms": [], "tags": []},
+        "S2": {"actors": [{"type": "leader or founder", "words": "not in the text at all"}], "terms": [], "tags": []},
+        "S3": {"actors": [{"type": "media outlet", "words": "Critics call it"}], "terms": [], "tags": []},
+        "S4": {"actors": [{"type": "media outlet", "words": ""}], "terms": [], "tags": []}},
+        "excerpts": [], "new_terms": []}
+    results = tag.tag_sources(conn, FakeClient([reply]), FIRST, [SID], primary_model="reader-a")
+    r = results[0]
+    assert r["actor_unlocated"] == 2 and r["actor_spread"] == 1 and r["tags"] == 2
+    tags = {t["usage_id"]: t for t in conn.execute("SELECT * FROM tag WHERE concept_id = 'actor_type:media-outlet'")}
+    assert set(tags) == {"use_s3", "use_s4"}                     # not Alan Chambers: another speaker
+    assert tags["use_s4"]["cue"] == tags["use_s3"]["cue"] == "Critics call it"
+    assert tags["use_s4"]["cue_passage_id"] == "p2" and tags["use_s4"]["mode"] == "is"
+    why = conn.execute("SELECT actor_id, reason FROM decision WHERE target_id = ?", (tags["use_s4"]["id"],)).fetchone()
+    assert why[0] == tag.ACTOR_ID and "stated for this speaker elsewhere" in why[1]
+    assert db.verify_decision_chain(conn).ok
+    # a generic speaker label never carries a role to other statements
+    assert tag._speaker_key("unknown") == "" and tag._speaker_key(" Example.org ") == "example.org"
 
 
 def test_tagging_keeps_what_software_can_find(conn):

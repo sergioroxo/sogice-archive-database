@@ -87,12 +87,14 @@ teaching material. Some of that work is not planned yet. So:
 
    **3b. Tag (local models, separate pass; Sérgio, 11–12 Nov 2026).** After
    reading and reconcile, two taggers (the reading pair) give each
-   statement its actor, terms used, tactics, practices and functions, each
-   marked as used or only described by the speaker. They also mark
-   excerpts to keep whole (testimonies, prayer and conversion scripts,
-   course structures, counter-sermons, new terms). Software compares them
-   and a checker verifies agreed items. Document facets come from software
-   first. See `docs/TAGGING.md`.
+   statement its actor, terms used, clusters (since tag-v2, instead of the
+   tactics), practices and functions, each marked as used or only
+   described by the speaker. They also mark excerpts to keep whole
+   (testimonies, prayer and conversion scripts, course structures,
+   counter-sermons, new terms). Software compares them and a third model
+   checks agreed items (`archive/check.py`). Document facets come from
+   software first. See `docs/TAGGING.md`, which also has the dev trials:
+   tagging takes about two-thirds of reading time.
 4. **Suggest (embeddings).** EmbeddingGemma 2 over passages, page images,
    audio/video clips (≤ 5 min, with timecodes) and concept descriptions. Used
    for search and for suggesting concept attachments. Never evidence.

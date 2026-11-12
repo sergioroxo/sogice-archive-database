@@ -12,11 +12,14 @@ def test_repository_config_has_three_roles():
     assert cfg.model_for("audit")
     # Since 10 Nov the 31B both reads and audits (Sérgio's decision); trial roles are named trial_*;
     # since 11 Nov a small model copies titles from first pages (archive/titles.py); since 12 Nov the
-    # reading pair also tags the statements (archive/tag.py).
-    assert all(name in config.REQUIRED_ROLES or name in ("reading_second", "titles", "tagging", "tagging_second")
+    # reading pair also tags the statements (archive/tag.py), and a third model checks what they agree on
+    # (archive/check.py).
+    assert all(name in config.REQUIRED_ROLES or name in ("reading_second", "titles", "tagging", "tagging_second",
+                                                         "checking")
                or name.startswith("trial_") for name in cfg.roles)
     assert cfg.model_for("reading_second") != cfg.model_for("reading")   # two different readers
     assert cfg.model_for("tagging_second") != cfg.model_for("tagging")   # two different taggers
+    assert cfg.model_for("checking") not in (cfg.model_for("tagging"), cfg.model_for("tagging_second"))
     embedding = cfg.role("embedding")
     assert embedding.dimensions == 768
     assert "text" in embedding.modalities

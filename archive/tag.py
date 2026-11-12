@@ -12,6 +12,8 @@ It also marks excerpts to keep whole (first and last words) and new terms. Softw
 
 - keeps a tag only for a statement it showed, a label from the lists and a mode; an actor type only
   with words it finds in the section; a term only among the statement's own matches;
+- applies an actor type it found for a speaker to all of that speaker's statements in the source
+  (the role is stated once, usually in one place), each citing the same words;
 - locates cues, excerpt ends and new terms in the section (``quote_locator``); what it cannot find is
   dropped (a cue it cannot find is dropped, the tag stays on its statement's located quote);
 - stores an excerpt as the exact span of its version's text between the two ends;
@@ -39,8 +41,8 @@ from .db import canonical_json, record_decision, utc_now
 from .quote_locator import locate_quote
 from .seeds import normalize_label
 
-DEFAULT_PROMPT = "tag-v2"
-RULE = "tags/v1"
+DEFAULT_PROMPT = "tag-v3"
+RULE = "tags/v2"   # v2: a speaker's stated role applies to all of their statements in the source
 ACTOR_ID = f"rule:{RULE}"
 ACTOR_PREFIX = "rule:tags/"
 JOB = "tagging"
@@ -55,9 +57,11 @@ ONTOLOGY = SEEDS / "SOGICE_Ontology_v3.0.md"
 DEFAULT_SECONDS_PER_1000_CHARS = 15
 # The lists each prompt version tags with. tag-v1 offered the 44 tactics; from tag-v2 the seven clusters
 # (Sérgio, 12 Nov 2026: the tactics overlapped too much to tag reliably).
-PROMPT_LISTS = {"tag-v1": ("tactic", "practice", "function"), "tag-v2": ("cluster", "practice", "function")}
-# tag-v2: up to two actor types per statement (a speaker may state two roles).
-PROMPT_FEATURES = {"tag-v2": frozenset({"actor_list"})}
+PROMPT_LISTS = {"tag-v1": ("tactic", "practice", "function"), "tag-v2": ("cluster", "practice", "function"),
+                "tag-v3": ("cluster", "practice", "function")}
+# tag-v2: up to two actor types per statement (a speaker may state two roles). tag-v3: the same, given once
+# per speaker (software applies them to the speaker's other statements, spread_actor_types).
+PROMPT_FEATURES = {"tag-v2": frozenset({"actor_list"}), "tag-v3": frozenset({"actor_list"})}
 MAX_ACTORS = 2
 
 
@@ -402,6 +406,56 @@ def _blank(value) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+GENERIC_SPEAKERS = {"", "unknown", "unnamed", "unnamed speaker", "anonymous", "speaker"}
+
+
+def _speaker_key(speaker) -> str:
+    key = normalize_label(_blank(speaker))
+    return "" if key in GENERIC_SPEAKERS else key
+
+
+def spread_actor_types(conn: sqlite3.Connection, run_id: str, statements: list[dict]) -> int:
+    """A speaker's actor types, as this run found them stated, for all of their statements in the source.
+
+    The text states a role once ("Justin … underwent six years of conversion practices"); taggers then give
+    the type for the speaker's other statements without words, or not at all. Each type software located
+    for a speaker (same label, not a generic one) is added to that speaker's other statements, citing the
+    same words. Returns how many tags were added (caller commits).
+    """
+    by_speaker: dict = {}
+    for s in statements:
+        if _speaker_key(s.get("speaker")):
+            by_speaker.setdefault(_speaker_key(s["speaker"]), []).append(s)
+    found = conn.execute(
+        """SELECT t.*, u.speaker, c.pref_label FROM tag t JOIN usage u ON u.id = t.usage_id
+           JOIN concept c ON c.id = t.concept_id
+           WHERE t.run_id = ? AND c.scheme = 'actor_type' AND t.cue IS NOT NULL ORDER BY t.created_at, t.rowid""",
+        (run_id,)).fetchall()
+    have = {(r[0], r[1]) for r in conn.execute(
+        "SELECT usage_id, concept_id FROM tag WHERE run_id = ?", (run_id,))}
+    first: dict = {}
+    for t in found:
+        first.setdefault((_speaker_key(t["speaker"]), t["concept_id"]), t)
+    added = 0
+    for (speaker, concept_id), t in first.items():
+        for s in by_speaker.get(speaker, []):
+            if (s["id"], concept_id) in have:
+                continue
+            have.add((s["id"], concept_id))
+            row = {"id": f"tag_{uuid.uuid4().hex[:20]}", "usage_id": s["id"], "concept_id": concept_id,
+                   "mode": "is", "cue_passage_id": t["cue_passage_id"], "cue_start": t["cue_start"],
+                   "cue_end": t["cue_end"], "cue": t["cue"], "run_id": run_id, "created_at": utc_now()}
+            conn.execute(f"INSERT INTO tag({', '.join(row)}) VALUES ({', '.join('?' for _ in row)})",
+                         list(row.values()))
+            record_decision(conn, actor_kind="model", actor_id=ACTOR_ID, run_id=run_id, action="propose",
+                            target_table="tag", target_id=row["id"], quote=t["cue"],
+                            reason=f"actor type '{t['pref_label']}' (is) on the statement by {s['speaker']}: "
+                                   f"stated for this speaker elsewhere in the source ('{t['cue']}'), located by "
+                                   "the same run; software applies it to each of their statements.")
+            added += 1
+    return added
+
+
 def write_tags(conn: sqlite3.Connection, tagged: SourceTags, *, role, prompt: read.Prompt, vocab: Vocabulary,
                run_id: str) -> dict:
     """Insert the tags and excerpts of a finished tagging (caller commits)."""
@@ -551,6 +605,10 @@ def write_tags(conn: sqlite3.Connection, tagged: SourceTags, *, role, prompt: re
             counts["new_terms"] += 1
             decide("asset", row["id"], f"New term candidate '{label}', not in the lexicon; located by software "
                                        f"in: {found['quote']}", found["quote"])
+    spread = spread_actor_types(conn, run_id, [s for part in tagged.sections for s in part.section.statements])
+    if spread:
+        counts["actor_spread"] = spread
+        counts["tags"] += spread
     return dict(counts)
 
 

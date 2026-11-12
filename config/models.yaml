@@ -45,6 +45,13 @@ roles:
   tagging_second:
     model: qwen3.8:27b-mlx   # digest 5642e97495e1; second, independent tagger with the tagging settings
     description: Second tagging; compared with the first (archive/tag.py)
+  checking:
+    model: gemma4:12b-mlx    # digest 117d0d84cf2a; proposed 12 Nov after the dev trial (docs/TAGGING.md), for Sérgio to confirm
+    description: Checks agreed excerpts and "uses" tags with one yes/no question (archive/check.py, check-v2)
+    temperature: 0
+    num_predict: 512
+    num_ctx: 8192
+    keep_alive: 10m
   audit:
     model: gemma4:31b-mlx    # digest 637cc0ff1570; hard cases and the audit pass
     description: Hard cases and the per-source audit verdict
