@@ -577,16 +577,20 @@ def _render_tag(conn: sqlite3.Connection, issue: Issue) -> tuple[str, list[str],
         lines += [""]
     if scheme != "term":
         from .tag import not_offered
-        others = [r[0] for r in conn.execute("SELECT pref_label FROM concept WHERE scheme = ? AND id <> ? AND"
-                                             " review_state <> 'rejected' ORDER BY pref_label", (scheme, concept["id"]))
+        others = [r for r in conn.execute("SELECT pref_label, definition FROM concept WHERE scheme = ? AND id <> ? AND"
+                                          " review_state <> 'rejected' ORDER BY pref_label", (scheme, concept["id"]))
                   if r[0] not in not_offered()]
-        lines += [f"Other labels of this kind (for a correction): {'; '.join(others)}.", ""]
+        lines += ["Other labels of this kind (for a correction):", ""]
+        lines += [f"- **{name}**: {(definition or 'no definition').replace(chr(10), ' ')[:400]}"
+                  for name, definition in others] + [""]
     fields = ("mode (uses or describes)" if scheme == "term" else f"label (another {scheme.replace('_', ' ')})"
               if actor else f"mode (uses or describes), label (another {scheme})")
     lines += _verdict_lines(issue, fields)
     if grouped:
         lines[-2] += (f" Statements that do not show it: list them in `except` (for example [\"S2\"]); they are "
                       "rejected, and the verdict applies to the others.")
+    if actor:   # the statements listed are exact passage slices: a deciding quote may come from them
+        context += [x["passage_id"] for x in usages[1:] if x["passage_id"] not in spans and x["passage_id"] not in context]
     return "\n".join(lines), [p["id"] for p in passages], context
 
 

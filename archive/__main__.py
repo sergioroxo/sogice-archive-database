@@ -400,14 +400,15 @@ def cmd_check(args: argparse.Namespace) -> int:
         sources += [s for e in data["entries"] if (not args.split or e["split"] == args.split)
                     and (not args.entry or e["key"] in args.entry) for s in testset.entry_sources(e)]
     sources = sorted({read.keeper(conn, s) for s in sources})
-    if not sources:
-        print("nothing to check: give --source or --testset", file=sys.stderr)
+    only = json.loads(Path(args.items).read_text()) if args.items else None
+    if not sources and not only:
+        print("nothing to check: give --source, --testset or --items", file=sys.stderr)
         return 2
     cfg = load_models_config()
     role = cfg.role(args.model_role)
     client = OllamaClient(cfg.base_url, cfg.timeout_seconds)
     result = check.check(conn, client, role, sources, prompt=read.load_prompt(args.prompt), decoys=args.decoys,
-                         held=args.held, log=lambda line: print(line, flush=True))
+                         held=args.held, only=only, log=lambda line: print(line, flush=True))
     conn.close()
     stamp = time.strftime("%Y%m%d-%H%M%S")
     queue_import.write_report(result, paths.reports_dir(), f"check-{stamp}.json")
@@ -721,6 +722,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--model-role", default="checking", help="role in config/models.yaml (trial_* on a copy only)")
     p.add_argument("--decoys", action="store_true", help="also ask about a label each item was not given (trials)")
     p.add_argument("--held", action="store_true", help="also check what only one tagger gave (trials)")
+    p.add_argument("--items", type=Path, help="trials: check these records only, JSON {\"tag\": [ids], \"asset\": [ids]}")
     p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("review", help="the review queue: packets for disputed and held records, verdicts, undo")

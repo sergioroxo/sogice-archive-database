@@ -136,7 +136,8 @@ def test_held_tags_of_one_speaker_and_label_share_a_packet_and_each_statement_is
                  and k["scheme"] == "function")
     text = next((queue / "open").glob(f"*-{group['issue']}.md")).read_text()
     assert "## The statements (S1–S2), each ruled on" in text and "the tagger's words: “not ex-gay”" in text
-    assert "Other labels of this kind (for a correction): Pastoral Rhetoric." in text and "`except`" in text
+    assert "Other labels of this kind (for a correction):\n\n- **Pastoral Rhetoric**: Church language." in text
+    assert "`except`" in text
     _verdict(queue, group, verdict="neither", correct={"label": "Pastoral Rhetoric"}, **{"except": ["S1"]},
              quote="for God to heal me", confidence="medium", reason="Church language, not a euphemism.")
     assert review.apply(conn, reviewer=REVIEWER, base=queue)["problems"] == []

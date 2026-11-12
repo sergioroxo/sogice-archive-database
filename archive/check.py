@@ -7,7 +7,8 @@ What the two taggers agree on is checked by a model that tagged nothing:
 - every agreed "uses" tag of a cluster or a practice: what someone argues, or does first-hand.
 
 A trial can also ask about what only one tagger gave (``held=True``), to see whether the check could settle
-those instead of the review queue.
+those instead of the review queue, or about chosen records of any kind (``only``: tags of a cluster, practice,
+function or actor type, in either mode, and excerpts), to compare a checker with the reviewer's rulings.
 
 The checker sees only the item (a statement with its speaker and stance, or the excerpt's text), the label
 and its definition, and answers yes or no, copying the words that show it. Software looks for those words
@@ -40,12 +41,12 @@ from .db import canonical_json, record_decision, utc_now
 from .quote_locator import locate_quote
 from .tag import EXCERPT_KINDS
 
-DEFAULT_PROMPT = "check-v2"   # since the dev trial (docs/TAGGING.md)
+DEFAULT_PROMPT = "check-v2"   # since the dev trial (docs/TAGGING.md); check-v3 (any kind and mode) for trials
 JOB = "check"
 SCHEMES = ("cluster", "practice")
 MAX_WORDS_CHARS = 400
 CONTEXT_CHARS = 1500
-CONTEXT_PROMPTS = {"check-v2"}   # these prompts also show the source title and the passage around a statement
+CONTEXT_PROMPTS = {"check-v2", "check-v3"}   # these prompts also show the source title and the passage around a statement
 EXCERPT_DEFINITIONS = {   # as in prompts/tag-v3.md
     "testimony": "a first-person account of going through, giving or leaving change efforts",
     "prayer_script": "the words of a prayer said for or over someone to change them",
@@ -101,6 +102,41 @@ def items_to_check(conn: sqlite3.Connection, source_ids: list[str], *, held: boo
     return items
 
 
+def items_by_id(conn: sqlite3.Connection, tag_ids: list[str], asset_ids: list[str]) -> list[dict]:
+    """Chosen tags (not terms) and excerpts, whatever their state: for comparing a checker with rulings."""
+    items = []
+    for tid in tag_ids:
+        r = conn.execute(
+            """SELECT g.*, a.source_id, a.confidence, c.scheme, c.pref_label, c.definition, u.quote, u.speaker,
+                      u.stance, u.char_start AS u_start, u.char_end AS u_end, p.text AS passage, src.title
+               FROM tag g JOIN assessment a ON a.target_table = 'tag' AND a.target_id = g.id AND a.current = 1
+               JOIN concept c ON c.id = g.concept_id JOIN usage u ON u.id = g.usage_id
+               JOIN passage p ON p.id = u.passage_id JOIN source src ON src.id = a.source_id
+               WHERE g.id = ? AND c.scheme <> 'term'""", (tid,)).fetchone()
+        if r is None:
+            continue
+        item = {"table": "tag", "id": r["id"], "source_id": r["source_id"], "kind": r["scheme"], "mode": r["mode"],
+                "held": r["confidence"] != "two_readers_agree", "concept_id": r["concept_id"],
+                "usage_id": r["usage_id"], "label": r["pref_label"], "definition": r["definition"] or "",
+                "text": r["quote"], "speaker": r["speaker"], "stance": r["stance"], "title": r["title"],
+                "context": _around(r["passage"], r["u_start"], r["u_end"])}
+        if r["scheme"] == "actor_type" and r["cue_passage_id"]:   # the evidence is where the role is stated
+            cue = conn.execute("SELECT text FROM passage WHERE id = ?", (r["cue_passage_id"],)).fetchone()[0]
+            item["text"] = _around(cue, r["cue_start"], r["cue_end"], 600).strip("…")
+        items.append(item)
+    for aid in asset_ids:
+        r = conn.execute(
+            """SELECT s.*, a.confidence, src.title FROM asset s JOIN assessment a ON a.target_table = 'asset'
+               AND a.target_id = s.id AND a.current = 1 JOIN source src ON src.id = s.source_id
+               WHERE s.id = ? AND s.kind IN (%s)""" % ",".join("?" for _ in EXCERPT_KINDS), (aid, *EXCERPT_KINDS)).fetchone()
+        if r is not None:
+            items.append({"table": "asset", "id": r["id"], "source_id": r["source_id"], "kind": "excerpt",
+                          "held": r["confidence"] != "two_readers_agree", "label": r["kind"],
+                          "definition": EXCERPT_DEFINITIONS[r["kind"]], "text": r["text"], "title": r["title"],
+                          "context": None, "speaker": r["speaker"], "stance": None})
+    return items
+
+
 def _around(text: str, start: int, end: int, chars: int = CONTEXT_CHARS) -> str:
     """The statement's passage, cut to about ``chars`` around the statement."""
     if len(text) <= chars:
@@ -111,11 +147,27 @@ def _around(text: str, start: int, end: int, chars: int = CONTEXT_CHARS) -> str:
 
 
 def question(item: dict) -> str:
-    if item["kind"] == "cluster":
+    describes = item.get("mode") == "describes"
+    if item["kind"] in ("cluster", "tactic"):
+        if describes:
+            return (f"Does the speaker name, report, explain or criticise this argument, without arguing it "
+                    f"themselves ({item['label']})? {item['definition']}")
         return f"Does the speaker argue this way ({item['label']})? {item['definition']}"
     if item["kind"] == "practice":
+        if describes:
+            return (f"Does the statement report, explain, promote or defend from outside, or criticise, this "
+                    f"practice, without the speaker doing it or going through it first-hand ({item['label']})? "
+                    f"{item['definition']}")
         return (f"Does the speaker, or the organisation speaking, do, offer or run this practice, or go through it, "
                 f"first-hand ({item['label']})? {item['definition']}")
+    if item["kind"] == "function":
+        if describes:
+            return (f"Does the speaker point out or quote words that do this, without their own words doing it "
+                    f"({item['label']})? {item['definition']}")
+        return f"Do the speaker's own words do this ({item['label']})? {item['definition']}"
+    if item["kind"] == "actor_type":
+        return (f"Does the text state that the speaker, {item['speaker'] or 'not named'}, is this: {item['label']}? "
+                f"{item['definition']} (A name alone, or words about someone else, does not state it.)")
     return f"Is this passage a {item['label'].replace('_', ' ')}: {item['definition']}?"
 
 
@@ -171,11 +223,15 @@ def verdict(item: dict, data) -> tuple[str, str | None]:
 
 
 def check(conn: sqlite3.Connection, client, role, source_ids: list[str], *, prompt: read.Prompt | None = None,
-          decoys: bool = False, held: bool = False, log: Callable[[str], None] = lambda _: None) -> dict:
-    """Check the agreed items of these sources with one model. Returns counts and every answer."""
+          decoys: bool = False, held: bool = False, only: dict | None = None,
+          log: Callable[[str], None] = lambda _: None) -> dict:
+    """Check the agreed items of these sources (or the ``only`` records) with one model. Returns counts and
+    every answer."""
     conn.row_factory = sqlite3.Row
     prompt = prompt or read.load_prompt(DEFAULT_PROMPT)
-    items = items_to_check(conn, source_ids, held=held)
+    items = (items_by_id(conn, only.get("tag", []), only.get("asset", [])) if only
+             else items_to_check(conn, source_ids, held=held))
+    source_ids = sorted({i["source_id"] for i in items}) if only else source_ids
     run_id = f"run_{uuid.uuid4().hex}"
     inputs = {"job": JOB, "sources": sorted(source_ids), "items": len(items), "decoys": decoys, "held": held,
               "prompt_sha256": prompt.sha256}
@@ -217,6 +273,7 @@ def check(conn: sqlite3.Connection, client, role, source_ids: list[str], *, prom
                                    + ("" if v != "uncertain" or data.get("answer") != "yes"
                                       else " (the words given are not in the item)"))
         row = {"table": item["table"], "id": item["id"], "kind": item["kind"], "held": item["held"], "label": item["label"],
+               "mode": item.get("mode"),
                "answer": data.get("answer"), "verdict": v, "words": words, "given": data.get("words"),
                "reason": data.get("reason")}
         fake = decoy(conn, item) if decoys else None

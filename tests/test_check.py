@@ -90,3 +90,19 @@ def test_a_trial_can_also_check_what_one_tagger_gave(conn):
                          {"answer": "yes", "words": "I prayed every night", "reason": ""}])
     result = check.check(conn, client, CHECKER, [SID], held=True)
     assert result["counts"] == {"practice:pass": 1, "held_practice:fail": 1, "excerpt:pass": 1}
+
+
+def test_chosen_records_of_any_kind_and_mode_can_be_checked(conn):
+    _tag_and_compare(conn)
+    euphemism = conn.execute("SELECT id FROM tag WHERE concept_id = 'function:euphemism'").fetchone()[0]
+    erasure = [r[0] for r in conn.execute("SELECT id FROM tag WHERE concept_id = 'tactic:identity-erasure' ORDER BY mode")]
+    items = check.items_by_id(conn, [euphemism, *erasure], [])
+    assert [(i["kind"], i["mode"], i["held"]) for i in items] == [("function", "uses", True),
+                                                                  ("tactic", "describes", True), ("tactic", "uses", True)]   # disputed: not agreed
+    assert "Do the speaker's own words do this (Euphemism)?" in check.question(items[0])
+    assert "without arguing it themselves" in check.question(items[1])
+    client = FakeClient([{"answer": "yes", "words": "SSA coaching", "reason": ""}])
+    result = check.check(conn, client, CHECKER, [], prompt=check.read.load_prompt("check-v3"),
+                         only={"tag": [euphemism]})
+    assert result["counts"] == {"held_function:pass": 1} and result["answers"][0]["mode"] == "uses"
+    assert "A tagger gave the label below" in client.calls[0]["messages"][0]["content"]

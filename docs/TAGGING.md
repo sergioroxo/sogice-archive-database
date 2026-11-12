@@ -685,3 +685,129 @@ with check-v2 stays the proposal.
    uses the term (36 term uses on dev). Few of the taggers' function tags
    coincide with such a term (7 of 237), so this adds evidence rather than
    replacing the taggers.
+
+## Calibration review (12 November 2026)
+
+Before going further, Sérgio asked for a larger review sample to measure how
+often what one tagger gives is right, per kind and per tagger. 150 packets
+from the dev queue (the tag-v3 trial, with the Gemma 12B check), chosen by
+kind and by tagger, held 638 statements' tags. Three fresh Claude Code
+sessions, blind to the taggers, the check and this document, worked 50 each
+in parallel with `prompts/review-v3.md`, on a copy of the archive: about 8½
+minutes each (some 10 seconds a packet, 25 statements a minute). All 150
+rulings applied (one after a fix: a quote taken from a statement listed in
+an actor-type packet is now accepted, since those statements are exact
+source text). No ruling was low confidence or for Sérgio; 87 of 150 were
+medium.
+
+**Tags only one tagger gave**, per statement:
+
+| Kind | Gemma 4 31B alone | Qwen 3.8 27B alone |
+|---|---|---|
+| Cluster | 16 of 29 right (5 more right after a relabel) | 32 of 49 (1 after a mode change) |
+| Function | 12 of 15 | 11 of 26 |
+| Practice | 4 of 15 (2 after a correction) | 6 of 11 (1 after a relabel) |
+| Actor type (packets per speaker) | 4 of 6 | 4 of 9 |
+| Term (endorsing statements) | – | 3 of 3 |
+
+In all, 84 of 148 one-tagger statement tags were right as given, 9 more
+after a correction, 55 wrong: **57% right**. Reviewing them before
+publication is worth it either way: published unreviewed, more than a third
+would be wrong; dropped, the right ones (over half) would be lost. Excerpts from
+one tagger: 5 of 9 right (1 more after a change of kind); new terms 6 of 7.
+
+**The other kinds:**
+
+- **Stance checks: 8 of 8 found a wrong stance**, each a defender of change
+  efforts marked "criticizes" (three also had the wrong speaker: the host's
+  turn given to the guest). All dev readings in this copy are read-v4, the
+  reading prompt from before the position on a ban (read-v5) that targets
+  this mistake. Under option B the stance now also decides whether a term is
+  someone's own, which is a new reason to weigh read-v5/v6 for reading.
+- **The checker's flags on agreed clusters were false alarms 10 times in
+  12.** On practices, 2 of 4 flags were right (both a wrong label).
+- **Disputes:** in 11 of 12 the label fitted and one of the two modes was
+  right; in one, neither.
+
+### Could a model's confirmation replace review?
+
+Sérgio asked whether a small model proposing, one family of tags at a time
+and with the lexicon, and a bigger model confirming afterwards, would help.
+The step it rests on is the confirmation, so it was measured against the
+rulings: the same 206 items (one-tagger, disputed and flagged tags of every
+kind, both modes, and excerpts) were asked, one yes/no question each
+(prompt check-v3, which also covers functions, actor types and
+"describes"), of a bigger model that is not a tagger and of a small one:
+
+| Verifier | A "yes" is right | A "no" is right | Of the right tags it accepts | Time, 206 questions |
+|---|---:|---:|---:|---:|
+| Qwen 3.6 27B (dense, not a tagger) | 79% | 55% | 43% | 13 min |
+| Gemma 4 12B | 74% | 54% | 46% | 5½ min |
+
+Against a base rate of 57%, a "yes" adds something, but a "no" is close to
+a coin toss, and a "yes" still lets one wrong tag in five through. The
+bigger model is hardly better than the small one. **A model's confirmation
+cannot replace review** of these tags; at most it can order the queue.
+
+What the design would still bring:
+
+- **Time:** none saved. Reading the text is over half of a tagging run (the
+  31B: 520,000 tokens read, 105,000 written on dev), so five one-family
+  passes of a model about 2.8 times faster (Gemma 4 12B) cost about as much
+  as one of today's taggers, and a confirmation adds about 3 seconds a
+  candidate.
+- **Recall for the lexicon:** a small model asked which lexicon concepts a
+  statement expresses without the exact words (variants, paraphrases,
+  translations), with software locating the words, would find what exact
+  matching misses. That serves search, not the review queue; it is a
+  separate pass worth a trial later (step 4 of the plan, with the
+  embeddings).
+- **Actor types per speaker**, from the Entity Registry and role lines
+  first (proposal 1 above), fits a narrow pass better than the per-statement
+  tagger.
+
+### What the reviewers proposed
+
+From their pattern notes (in the trial folder, not committed); for Sérgio:
+
+- **Reading:** defenders who call critics' claims lies, complain of being
+  "forced into" affirmation, or give their own worksheet endorse; a Bible
+  verse is not a speaker; the host of a captioned recording is one speaker
+  (a speaker list for the Strong Support webinar).
+- **Tagging (a tag-v4):** an actor type's words may never be the name alone;
+  a practice needs a stated method, not a general mention ("conversion
+  courses", "ces comportements"); a testimony is first person; a law that
+  funds research into a "cure" is not a ban (read-v6 already says so);
+  Policy-Resistance needs a ban in view.
+- **Vocabulary:** where Spiritual Healing, Deliverance and Pastoral Care
+  divide; prayer script against conversion script; ROGD-Frame sits under two
+  clusters; Recruitment Frame and Pseudo-Diagnostic overlap.
+- **Review tools:** extend the stance check to one-tagger pro-change tags;
+  let `except` carry a correction per statement; a way to correct the cue.
+  Definitions of the other labels are now shown in packets (all three asked).
+
+### Not yet measured
+
+Tags both taggers agree on are published without review, and this sample
+did not include them. Their error rate is the one that reaches the public;
+a sample of agreed tags (about 50 packets) is the next measurement.
+
+### Gemma 4 12B as a tagger (12 November)
+
+Would small models do as taggers (Sérgio asked about Gemma 4 E4B and 12B)?
+Gemma 4 12B, which is installed, tagged the 18 dev sources with tag-v3 on a
+copy (trial role `trial_gemma12b`):
+
+| Tagger | Seconds per 1,000 characters | Dev expectations passed, alone | Agreed with the 31B: clusters / practices / functions / terms |
+|---|---:|---:|---|
+| Gemma 4 31B | 8.2 | 43 of 52 | – |
+| Qwen 3.8 27B | 5.7 | 43 | 29% / 42% / 23% / 86% |
+| Gemma 4 12B | 4.9 | 32 | 11% / 13% / 5% / 49% |
+
+Of the one-tagger labels the calibration reviewers kept, the 12B gave 17
+of 113. It is hardly faster than Qwen 3.8 27B and would pass far fewer
+expectations and multiply the review queue. Gemma 4 E4B (`gemma4:e4b-mlx`,
+a 9.5 GB download, not installed) has fewer effective parameters still, so
+it is not worth a trial as a tagger. If anywhere, a small model belongs in
+the narrow lexicon pass above (concepts written without the lexicon's exact
+words), where software and review filter its proposals.
