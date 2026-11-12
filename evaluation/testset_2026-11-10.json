@@ -298,6 +298,123 @@
         {"id": "tr-survey-15pct", "check": "usage", "anchor": "15% of LGBTQ young people reported being threatened", "where": {"speaker_any": ["Trevor Project", "National Survey"], "stance_any": ["reports", "criticizes", "describes"]}, "note": "Survey figure stays The Trevor Project's claim."},
         {"id": "tr-headline-claims", "check": "claims_attributed", "pages": [14, 16]}
       ]
+    },
+    {
+      "key": "lifebuilders-deliverance",
+      "title": "Life Builders Counseling, Deliverance from Sexual Strongholds (worksheet, PDF)",
+      "split": "dev",
+      "roles": ["prayer_script", "template", "pdf_pages", "short"],
+      "why": "Deliverance worksheet: prayers said over a named person to break 'sexual strongholds' (same-sex desire is on its checklist); first-person template wording, not testimony.",
+      "urls": ["https://lifebuilderscounseling.org/wp-content/uploads/deliverancefromsexualstrongholds.pdf"],
+      "expect": [
+        {"id": "ld-language", "check": "language", "code": "en"},
+        {"id": "ld-pages", "check": "pages"},
+        {"id": "ld-same-sex-sign", "check": "usage", "page": 2, "anchor": "Sexual desires for persons of the same sex", "where": {"stance_any": ["endorses", "describes"]}, "note": "The checklist lists same-sex desire among the signs of a sexual stronghold: the worksheet's own framing, not criticism."},
+        {"id": "ld-root-cause", "check": "usage", "page": 3, "anchor": "so that the touch of a man becomes a tonic", "where": {"stance_any": ["endorses", "describes"]}, "note": "A root-cause list ('Hunger for a father's love…') in the worksheet's own voice."},
+        {"id": "ld-prayer-not-critical", "check": "usage", "must": "none", "page": 6, "anchor": "I break and sever all demonic ties from", "where": {"stance_any": ["criticizes", "denies", "minimizes"]}, "note": "The ministry's own deliverance prayer carries no critical stance."}
+      ]
+    },
+    {
+      "key": "coastchristian-living-waters",
+      "title": "Coast Christian Fellowship, Living Waters (programme page with 2026 class schedule)",
+      "split": "dev",
+      "roles": ["course_structure", "ministry_text", "short"],
+      "why": "Living Waters programme page: a dated class schedule and the parts of each meeting, without the words to be said.",
+      "urls": ["https://www.coastchristian.org/living-waters"],
+      "expect": [
+        {"id": "cl-language", "check": "language", "code": "en"},
+        {"id": "cl-ssa-relevance", "check": "usage", "anchor": "particularly relevant to those struggling with same sex attraction", "where": {"speaker_any": ["Coast Christian", "coastchristian", "Living Waters"], "stance_any": ["endorses", "describes"]}, "note": "The church's own page on who the programme is for."},
+        {"id": "cl-healing-prayer", "check": "usage", "anchor": "we invite the Holy Spirit to heal our various wounds", "where": {"speaker_any": ["Coast Christian", "coastchristian", "Living Waters"], "stance_any": ["endorses", "describes"]}, "note": "Healing prayer described as part of every meeting, in the church's own voice."},
+        {"id": "cl-not-critical", "check": "usage", "must": "none", "anchor": "addresses the roots of sexual and relational issues", "where": {"stance_any": ["criticizes", "denies", "minimizes"]}, "note": "The church presents its own programme; nothing here criticises it."}
+      ]
+    },
+    {
+      "key": "churchinthecliff-sermon",
+      "title": "Church in the Cliff, Undone by Love: The Other (program and sermon)",
+      "split": "dev",
+      "roles": ["counter_sermon", "speaker_turns", "critic_describes"],
+      "why": "Affirming sermon answering the ex-gay movement; two preachers' turns (Jann, then Scott); a critic describing ex-gay programmes.",
+      "urls": ["https://churchinthecliff.org/undone-by-love-the-other-2/"],
+      "expect": [
+        {"id": "cic-language", "check": "language", "code": "en"},
+        {"id": "cic-scott-verdict", "check": "usage", "anchor": "their starting point was never science", "where": {"speaker_any": ["Scott"], "speaker_not": ["Chambers", "Exodus"], "stance_any": ["criticizes"]}, "note": "Scott's own verdict on Exodus after Chambers' admission."},
+        {"id": "cic-chambers-summed-up", "check": "usage", "anchor": "that reparative therapy does not work", "where": [{"speaker_any": ["Scott"], "quoted_party_any": ["Chambers"]}, {"speaker_any": ["Chambers"], "intermediary_any": ["Scott", "Church in the Cliff"]}], "note": "Scott sums up what Alan Chambers admitted: both voices are kept, one as speaker, the other as quoted party or intermediary."},
+        {"id": "cic-scott-turn", "check": "usage", "anchor": "Make no mistake, the battle for same-sex marriage", "where": {"speaker_any": ["Scott"], "speaker_not": ["Jann"]}, "note": "'Scott's Opening' follows 'Jann's Opening': this is Scott's turn."},
+        {"id": "cic-programme-not-endorsed", "check": "usage", "must": "none", "anchor": "Some try to never leave the program by moving into leadership positions", "where": {"stance_any": ["endorses"]}, "note": "Scott's account of an ex-gay programme (after Tanya Erzen's book) is criticism, never endorsement."}
+      ]
+    },
+    {
+      "key": "banconversion-justin",
+      "title": "Ban Conversion Therapy (campaign site), Justin's story",
+      "split": "dev",
+      "roles": ["testimony", "survivor", "campaign_site", "short"],
+      "why": "Survivor testimony (exorcisms, laying on of hands) on a campaign site, followed by the site's helpline notice.",
+      "urls": ["https://www.banconversionpractices.com/justins-story"],
+      "expect": [
+        {"id": "js-language", "check": "language", "code": "en"},
+        {"id": "js-exorcism-harm", "check": "usage", "anchor": "Going through an exorcism is an incredibly emotionally traumatising experience", "where": {"speaker_any": ["Justin"], "stance_any": ["criticizes"]}},
+        {"id": "js-not-therapeutic", "check": "usage", "anchor": "Ultimately, conversion practices are anything but therapeutic", "where": {"speaker_any": ["Justin"], "stance_any": ["criticizes"]}},
+        {"id": "js-ban-faith-settings", "check": "usage", "anchor": "Any legal ban must include religious and faith-based settings", "where": {"speaker_any": ["Justin"], "stance_any": ["criticizes"]}, "note": "Justin asks for a ban that covers faith settings: support for a ban is criticism of the practice."},
+        {"id": "js-helpline-not-justin", "check": "usage", "must": "none", "anchor": "please give the National Conversion Practices Helpline a call or email", "where": {"speaker_any": ["Justin"]}, "note": "The helpline notice after the story is the campaign site's, not Justin's."}
+      ]
+    },
+    {
+      "key": "fathersforlife-prayer",
+      "title": "Dale O'Leary, Understanding homophobia, with a prayer (fathersforlife.org, Wayback)",
+      "split": "holdout",
+      "roles": ["prayer_script", "wayback", "short"],
+      "why": "An essay ending in a prayer for 'men and women suffering from homosexual temptations'.",
+      "urls": ["https://www.fathersforlife.org/dale/prayer.html"],
+      "expect": [
+        {"id": "ff-language", "check": "language", "code": "en"},
+        {"id": "ff-disorder-claim", "check": "usage", "anchor": "homosexuality is a development disorder which leads to disordered behaviors", "where": {"speaker_any": ["O'Leary"], "stance_not": ["criticizes", "denies"]}, "note": "The byline 'By Dale O'Leary' opens the page."},
+        {"id": "ff-came-out", "check": "usage", "anchor": "I am amazed how many people have come out of", "where": {"speaker_any": ["O'Leary"], "stance_any": ["endorses"]}},
+        {"id": "ff-prayer-endorses", "check": "usage", "anchor": "Let them know that real freedom is possible", "where": [{"speaker_any": ["O'Leary"], "stance_any": ["endorses"]}, {"speaker_any": ["Fathers for Life", "fathersforlife"], "stance_any": ["endorses"]}], "note": "The prayer asks that people with homosexual temptations be set free: endorsing change."}
+      ]
+    },
+    {
+      "key": "embracethedesign-course",
+      "title": "Embracing God's Design, Companion Video Series (Walt Heyer and Jennifer Bauwens)",
+      "split": "holdout",
+      "roles": ["course_structure", "endorsement_list", "short"],
+      "why": "A ten-module video course on returning people to 'God's design'; a praise list of names only.",
+      "urls": ["https://embracethedesign.com/"],
+      "expect": [
+        {"id": "etd-language", "check": "language", "code": "en"},
+        {"id": "etd-return-design", "check": "usage", "anchor": "How to help someone affected by gender ideology return to God’s design", "where": {"speaker_any": ["Embracing God", "Embrace the Design", "embracethedesign", "Heyer", "Bauwens"], "stance_any": ["endorses", "describes"]}},
+        {"id": "etd-healing-found", "check": "usage", "anchor": "how gender confusion takes root and how lasting healing is found", "where": {"speaker_any": ["Embracing God", "Embrace the Design", "embracethedesign", "Heyer", "Bauwens"], "stance_any": ["endorses", "describes"]}},
+        {"id": "etd-praise-no-words", "check": "usage", "must": "none", "anchor": "Senior Director, TPUSA Faith", "where": {"speaker_any": ["Lucas Miles", "Martyn Iles", "Mayfield", "Shannae Anderson"]}, "note": "Trap: 'Praise for Embracing God's Design' lists names and titles only; none of their words appear."}
+      ]
+    },
+    {
+      "key": "qchristian-theology",
+      "title": "Q Christian Fellowship, LGBTQ+ Theology 101",
+      "split": "holdout",
+      "roles": ["counter_sermon", "named_contributor", "hypothetical_example"],
+      "why": "Affirming theology answering ex-gay ideology, by a named board member; an invented example of a pastor.",
+      "urls": ["https://www.qchristian.org/resources/theology#theologies"],
+      "expect": [
+        {"id": "qc-language", "check": "language", "code": "en"},
+        {"id": "qc-sidex-discredited", "check": "usage", "anchor": "Side X/Ex-gay ideology is both dangerous and medically discredited", "where": {"speaker_any": ["Q Christian"], "stance_any": ["criticizes"]}},
+        {"id": "qc-cortez-harm", "check": "usage", "anchor": "forcing them to change their orientation or not to accept", "where": {"speaker_any": ["Cortez"], "stance_any": ["criticizes"]}, "note": "Rev. Danny Cortez's guidance, introduced by name and written in the first person."},
+        {"id": "qc-hypothetical-pastor", "check": "usage", "must": "none", "anchor": "He assures her she will be “free” from her wayward attractions", "where": {"speaker_any": ["Robert", "Jane"]}, "note": "Q Christian's own invented example: the pastor 'Robert' and 'Jane' are not speakers."},
+        {"id": "qc-own-history", "check": "usage", "anchor": "Many of us spent years in ex-gay or conversion therapy ministries", "where": {"speaker_any": ["Q Christian"], "stance_not": ["endorses"]}}
+      ]
+    },
+    {
+      "key": "uniting-sogice-proposal",
+      "title": "Uniting Church in Australia, Assembly Proposal 40: Preventing Harm from SOGICE (PDF)",
+      "split": "holdout",
+      "roles": ["testimony", "church_resolution", "pdf_pages"],
+      "why": "A church proposal against change efforts that carries two survivors' accounts under pseudonyms.",
+      "urls": ["https://uniting.church/wp-content/uploads/2022/04/40-Preventing-Harm-from-Sexual-Orientation-Gender-Identity-Change-Efforts-SOGICE.pdf"],
+      "expect": [
+        {"id": "uc-language", "check": "language", "code": "en"},
+        {"id": "uc-pages", "check": "pages"},
+        {"id": "uc-olivia-less-than", "check": "usage", "page": 4, "anchor": "Conversion practices makes you feel less than", "where": {"speaker_any": ["Olivia"], "stance_any": ["criticizes"]}, "note": "'Olivia (pseudonym) shared this story in their own words.'"},
+        {"id": "uc-lucy-guest-speaker", "check": "usage", "page": 6, "anchor": "the guest speaker was a proponent of gay conversion practices and ideology", "where": {"speaker_any": ["Lucy"], "stance_any": ["criticizes"]}},
+        {"id": "uc-proposal-harmful", "check": "usage", "page": 2, "anchor": "are harmful to people’s mental health and wellbeing", "where": {"speaker_any": ["Uniting", "UCA", "Assembly", "Brisbane", "Mugford", "Proposal"], "stance_any": ["criticizes"]}, "note": "The proposal's own resolution (proposer Mark Brisbane, seconder Nicole Mugford)."}
+      ]
     }
   ]
 }

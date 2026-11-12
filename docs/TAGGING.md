@@ -47,23 +47,24 @@ statements, so their answers can be compared one by one.
 |---|---|---|
 | Actor | Who the speaker is, as the text states it (below) | the speaker **is** it |
 | Term used | The lexicon terms software found inside the statement (151,271 matches so far) | **uses** (the speaker's own word) or **describes** (quoted, in scare quotes, or criticised) |
-| Tactic | 44 (ontology v3.0, with definitions; the most specific branch) | **uses** or **describes** |
-| Practice | 14 (ILGA-Europe aligned) | **uses** (does, offers, undergoes) or **describes** (reports, criticises) |
-| Function | 12 (slur, euphemism, pseudo-diagnostic…) | **uses** or **describes**, with the words that do it |
+| Cluster | The ontology's 7 clusters, C1–C7 (since tag-v2; tag-v1 offered the 44 tactics) | **uses** (argues this way) or **describes** |
+| Practice | 14 (ILGA-Europe aligned) | **uses** (first-hand: does, offers, runs or went through it) or **describes** (reports, explains, promotes or criticises it from outside) |
+| Function | 11 of the 12, now defined (slur, euphemism, pseudo-diagnostic…) | **uses** or **describes**, with the words that do it |
 
 **Uses and describes.** A critic who says that a ministry "prays the gay
 away" describes a practice, and is never tagged as using it. The lexicon
-counts a term as someone's own word only when they use it. Words in scare
-quotes, a quoted opponent and a criticised term are described.
+counts a term as someone's own word only when they use it; what "use"
+means for a critic's plain wording is question 1 below.
 
-**Actor types.** The tagger gives one only when the text says it: a job
-title, a self-description, or a role line ("Alan Chambers, Exodus
-president"). The list is proposed here, for Sérgio to change:
+**Actor types.** The tagger gives up to two, only when the text says them:
+a job title, a self-description, or a role line ("Alan Chambers, Exodus
+president"). The list (`seeds/tag_lists_2026-11-12.json`) is for Sérgio to
+change:
 
 - **People:** leader or founder, therapist or counsellor, pastor or clergy,
   someone who went through change efforts (by their own account),
   researcher, medical professional, politician or legislator, journalist,
-  family member.
+  activist or campaigner, family member.
 - **Organisations:** ministry, therapy practice, church or religious body,
   advocacy group, professional body, academic body, media outlet,
   government or parliament, political party.
@@ -77,8 +78,9 @@ a statement to that statement's speaker, with its stance. The tagger adds
 whether it is the speaker's own word. Matches outside any statement stay
 plain matches: they can be searched, but are not credited to anyone.
 
-**Clusters** (C1–C7) are not tagged. Software derives them from the
-tactics, using the ontology's mapping.
+**Tactics** are not tagged since tag-v2: the families overlapped too much
+for two taggers to agree (Sérgio, 12 November). They stay in the
+vocabulary, each tied to its cluster, for a later finer pass if needed.
 
 ## Excerpts
 
@@ -194,3 +196,47 @@ by batch; the machine time adds up either way.
 2. Run both taggers on dev, measure time, score against the expectations.
 3. The checker: try the candidates on dev.
 4. Terms in use and the document tags (software).
+
+## Questions from writing the dev expectations (12 November 2026)
+
+A Claude agent drafted 34 tag and excerpt expectations for 13 dev entries
+(`evaluation/tags_2026-11-12.json`), from the stored text, before any
+tagging. Writing them raised seven questions. Sérgio settled six the same
+day; prompt `tag-v2` and `seeds/tag_lists_2026-11-12.json` carry the
+answers.
+
+1. **Is a critic's plain name for the practice "uses"?** Open: Sérgio
+   asked for the options. Prompt tag-v2 holds the recommended one, "uses"
+   for the speaker's own word whatever their side; "describes" only when
+   the word itself is held at a distance (quoted, scare quotes,
+   "so-called", rejected as a label). The statement's stance shows the
+   side.
+2. **Advocating a practice** (Claude's choice, on Sérgio's word). For a
+   practice, "uses" means first-hand: the speaker or their organisation
+   does, offers or runs it, or went through it. Promoting or defending it
+   from outside is "describes"; the stance shows that they endorse it.
+3. **Overlapping tactics: clusters instead** (Sérgio). The 44 tactics are no
+   longer offered to the taggers. They tag the ontology's seven clusters
+   (C1–C7), each with its core question and definition. The tactics stay
+   in the vocabulary, each tied to its cluster.
+4. **Actor types** (Claude, on Sérgio's word).
+   - Up to two per statement, each with the words that state it.
+   - Ex-gay or ex-trans means "went through change efforts".
+   - A board member is a leader.
+   - A theologian or ethicist is a researcher unless a religious office is
+     stated.
+   - A template has no actor type.
+   - "Activist or campaigner" is added.
+5. **Function definitions** (Claude, on Sérgio's word). All twelve are
+   defined. "Disinformation Narrative" is not offered: calling a narrative
+   false is a ruling on truth, which the archive does not make. The
+   definitions are recorded decisions by the review model, with
+   definition source "model".
+6. **Conversion script or course structure** (Claude, on Sérgio's word). A
+   conversion script holds the words to be said, prayed, vowed or signed.
+   A course structure is the outline without the words: modules, steps,
+   sessions, schedule, the parts of a group meeting.
+7. **New entries for the missing excerpt kinds** (Sérgio: add them). Four
+   dev and four holdout entries with prayer scripts, course structures and
+   counter-sermons, drafted by a Claude agent; whoever tunes the taggers
+   sees only the dev ones.

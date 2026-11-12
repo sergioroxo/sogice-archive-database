@@ -34,6 +34,17 @@ roles:
   reading_second:
     model: qwen3.8:27b-mlx   # digest 5642e97495e1; 27.8B dense; second reader (Sérgio, 10 Nov)
     description: Second, independent reading with the reading settings; reconciled with the first (archive/reconcile.py)
+  tagging:
+    model: gemma4:31b-mlx    # digest 637cc0ff1570; first tagger (Sérgio, 12 Nov: the reading pair tags too)
+    description: Tags each statement the readers recorded and marks excerpts; software locates (archive/tag.py, docs/TAGGING.md)
+    temperature: 0
+    num_predict: 4096
+    num_ctx: 32768
+    keep_alive: 10m
+    seconds_per_1000_chars: 15  # a source past 3x its budget is stopped, as in reading
+  tagging_second:
+    model: qwen3.8:27b-mlx   # digest 5642e97495e1; second, independent tagger with the tagging settings
+    description: Second tagging; compared with the first (archive/tag.py)
   audit:
     model: gemma4:31b-mlx    # digest 637cc0ff1570; hard cases and the audit pass
     description: Hard cases and the per-source audit verdict

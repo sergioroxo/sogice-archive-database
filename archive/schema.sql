@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS concept (
   id                TEXT PRIMARY KEY,
   scheme            TEXT NOT NULL CHECK (scheme IN (
                       -- passage-level facets and the lexicon itself
-                      'term', 'tactic', 'practice', 'function',
+                      'term', 'tactic', 'practice', 'function', 'cluster',
                       'harm_type', 'harm_severity', 'target',
                       -- document-level facets (used by source.*)
                       'genre', 'source_stance', 'medium', 'actor_type',
@@ -569,7 +569,8 @@ CREATE TABLE IF NOT EXISTS decision (
   target_table        TEXT NOT NULL CHECK (target_table IN (
                         'source', 'source_version', 'section', 'passage', 'usage',
                         'concept', 'concept_label', 'concept_relation', 'entity',
-                        'entity_variant', 'relation', 'claim', 'run', 'release', 'decision')),
+                        'entity_variant', 'relation', 'claim', 'run', 'release', 'decision',
+                        'tag', 'asset')),
   target_id           TEXT NOT NULL,
   reason              TEXT NOT NULL CHECK (length(trim(reason)) > 0),
   quote               TEXT,               -- the quote the decision rests on, if any
@@ -642,7 +643,7 @@ CREATE TABLE IF NOT EXISTS assessment (
   id             TEXT PRIMARY KEY,
   run_id         TEXT NOT NULL REFERENCES run(id),
   source_id      TEXT NOT NULL REFERENCES source(id),
-  target_table   TEXT NOT NULL CHECK (target_table IN ('usage', 'relation')),
+  target_table   TEXT NOT NULL CHECK (target_table IN ('usage', 'relation', 'tag', 'asset')),
   target_id      TEXT NOT NULL,
   counterpart_id TEXT,
   confidence     TEXT NOT NULL CHECK (confidence IN ('two_readers_agree', 'one_reader', 'readers_disagree', 'single_reading')),
@@ -654,6 +655,62 @@ CREATE TABLE IF NOT EXISTS assessment (
 );
 CREATE INDEX IF NOT EXISTS idx_assessment_target ON assessment(target_table, target_id, current);
 CREATE INDEX IF NOT EXISTS idx_assessment_source ON assessment(source_id, current);
+
+-- Tags (v12, docs/TAGGING.md): a tagger's label on one statement the readers recorded (a usage): an
+-- actor type, a lexicon term the statement contains, a tactic, a practice or a function. mode: the
+-- speaker 'is' it (actor types), 'uses' it (their own word, tactic or practice) or only 'describes'
+-- it (reports, quotes or criticises it). The cue, when given, is the exact slice of a passage that
+-- shows it, located by software. Tags by the second tagger that agree are superseded by the first's.
+CREATE TABLE IF NOT EXISTS tag (
+  id              TEXT PRIMARY KEY,
+  usage_id        TEXT NOT NULL REFERENCES usage(id),
+  concept_id      TEXT NOT NULL REFERENCES concept(id),
+  mode            TEXT NOT NULL CHECK (mode IN ('is', 'uses', 'describes')),
+  cue_passage_id  TEXT REFERENCES passage(id),
+  cue_start       INTEGER,
+  cue_end         INTEGER,
+  cue             TEXT,
+  run_id          TEXT NOT NULL REFERENCES run(id),
+  created_at      TEXT NOT NULL,
+  review_state    TEXT NOT NULL DEFAULT 'proposed' CHECK (review_state IN ('proposed', 'confirmed', 'disputed', 'rejected', 'superseded')),
+  visibility      TEXT NOT NULL DEFAULT 'internal' CHECK (visibility IN ('internal', 'public_eligible')),
+  CHECK (cue IS NULL OR (cue_passage_id IS NOT NULL AND cue_start >= 0 AND cue_end > cue_start
+                         AND length(cue) = cue_end - cue_start))
+);
+CREATE INDEX IF NOT EXISTS idx_tag_usage ON tag(usage_id);
+CREATE INDEX IF NOT EXISTS idx_tag_concept ON tag(concept_id, mode);
+CREATE INDEX IF NOT EXISTS idx_tag_run ON tag(run_id);
+CREATE TRIGGER IF NOT EXISTS tag_cue_located_insert BEFORE INSERT ON tag
+WHEN NEW.cue IS NOT NULL
+ AND NEW.cue IS NOT (SELECT substr(text, NEW.cue_start + 1, NEW.cue_end - NEW.cue_start)
+                     FROM passage WHERE id = NEW.cue_passage_id)
+BEGIN
+  SELECT RAISE(ABORT, 'tag cue is not the exact passage slice at its offsets');
+END;
+
+-- Excerpts (v12, docs/TAGGING.md): material kept whole for the documentary and teaching. The tagger
+-- copies the first and last words; software finds both and stores the exact text between them, as
+-- offsets in the version's text (its passages laid end to end). A new term is the located term itself.
+CREATE TABLE IF NOT EXISTS asset (
+  id              TEXT PRIMARY KEY,
+  kind            TEXT NOT NULL CHECK (kind IN ('testimony', 'prayer_script', 'conversion_script',
+                                                'course_structure', 'counter_sermon', 'new_term')),
+  source_id       TEXT NOT NULL REFERENCES source(id),
+  version_id      TEXT NOT NULL REFERENCES source_version(id),
+  passage_id      TEXT NOT NULL REFERENCES passage(id),   -- the passage it starts in
+  char_start      INTEGER NOT NULL CHECK (char_start >= 0),
+  char_end        INTEGER NOT NULL,
+  text            TEXT NOT NULL,
+  label           TEXT,            -- a new term as printed
+  speaker         TEXT,            -- the voice of the statements inside it, when there is one
+  run_id          TEXT NOT NULL REFERENCES run(id),
+  created_at      TEXT NOT NULL,
+  review_state    TEXT NOT NULL DEFAULT 'proposed' CHECK (review_state IN ('proposed', 'confirmed', 'disputed', 'rejected', 'superseded')),
+  visibility      TEXT NOT NULL DEFAULT 'internal' CHECK (visibility IN ('internal', 'public_eligible')),
+  CHECK (char_end > char_start AND length(text) = char_end - char_start)
+);
+CREATE INDEX IF NOT EXISTS idx_asset_source ON asset(source_id, kind);
+CREATE INDEX IF NOT EXISTS idx_asset_run ON asset(run_id);
 
 -- Fingerprints (v10): identifiers in a preserved page's own code (analytics and tag-manager accounts,
 -- Facebook apps and pixels, donation, newsletter and advertising accounts, charity, company and tax

@@ -259,8 +259,8 @@ def test_shipped_testset_is_valid_and_quotes_stay_short():
     from archive.paths import REPO_ROOT
     from archive.testset import load_testset
     data = load_testset(REPO_ROOT / "evaluation" / "testset_2026-11-10.json")
-    assert len(data["entries"]) == 20
-    assert sum(e["split"] == "holdout" for e in data["entries"]) == 5
+    assert len(data["entries"]) == 28          # 20 from 10 Nov; 8 added 12 Nov for the missing excerpt kinds
+    assert sum(e["split"] == "holdout" for e in data["entries"]) == 9
     anchors = [a for e in data["entries"] for x in e["expect"]
                for a in ([x["anchor"]] if "anchor" in x else x.get("anchors", []))]
     assert anchors and max(len(a.split()) for a in anchors) <= 12
@@ -282,3 +282,15 @@ def test_speaker_is_measured_on_statements_not_entity_mentions(conn):
     usage(conn, "u2", "60 à 90 %", entity_id="e1", stance="not_applicable")   # a name, no voice
     m = score(conn, make_set())["metrics"]
     assert m["speaker_filled"] == 1.0 and m["entity_mentions"] == 1
+
+
+def test_shipped_tag_expectations_are_valid_and_quotes_stay_short():
+    """The tag expectations file is public too: it loads with the test set, anchors stay short."""
+    from archive.paths import REPO_ROOT
+    from archive.testset import TAG_CHECKS, load_with_tags
+    data = load_with_tags(REPO_ROOT / "evaluation" / "testset_2026-11-10.json",
+                          REPO_ROOT / "evaluation" / "tags_2026-11-12.json")
+    expects = [x for e in data["entries"] for x in e["expect"]]
+    assert expects and all(x["check"] in TAG_CHECKS for x in expects)
+    assert {e["split"] for e in data["entries"]} == {"dev", "holdout"}
+    assert max(len(x["anchor"].split()) for x in expects) <= 12

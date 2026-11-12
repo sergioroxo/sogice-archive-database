@@ -81,7 +81,7 @@ def test_v1_database_gains_new_tables(conn):
         conn.execute("DROP TABLE source_target")
         conn.execute("DELETE FROM schema_version")
         conn.execute("INSERT INTO schema_version VALUES (1, ?, ?)", (NOW, "0" * 64))
-    assert db.init_db(conn) == db.SCHEMA_VERSION == 11
+    assert db.init_db(conn) == db.SCHEMA_VERSION == 13
     names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"source_target", "fetch_attempt"} <= names
 
@@ -426,3 +426,30 @@ def test_release_records_are_frozen(conn):
     conn.rollback()
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute("UPDATE release_record SET record_sha256=?", (sha("other"),))
+
+
+def test_v11_decision_and_assessment_tables_are_rebuilt_keeping_the_chain(conn):
+    """v12: decisions and assessments may target tags and excerpts. An older table is rebuilt, rows kept."""
+    decide(conn)
+    decide(conn, action="dispute", reason="Second source disagrees.")
+    head = db.chain_head(conn)
+    for table in ("decision", "assessment"):
+        old = db._create_statement(table).replace(",\n                        'tag', 'asset'", "")
+        old = old.replace(", 'tag', 'asset'", "")
+        assert "'asset'" not in old
+        with conn:
+            conn.execute("PRAGMA foreign_keys = OFF")
+            conn.execute(old.replace(f"CREATE TABLE IF NOT EXISTS {table} (", f"CREATE TABLE {table}_old ("))
+            columns = ", ".join(r[1] for r in conn.execute(f"PRAGMA table_info({table})"))
+            conn.execute(f"INSERT INTO {table}_old ({columns}) SELECT {columns} FROM {table}")
+            conn.execute(f"DROP TABLE {table}")
+            conn.execute(f"ALTER TABLE {table}_old RENAME TO {table}")
+            conn.execute("PRAGMA foreign_keys = ON")
+    assert db.init_db(conn) == 13
+    for table in ("decision", "assessment"):
+        sql = conn.execute("SELECT sql FROM sqlite_master WHERE name = ?", (table,)).fetchone()[0]
+        assert "'asset'" in sql
+    assert conn.execute("SELECT COUNT(*) FROM decision").fetchone()[0] == 2
+    assert db.chain_head(conn) == head and db.verify_decision_chain(conn).ok
+    with pytest.raises(sqlite3.IntegrityError):   # still append-only after the rebuild
+        conn.execute("DELETE FROM decision")

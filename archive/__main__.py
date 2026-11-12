@@ -231,7 +231,9 @@ def cmd_testset(args: argparse.Namespace) -> int:
         print(testset.show(conn, entry, grep=args.grep, width=args.width))
         return 0
     judgements = json.loads(args.judgements.read_text(encoding="utf-8")) if args.judgements else {}
-    result = testset.score(conn, data, judgements, split=args.split)
+    if args.tags:   # the tag and excerpt expectations alone (docs/TAGGING.md)
+        data = testset.load_with_tags(args.file, args.tags)
+    result = testset.score(conn, data, judgements, split=args.split, tagger=args.tagger)
     conn.close()
     queue_import.write_report(result, folder, f"testset-{stamp}.json")
     markdown = testset.to_markdown(result)
@@ -318,6 +320,64 @@ def cmd_read(args: argparse.Namespace) -> int:
     stamp = time.strftime("%Y%m%d-%H%M%S")
     queue_import.write_report({"prompt": prompt.version, "model": role.model, "results": results},
                               paths.reports_dir(), f"read-{stamp}.json")
+    outcomes = Counter(r["outcome"] for r in results)
+    print(json.dumps(dict(outcomes)))
+    return 1 if outcomes.get("failed") else 0
+
+
+def cmd_tag(args: argparse.Namespace) -> int:
+    """Two taggers over the readers' statements, batch by batch, then compare (docs/TAGGING.md)."""
+    import dataclasses
+    from . import tag
+    from .config import load_models_config
+    from .ollama import OllamaClient
+    conn = db.connect(args.db)
+    db.init_db(conn)
+    conn.execute("PRAGMA busy_timeout = 30000")
+    sources = list(args.source or [])
+    if args.testset:
+        data = testset.load_testset(args.file)
+        sources += [s for e in data["entries"] if (not args.split or e["split"] == args.split)
+                    and (not args.entry or e["key"] in args.entry) for s in testset.entry_sources(e)]
+    if not sources:
+        print("nothing to tag: give --source or --testset", file=sys.stderr)
+        return 2
+    cfg = load_models_config()
+    first = cfg.role("tagging")
+    second = dataclasses.replace(first, model=cfg.model_for("tagging_second"))
+    prompt = read.load_prompt(args.prompt)
+    if args.dry_run:
+        with conn:
+            tag.seed_lists(conn)
+        vocab = tag.vocabulary(conn, prompt.version)
+        for requested in sources:
+            sid = read.keeper(conn, requested)
+            statements, runs = tag.statements_for(conn, sid, primary_model=cfg.model_for("reading"))
+            sections, unplaced = tag.sections_for(conn, sid, statements, tag.terms_in(conn, statements))
+            print(f"{sid}: {len(statements)} statements from {len(runs)} reading run(s), {len(sections)} sections"
+                  + (f", {unplaced} not in a section" if unplaced else ""))
+        if sources and sections:
+            messages = tag.build_messages(prompt, vocab, read.source_header(conn, sid), sections[0], (1, len(sections)))
+            print(f"\n--- system: {len(messages[0]['content'])} characters; first section of the last source ---\n"
+                  + messages[1]["content"][:3000])
+        return 0
+    client = OllamaClient(cfg.base_url, cfg.timeout_seconds)
+    log = lambda line: print(line, flush=True)
+    results, compared = [], []
+    for start in range(0, len(sources), args.batch):
+        batch = sources[start:start + args.batch]
+        for layer in ((first, second) if not args.one else (first,)):
+            log(f"=== batch {start // args.batch + 1}: {layer.model} tags {len(batch)} source(s)")
+            results += tag.tag_sources(conn, client, layer, batch, primary_model=cfg.model_for("reading"),
+                                       prompt=prompt, again=args.again, log=log)
+        keepers = sorted({read.keeper(conn, s) for s in batch})
+        outcome = tag.compare(conn, keepers, primary_model=first.model, second_model=second.model)
+        compared.append(outcome)
+        log(f"=== batch {start // args.batch + 1}: compare {json.dumps(outcome['counts'])}")
+    conn.close()
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    queue_import.write_report({"prompt": prompt.version, "models": [first.model, second.model], "results": results,
+                               "compared": compared}, paths.reports_dir(), f"tag-{stamp}.json")
     outcomes = Counter(r["outcome"] for r in results)
     print(json.dumps(dict(outcomes)))
     return 1 if outcomes.get("failed") else 0
@@ -570,6 +630,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--width", type=int, help="show: cut each passage to this many characters")
     p.add_argument("--split", choices=["dev", "holdout"], help="score: one split only")
     p.add_argument("--judgements", type=Path, help="score: verdicts for judged expectations (JSON)")
+    p.add_argument("--tags", type=Path, help="score: the tag and excerpt expectations in this file instead")
+    p.add_argument("--tagger", help="score --tags: one tagger's own proposals (model name) instead of what both agree on")
     p.set_defaults(func=cmd_testset)
 
     p = sub.add_parser("read", help="Phase 3: local model reads sources; software locates the quotes")
@@ -601,6 +663,20 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--report-only", action="store_true", help="write the difficulties report, change nothing")
     p.add_argument("--no-rules", action="store_true", help="compare the readings only; skip the relation rules")
     p.set_defaults(func=cmd_reconcile)
+
+    p = sub.add_parser("tag", help="two taggers label the readers' statements and mark excerpts; then compare")
+    p.add_argument("--db", type=Path, default=paths.database_path())
+    p.add_argument("--source", action="append")
+    p.add_argument("--testset", action="store_true")
+    p.add_argument("--split", choices=["dev", "holdout"])
+    p.add_argument("--entry", action="append", help="with --testset: only this entry key")
+    p.add_argument("--file", type=Path, default=paths.REPO_ROOT / "evaluation" / "testset_2026-11-10.json")
+    p.add_argument("--prompt", default="tag-v2")
+    p.add_argument("--again", action="store_true", help="tag sources already tagged with this prompt")
+    p.add_argument("--batch", type=int, default=25, help="sources per batch (both taggers, then compare)")
+    p.add_argument("--one", action="store_true", help="the first tagger only (trials)")
+    p.add_argument("--dry-run", action="store_true", help="show what would be tagged and the first section")
+    p.set_defaults(func=cmd_tag)
 
     p = sub.add_parser("review", help="the review queue: packets for disputed and held records, verdicts, undo")
     p.add_argument("action", choices=["prepare", "apply", "status", "undo"])

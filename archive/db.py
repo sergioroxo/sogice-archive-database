@@ -25,11 +25,13 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
-SCHEMA_VERSION = 11  # v2 source_target; v3 fetch_attempt; v4 time_start/time_end; v5 local_file route;
+SCHEMA_VERSION = 13  # v2 source_target; v3 fetch_attempt; v4 time_start/time_end; v5 local_file route;
                      # v6 source.merged_into; v7 run.progress, run.heartbeat_at; v8 assessment;
                      # v9 usage.ban_position (the speaker's position on a ban, read-v5);
                      # v10 fingerprint, fingerprint_scan (identifiers in page code);
-                     # v11 source.author (who wrote the text, archive/authors.py)
+                     # v11 source.author (who wrote the text, archive/authors.py);
+                     # v12 tag, asset (docs/TAGGING.md); decisions and assessments may target them;
+                     # v13 concept scheme 'cluster' (the ontology's seven clusters, tagged since tag-v2)
 
 # Column additions for databases created by an older schema.sql. New tables
 # and indexes need no entry: schema.sql creates them IF NOT EXISTS.
@@ -116,6 +118,9 @@ def init_db(conn: sqlite3.Connection) -> int:
 # (version, table, text the current definition contains)
 REBUILDS = (
     (5, "fetch_attempt", "'local_file'"),
+    (12, "decision", "'asset'"),
+    (12, "assessment", "'asset'"),
+    (13, "concept", "'cluster'"),
 )
 
 

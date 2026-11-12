@@ -1,9 +1,11 @@
 # Phase 3 test set
 
 The test set is how we know whether local reading is good enough. It is the
-file `evaluation/testset_2026-11-10.json`: 20 entries, each a source (one
+file `evaluation/testset_2026-11-10.json`: 28 entries, each a source (one
 entry holds two copies of the same video) with the behaviour we expect from
-the reader: 112 expectations in all. It holds short anchor phrases only (at
+the reader. The first 20 hold 112 expectations; eight more were added on 12
+November (below). Tag and excerpt expectations are in their own file,
+`evaluation/tags_2026-11-12.json` (`docs/TAGGING.md`). It holds short anchor phrases only (at
 most 12 words, enforced by a test), never source texts.
 
 The Transfer-package cases were written from the package's section 11. The
@@ -11,7 +13,7 @@ other expectations were drafted by Claude agents reading the stored text,
 then reviewed; every anchor is checked against the text by `score`. Sérgio
 can change any of them: edit the file, run `score`, commit.
 
-## The 20 entries
+## The entries
 
 | Entry | Why it is there |
 |---|---|
@@ -36,8 +38,24 @@ can change any of them: edit the file, run `score`, commit.
 | stoptheban-testimonies | Testimonies relayed by a campaign site |
 | trevor-still-happening | Survey report (PDF): numbers stay attributed |
 
-Five entries are **holdout**: they are scored, but whoever tunes prompts must
+Added on 12 November, for the excerpt kinds the first 20 lacked (prayer
+scripts, course structures, counter-sermons), drafted by a Claude agent:
+
+| Entry | Why it is there |
+|---|---|
+| lifebuilders-deliverance | Deliverance worksheet (PDF): prayers said over a person; template wording, not testimony |
+| coastchristian-living-waters | Living Waters programme page: a dated class schedule and the parts of a meeting |
+| churchinthecliff-sermon | Affirming sermon answering the ex-gay movement; two preachers' turns |
+| banconversion-justin | A survivor's account on a campaign site, then the site's helpline notice |
+| fathersforlife-prayer | Holdout: a prayer script |
+| embracethedesign-course | Holdout: a course structure |
+| qchristian-theology | Holdout: a counter-sermon |
+| uniting-sogice-proposal | Holdout: a testimony |
+
+Nine entries are **holdout**: they are scored, but whoever tunes prompts must
 not look at their expectations or results (`score --split dev` for tuning).
+The five of 10 November have been seen (below); the four of 12 November have
+not.
 
 ## Kinds of expectation
 

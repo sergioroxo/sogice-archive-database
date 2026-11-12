@@ -50,6 +50,15 @@ CHECKS = {
     "same_text":         set(),
     "judged":            {"criterion"},
 }
+# Tag and excerpt expectations (docs/TAGGING.md) live in their own file and are scored on their own
+# (``load_with_tags``), so the reading figures do not change when they are added.
+TAG_CHECKS = {
+    "tag":     {"anchor", "tag_any"},      # a statement at the anchor carries one of these tags
+    "actor":   {"anchor", "actor_any"},    # a statement at the anchor has one of these actor types
+    "excerpt": {"anchor", "kind_any"},     # a kept excerpt of one of these kinds contains the anchor
+}
+CHECKS.update(TAG_CHECKS)
+TAG_WINDOW = 20
 WHERE_KEYS = {"speaker_any", "speaker_not", "quoted_party_any", "intermediary_any",
               "stance_any", "stance_not", "attribution_any", "concept_any", "entity_any", "date_any"}
 UNFILLED_SPEAKERS = {"", "unknown", "none", "n/a"}
@@ -101,8 +110,27 @@ def validate(data: dict) -> None:
                     problems.append(f"{eid}: unknown where keys {sorted(unknown)}")
             if exp.get("must", "some") not in ("some", "none"):
                 problems.append(f"{eid}: must is some|none")
+            if exp.get("mode") not in (None, "uses", "describes"):
+                problems.append(f"{eid}: mode is uses|describes")
     if problems:
         raise TestsetError("; ".join(problems))
+
+
+def load_with_tags(testset_path: Path, tags_path: Path) -> dict:
+    """The test set's entries with the tag expectations of ``tags_path`` only (urls and split kept)."""
+    base = load_testset(testset_path)
+    extra = json.loads(Path(tags_path).read_text(encoding="utf-8"))
+    by_key = {e["key"]: e for e in extra.get("entries", [])}
+    unknown = set(by_key) - {e["key"] for e in base["entries"]}
+    if unknown:
+        raise TestsetError(f"tag expectations for unknown entries: {sorted(unknown)}")
+    entries = [{**e, "expect": by_key[e["key"]].get("expect", [])} for e in base["entries"] if e["key"] in by_key]
+    data = {**base, "version": extra.get("version"), "entries": entries, "tags": True}
+    validate(data)
+    wrong = [x["id"] for e in entries for x in e["expect"] if x["check"] not in TAG_CHECKS]
+    if wrong:
+        raise TestsetError(f"not tag checks: {wrong}")
+    return data
 
 
 def entry_sources(entry: dict) -> list[str]:
@@ -174,6 +202,9 @@ class EntryView:
     disputed: int = 0                                             # statements the readers disagreed on
     held_relations: int = 0                                       # one reader's relations, held until reviewed
     relations: list[dict] = field(default_factory=list)
+    tag_runs: list[sqlite3.Row] = field(default_factory=list)     # current tagging runs
+    tags: list[dict] = field(default_factory=list)                # with their statement's span
+    assets: list[dict] = field(default_factory=list)
 
     @property
     def read(self) -> bool:
@@ -292,6 +323,87 @@ def entry_view(conn: sqlite3.Connection, entry: dict) -> EntryView:
     return view
 
 
+def attach_tags(conn: sqlite3.Connection, view: EntryView, tagger: str | None = None) -> None:
+    """The tags and excerpts that count: what would be published (both taggers agree, on a statement
+    that is not disputed), or with ``tagger`` everything that model's current tagging proposed."""
+    marks = ",".join("?" for _ in view.sources)
+    view.tag_runs = conn.execute(
+        f"""SELECT * FROM run r WHERE role = 'extraction' AND outcome = 'succeeded'
+            AND json_extract(inputs, '$.job') = 'tagging' AND json_extract(inputs, '$.source_id') IN ({marks})
+            AND NOT EXISTS (SELECT 1 FROM decision d WHERE d.target_table = 'run' AND d.target_id = r.id
+                            AND d.action = 'supersede')""", view.sources).fetchall()
+    runs = [r["id"] for r in view.tag_runs if tagger is None or r["model"] == tagger]
+    if not runs:
+        return
+    rmarks = ",".join("?" for _ in runs)
+    agreed = ("" if tagger else
+              """ AND (x.review_state = 'confirmed' OR EXISTS (SELECT 1 FROM assessment a WHERE a.target_table = '{t}'
+                   AND a.target_id = x.id AND a.current = 1 AND a.confidence = 'two_readers_agree'))
+                   AND x.review_state IN ('proposed', 'confirmed')""")
+    view.tags = [dict(r) for r in conn.execute(
+        f"""SELECT x.*, c.scheme, c.pref_label, u.passage_id, u.char_start AS u_start, u.char_end AS u_end,
+                   u.review_state AS u_state
+            FROM tag x JOIN concept c ON c.id = x.concept_id JOIN usage u ON u.id = x.usage_id
+            WHERE x.run_id IN ({rmarks}) AND x.review_state <> 'rejected'""" + agreed.format(t="tag")
+        + ("" if tagger else " AND u.review_state NOT IN ('disputed', 'rejected', 'superseded')"), runs)]
+    view.assets = [dict(r) for r in conn.execute(
+        f"SELECT x.* FROM asset x WHERE x.run_id IN ({rmarks}) AND x.review_state <> 'rejected'"
+        + agreed.format(t="asset"), runs)]
+
+
+def _tag_fits(tag: dict, options: list[str]) -> bool:
+    label = norm(f"{tag['scheme']}: {tag['pref_label']}")
+    for option in options:
+        option = norm(option)
+        if option.endswith(":*") and norm(tag["scheme"]) == option[:-2]:
+            return True
+        if option.endswith("*") and label.startswith(option[:-1]):
+            return True
+        if label == option:
+            return True
+    return False
+
+
+def _check_tags(view: EntryView, exp: dict) -> tuple[str, str]:
+    kind, located = exp["check"], view.find(exp["anchor"])
+    if not located:
+        return "error", f"anchor not found in text: {exp['anchor']!r}"
+    if not view.tag_runs:
+        return "pending", "no tagging run for this source"
+    none = exp.get("must", "some") == "none"
+    if kind == "excerpt":
+        starts = {p["id"]: (p["version_id"], p["char_start"]) for p in view.passages}
+        spans = [(starts[l.passage_id][0], starts[l.passage_id][1] + l.start, starts[l.passage_id][1] + l.end)
+                 for l in located]
+        hits = [a for a in view.assets if a["kind"] in exp["kind_any"] and any(
+            a["version_id"] == v and (a["char_start"] < e and s < a["char_end"] if none
+                                      else a["char_start"] <= s and e <= a["char_end"]) for v, s, e in spans)]
+        if none:
+            return ("pass" if not hits else "fail"), f"{len(hits)} forbidden excerpt(s) at the anchor"
+        kinds = sorted({a["kind"] for a in view.assets if any(
+            a["version_id"] == v and a["char_start"] < e and s < a["char_end"] for v, s, e in spans)})
+        return ("pass", f"{len(hits)} excerpt(s) hold the anchor") if hits else (
+            "fail", f"no {exp['kind_any']} excerpt holds the anchor; overlapping kinds {kinds}")
+    window = exp.get("window", TAG_WINDOW)
+    near = [t for t in view.tags for l in located if t["passage_id"] == l.passage_id
+            and t["u_start"] < l.end + window and t["u_end"] > l.start - window]
+    statements = [u for l in located for u in view.near(l, window) if u["entity_id"] is None]
+    if kind == "actor":
+        fitting = [t for t in near if t["scheme"] == "actor_type"
+                   and any(norm(a) == norm(t["pref_label"]) for a in exp["actor_any"])]
+    else:
+        fitting = [t for t in near if t["scheme"] != "actor_type" and _tag_fits(t, exp["tag_any"])
+                   and (not exp.get("mode") or t["mode"] == exp["mode"])]
+    seen = sorted({f"{t['scheme']}: {t['pref_label']} ({t['mode']})" for t in near})[:6]
+    if none:
+        return ("pass" if not fitting else "fail"), f"{len(fitting)} forbidden tag(s) at the anchor; seen {seen}"
+    if fitting:
+        return "pass", f"{len(fitting)} fitting tag(s) at the anchor"
+    if not statements and not near:
+        return "fail", "no statement at the anchor (nothing to tag)"
+    return "fail", f"{len(statements)} statement(s) at the anchor, no fitting tag; seen {seen}"
+
+
 # --------------------------------------------------------------------------- checks
 
 def _concept_names(conn: sqlite3.Connection, concept_id: str | None) -> list[str]:
@@ -340,6 +452,8 @@ def check(conn: sqlite3.Connection, view: EntryView, exp: dict, judgements: dict
     kind = exp["check"]
     if not view.passages and kind not in ("judged",):
         return "error", "source not indexed (no passages)"
+    if kind in TAG_CHECKS:
+        return _check_tags(view, exp)
 
     # Checks on the preserved text: decidable before any reading.
     if kind == "language":
@@ -454,7 +568,9 @@ def check(conn: sqlite3.Connection, view: EntryView, exp: dict, judgements: dict
 # --------------------------------------------------------------------------- scoring
 
 def score(conn: sqlite3.Connection, data: dict, judgements: dict | None = None,
-          split: str | None = None) -> dict:
+          split: str | None = None, tagger: str | None = None) -> dict:
+    if data.get("tags"):
+        return score_tags(conn, data, split=split, tagger=tagger)
     judgements = judgements or {}
     gate = data.get("gate", {})
     results, all_usages, seconds, chars, all_disputed, all_held = [], [], {}, {}, 0, 0
@@ -519,6 +635,38 @@ def score(conn: sqlite3.Connection, data: dict, judgements: dict | None = None,
             "results": results}
 
 
+def score_tags(conn: sqlite3.Connection, data: dict, *, split: str | None = None,
+               tagger: str | None = None) -> dict:
+    """Tag and excerpt expectations: what would be published, or one tagger's own proposals."""
+    results, rates, kinds, modes = [], {}, Counter(), Counter()
+    for entry in data["entries"]:
+        if split and entry["split"] != split:
+            continue
+        view = entry_view(conn, entry)
+        attach_tags(conn, view, tagger)
+        for r in view.tag_runs:
+            inputs = json.loads(r["inputs"])
+            if inputs.get("chars") and r["seconds"]:
+                rates[(entry["key"], r["model"])] = round(1000 * r["seconds"] / inputs["chars"], 2)
+        kinds.update(t["scheme"] for t in view.tags)
+        modes.update(t["mode"] for t in view.tags)
+        for exp in entry.get("expect", []):
+            status, detail = check(conn, view, exp, {})
+            results.append({"entry": entry["key"], "split": entry["split"], "id": exp["id"],
+                            "case": exp.get("case", ""), "check": exp["check"], "status": status, "detail": detail})
+    counts = Counter(r["status"] for r in results)
+    by_model: dict = defaultdict(list)
+    for (_key, model), rate in rates.items():
+        by_model[model].append(rate)
+    metrics = {"view": tagger or "both taggers agree", "tags_by_kind": dict(sorted(kinds.items())),
+               "tags_by_mode": dict(sorted(modes.items())),
+               "max_seconds_per_1000_chars": {m: max(v) for m, v in sorted(by_model.items())}}
+    passed = bool(results) and counts["fail"] == counts["error"] == counts["pending"] == 0
+    return {"testset": data.get("version"), "split": split or "all", "metrics": metrics,
+            "counts": dict(sorted(counts.items())), "gate": {"every tag expectation passes": True},
+            "gate_passed": passed, "results": results}
+
+
 def _confidence(conn: sqlite3.Connection, usage_ids: list[str]) -> dict:
     """Share of the counted statements by reconciliation outcome (none if never reconciled)."""
     if not usage_ids or not conn.execute("SELECT name FROM sqlite_master WHERE name = 'assessment'").fetchone():
@@ -540,6 +688,17 @@ def _confidence(conn: sqlite3.Connection, usage_ids: list[str]) -> dict:
 
 def to_markdown(report: dict) -> str:
     m = report["metrics"]
+    if "view" in m:   # a tag report (score_tags)
+        lines = [f"# Tag expectations {report['testset']} ({report['split']}; {m['view']})", "",
+                 f"All pass: **{'yes' if report['gate_passed'] else 'no'}**", "",
+                 f"- Tags by kind: {m['tags_by_kind']}", f"- Tags by mode: {m['tags_by_mode']}",
+                 f"- Slowest source per 1,000 characters, by tagger: {m['max_seconds_per_1000_chars']}",
+                 f"- Expectations: {report['counts']}", "",
+                 "| Entry | Expectation | Case | Status | Detail |", "|---|---|---|---|---|"]
+        for r in report["results"]:
+            detail = r["detail"].replace("|", "/").replace("\n", " ")[:160]
+            lines.append(f"| {r['entry']} | {r['id']} | {r['case']} | {r['status']} | {detail} |")
+        return "\n".join(lines) + "\n"
     lines = [f"# Test set {report['testset']} ({report['split']})", "",
              f"Gate passed: **{'yes' if report['gate_passed'] else 'no'}**", "",
              f"- Model usages: {m['model_usages']}",

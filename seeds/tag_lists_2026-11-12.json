@@ -1,0 +1,39 @@
+{
+  "note": "Lists the taggers use beyond the Lexicon and ontology seeds (docs/TAGGING.md). Drafted by Claude on 12 Nov 2026 from Sérgio's decisions; he may change any of it. Clusters are read from SOGICE_Ontology_v3.0.md (Part I) when seeded.",
+  "actor_types": [
+    {"label": "leader or founder", "kind": "person", "definition": "Leads, directs, chairs, founded or sits on the board of an organisation, ministry or campaign."},
+    {"label": "therapist or counsellor", "kind": "person", "definition": "Psychotherapist, psychologist, counsellor, coach or other practitioner offering talking therapy or guidance."},
+    {"label": "pastor or clergy", "kind": "person", "definition": "Holds a religious office: pastor, priest, minister, elder, imam, rabbi."},
+    {"label": "went through change efforts", "kind": "person", "definition": "Says, or is said, to have gone through change efforts, including people who call themselves ex-gay or ex-trans, whether they now speak for or against them."},
+    {"label": "researcher", "kind": "person", "definition": "Academic, scientist, theologian or ethicist writing as a scholar, or the author of a study."},
+    {"label": "medical professional", "kind": "person", "definition": "Doctor, psychiatrist, nurse or other health professional."},
+    {"label": "politician or legislator", "kind": "person", "definition": "Member of a parliament, minister, rapporteur or elected official."},
+    {"label": "journalist", "kind": "person", "definition": "Reporter, editor, interviewer or presenter for a news outlet or programme."},
+    {"label": "activist or campaigner", "kind": "person", "definition": "Campaigns for or against change efforts or a ban, without a leading role in an organisation."},
+    {"label": "family member", "kind": "person", "definition": "Parent, spouse or relative speaking as such."},
+    {"label": "ministry", "kind": "organisation", "definition": "Religious ministry, outreach or support group offering help with sexuality or gender."},
+    {"label": "therapy practice", "kind": "organisation", "definition": "Clinic, practice or company offering therapy, counselling or coaching."},
+    {"label": "church or religious body", "kind": "organisation", "definition": "Church, denomination, parish, mosque, religious order or federation."},
+    {"label": "advocacy group", "kind": "organisation", "definition": "Campaign, charity or non-governmental organisation working for a cause."},
+    {"label": "professional body", "kind": "organisation", "definition": "Association or regulator of a profession (counsellors, psychologists, doctors)."},
+    {"label": "academic body", "kind": "organisation", "definition": "University, research institute or journal."},
+    {"label": "media outlet", "kind": "organisation", "definition": "Newspaper, broadcaster, magazine, news site or channel."},
+    {"label": "government or parliament", "kind": "organisation", "definition": "Government, ministry, parliament, committee, court or public agency."},
+    {"label": "political party", "kind": "organisation", "definition": "Political party or its group in a parliament."}
+  ],
+  "function_definitions": {
+    "Slur": "A word used to insult LGBTQ+ people as a group or a person.",
+    "Euphemism": "A softer word that hides what a practice is or does (\"journey\", \"wholeness\", \"unwanted attraction\", \"exploration\").",
+    "Conspiracy": "Words that cast LGBTQ+ people, rights or institutions as a hidden, coordinated plot.",
+    "Pseudo-Diagnostic": "A made-up or discredited diagnosis or cause presented as clinical fact (\"father wound\", \"gender confusion disorder\").",
+    "Identity-Policing": "Words that tell people how they may or may not name or express themselves (\"don't call yourself gay\").",
+    "Moral-Purity Frame": "Words that cast sexuality or gender in terms of purity, sin, holiness or cleanness.",
+    "Political Slogan": "A catchphrase used in a campaign (\"protect our children\", \"let us pray\").",
+    "Recruitment Frame": "Words that address the reader as someone who needs change (\"Are you struggling with same-sex attraction?\").",
+    "Pastoral Rhetoric": "Caring, spiritual language that presents change efforts as love or help (\"walk alongside\", \"freedom in Christ\").",
+    "Promotional Recruitment": "A call to join, enrol, book, donate or get in touch with a programme or ministry.",
+    "Testimonial Marketing": "A personal story of change used to promote a programme, ministry or therapy.",
+    "Disinformation Narrative": "Not offered to the taggers: calling a narrative false is a ruling on truth, which the archive does not make (claims are attributed, never ruled true or false)."
+  },
+  "not_offered": ["Disinformation Narrative"]
+}

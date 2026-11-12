@@ -32,6 +32,7 @@ python -m archive testset show fr-4501 --grep "Torrents"   # read an entry's pas
 python -m archive read --testset --split dev             # Phase 3: local reading (docs/READING.md)
 python -m archive read --status                          # runs in progress; exit 1 if one has stalled
 python -m archive read --testset --both                  # two readers, reconcile, relation rules (docs/ACCOUNTABILITY.md)
+python -m archive tag --testset --split dev             # two taggers label the statements, mark excerpts (docs/TAGGING.md)
 python -m archive speakers src_… --set "Name=host"       # who speaks in a recording without labels (read-v5)
 python -m archive fingerprints                          # identifiers in page code shared by sites (docs/FINGERPRINTS.md)
 python -m archive queue-add URL … --origin NAME         # add pages to the source queue
@@ -40,4 +41,5 @@ python -m archive titles --reissue                      # re-read first pages wh
 python -m archive authors                               # source authors: DOI records, page code, first pages (docs/AUTHORS.md)
 python -m archive review prepare                         # review queue; then /review-queue in Claude Code (docs/REVIEW.md)
 python -m archive testset score         # check expectations and the Phase 3 gate
+python -m archive testset score --split dev --tags evaluation/tags_2026-11-12.json   # tag expectations
 ```
