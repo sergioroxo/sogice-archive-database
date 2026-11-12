@@ -85,14 +85,14 @@ teaching material. Some of that work is not planned yet. So:
    preservation report's review lists, not recovered by reading. The full
    text always stays stored and searchable; reading only adds to it.
 
-   **3b. Tag (local models, separate pass; decided 11 Nov 2026).** After
-   reading and reconcile, two taggers give each statement its tactics,
-   practices, functions, harm and target from the closed lists. Each tag
-   is marked as used or only described by the speaker. Taggers also
-   propose new term candidates. Term matches inside a statement are
-   credited to its speaker by software. Document facets (genre, actor
-   type, country, source stance, era) come from software first. Draft:
-   `docs/TAGGING.md`.
+   **3b. Tag (local models, separate pass; Sérgio, 11–12 Nov 2026).** After
+   reading and reconcile, two taggers (the reading pair) give each
+   statement its actor, terms used, tactics, practices and functions, each
+   marked as used or only described by the speaker. They also mark
+   excerpts to keep whole (testimonies, prayer and conversion scripts,
+   course structures, counter-sermons, new terms). Software compares them
+   and a checker verifies agreed items. Document facets come from software
+   first. See `docs/TAGGING.md`.
 4. **Suggest (embeddings).** EmbeddingGemma 2 over passages, page images,
    audio/video clips (≤ 5 min, with timecodes) and concept descriptions. Used
    for search and for suggesting concept attachments. Never evidence.

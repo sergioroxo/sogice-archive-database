@@ -55,9 +55,12 @@ The model quotes; software locates. Models never compute offsets.
   profession or a speaker label states nothing; amendments are authorship).
   Prompt read-v5 asks for the speaker's position on a ban, and software sets
   the stance from it. See `docs/REVIEW.md`.
-- 11 Nov 2026: tags (tactic, practice, function, harm, target) are made in a
-  separate pass after reading, on the readers' statements, not by the
-  readers. Draft and open questions: `docs/TAGGING.md`.
+- 11–12 Nov 2026: tags are made in a separate pass after reading, on the
+  readers' statements, by two taggers (the reading pair): actor, terms
+  used, tactics, practices, functions, each marked as used or only
+  described. No harm tags. Excerpts (testimonies, prayer and conversion
+  scripts, course structures, counter-sermons, new terms) are kept whole.
+  Everything passes a verification step. See `docs/TAGGING.md`.
 - Releases: GitHub (code, static site); Zenodo or DataverseNO (dataset + DOI).
 - Target: working exhibition demo by 31 March 2027.
 

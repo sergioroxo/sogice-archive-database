@@ -1,15 +1,31 @@
-# Tags (draft, 11 November 2026)
+# Tags and excerpts
 
-**Status: draft.** On 11 November Sérgio decided that tags are made in a
-separate step after reading, not by the readers. The rest of this page is a
-proposal until it has been tested on the dev set and he has ruled on the
-open questions at the end.
+Tags are made in a separate step after reading, on the readers' statements,
+not by the readers (Sérgio, 11 November 2026). The choices below are his
+(12 November). How it works in detail is a proposal until it has been
+tested on the dev set.
+
+## Decisions (12 November 2026)
+
+1. **Two taggers**: the reading pair, Gemma 4 31B and Qwen 3.8 27B. They
+   read best on the test set, are installed, and we know their weak spots.
+   Model names are in `config/models.yaml` (roles `tagging` and
+   `tagging_second`).
+2. **What is tagged**: actor, terms used, tactics, practices, functions.
+3. **Harm is not tagged**: how much harm something did is too relative to
+   label. Target (orientation, gender identity, minors) is not in the
+   first pass either.
+4. **Excerpts now**: testimonies, prayer scripts, conversion scripts,
+   course structures and counter-sermons are kept whole, for the
+   documentary and for teaching.
+5. **A verification step**: everything must be checkable against the
+   source.
 
 ## What tags are for
 
 Tags are how the archive is searched and reused (`docs/PLAN.md`, Purpose):
 
-- find every place a tactic, practice or harm is described;
+- find every place a tactic or practice is described;
 - show how a term is used, by whom and on which side;
 - filter the network and the exhibition;
 - pick material for a lesson or a film.
@@ -22,154 +38,159 @@ have already recorded, with its quote, speaker and stance:
 
 So a tag can always be shown as "Source S states …", like every other record.
 
-## What exists now
+## What is tagged
 
-| Kind | Vocabulary | What the archive holds |
+All tags are given per statement. Both taggers see the same numbered
+statements, so their answers can be compared one by one.
+
+| Tag | List | Mode |
 |---|---|---|
-| Terms | Lexicon v2.1 (292 terms) | 151,271 exact matches of 181 terms, found by software. They have no speaker or stance. |
-| Tactics | 44 (ontology v3.0, with definitions) | Nothing. They describe moves, not words, so exact matching finds none. |
-| Practices | 14 (ILGA-Europe aligned) | Nothing |
-| Functions | 12 | Nothing |
-| Harm | Not settled (see the questions at the end) | Nothing; not seeded |
-| Target | Orientation, gender identity, gender expression, sex characteristics; minor or adult | Nothing; not seeded |
-| Document facets | Genre, source stance, actor type, country, era, religious tradition | Empty on all 6,804 sources. Language is set on 6,378 and date on 3,801. |
+| Actor | Who the speaker is, as the text states it (below) | the speaker **is** it |
+| Term used | The lexicon terms software found inside the statement (151,271 matches so far) | **uses** (the speaker's own word) or **describes** (quoted, in scare quotes, or criticised) |
+| Tactic | 44 (ontology v3.0, with definitions; the most specific branch) | **uses** or **describes** |
+| Practice | 14 (ILGA-Europe aligned) | **uses** (does, offers, undergoes) or **describes** (reports, criticises) |
+| Function | 12 (slur, euphemism, pseudo-diagnostic…) | **uses** or **describes**, with the words that do it |
 
-## Three kinds of tag, made three ways
+**Uses and describes.** A critic who says that a ministry "prays the gay
+away" describes a practice, and is never tagged as using it. The lexicon
+counts a term as someone's own word only when they use it. Words in scare
+quotes, a quoted opponent and a criticised term are described.
 
-### 1. Terms in use: software, no model
+**Actor types.** The tagger gives one only when the text says it: a job
+title, a self-description, or a role line ("Alan Chambers, Exodus
+president"). The list is proposed here, for Sérgio to change:
 
-A term match that falls inside a statement takes that statement's speaker
-and stance. "ex-gay" inside a quote by Alan Chambers becomes a use of
-"ex-gay" by Alan Chambers, with the stance the readers recorded.
+- **People:** leader or founder, therapist or counsellor, pastor or clergy,
+  someone who went through change efforts (by their own account),
+  researcher, medical professional, politician or legislator, journalist,
+  family member.
+- **Organisations:** ministry, therapy practice, church or religious body,
+  advocacy group, professional body, academic body, media outlet,
+  government or parliament, political party.
 
-The link is worked out when a release is built and is not stored a second
-time: a fact is stored once. A match outside any statement stays a plain
-match: it can be searched, but it is not credited to anyone.
+The ontology's judgement types ("pseudo-professional body", "influencer",
+"network node") are not asked of the taggers. They come only from the Entity
+Registry, which Sérgio keeps.
 
-The lexicon then shows each term's uses grouped by side:
+**Terms in use**, without a model: software credits each term match inside
+a statement to that statement's speaker, with its stance. The tagger adds
+whether it is the speaker's own word. Matches outside any statement stay
+plain matches: they can be searched, but are not credited to anyone.
 
-- those who promote the practice;
-- those who criticise it;
-- laws;
-- research.
+**Clusters** (C1–C7) are not tagged. Software derives them from the
+tactics, using the ontology's mapping.
 
-This follows the ontology's stance profile. A term quoted by a critic is
-never counted as the critic's own use.
+## Excerpts
 
-### 2. Statement tags: a separate pass by local models
+Some material is used whole, not as a short quote. The tagger names it and
+copies its first and last words (at most 12 each). Software finds both in the
+section and keeps the exact text between them, with its place in the
+preserved copy.
 
-This runs after reading and `reconcile`, one section at a time. The tagger
-is given:
+| Kind | What |
+|---|---|
+| Testimony | A first-person account of going through, giving or leaving change efforts |
+| Prayer script | The words of a prayer said for or over someone to change them |
+| Conversion script | Scripted steps or dialogue for a session, group or covenant |
+| Course structure | A programme's modules, steps or schedule |
+| Counter-sermon | Affirming theology that answers change efforts |
+| New term | A word or phrase used as a special term that is not in the lexicon (a proposal for the lexicon, never an entry) |
 
-- the section's text;
-- its statements, numbered, each with its quote, speaker and stance;
-- the closed lists, with each item's one-line definition from the
-  ontology.
+The ontology's other excerpt kinds are already covered:
 
-For each statement it returns:
+- numbers are claims;
+- network links are relations;
+- legislative quotes are statements in legislative sources;
+- a term's first use is worked out from dates.
 
-- **tags** from the lists (tactic, practice, function, harm, target), each
-  with a **mode**:
-  - `uses`: the speaker uses this tactic, or does or offers this practice;
-  - `describes`: the speaker names, reports or criticises it.
+Images and video frames come later, with embeddings.
 
-  A critic describing "pray the gay away" is not tagged as using it.
-- **cue**, optionally: the few words that show the tag, copied exactly.
-  Software locates them inside the statement's section. A cue it cannot
-  find is dropped.
-- **new term candidates**: a word or phrase the text uses as a special term
-  that is not in the lexicon. These become proposals for the lexicon, not
-  entries.
+## Verification
 
-Harm is tagged only when a statement reports harm to someone: the type, and
-the severity only if the text states it. It is never inferred. Target is
-tagged only when the text says who is aimed at.
+Everything published must be checkable: anyone can go from a tag or an
+excerpt to the exact words in the preserved copy, and see who decided it
+and how it was checked. Four layers, each recorded on the item:
 
-Clusters (C1–C7) are not tagged. Software derives them from the tactics,
-using the ontology's mapping.
+1. **Found in the source (software).** The statement quote, the cue, the
+   term and the excerpt are each the exact slice of the preserved text at a
+   recorded place (page or timecode). That copy has a checksum and its
+   Wayback link. Anything software cannot find is dropped.
+2. **Two taggers.**
+   - A tag both give, with the same mode, is kept.
+   - A tag only one gives is held.
+   - "Uses" against "describes" is disputed.
 
-**Why tag statements and not passages.** Tags then come with a speaker and
-a stance, so "Source S states …" stays true. And the difference between
-using and describing a tactic is about a voice, which a passage does not
-have.
+   Excerpts are paired by overlap, as statements are. Tags on a held or
+   disputed statement are held with it.
+3. **Checked (the extra layer).** Some agreed items get one more short
+   question, from a checker that did not tag them:
+   - every excerpt;
+   - every "uses" tag of a tactic or practice: what someone argues or does.
 
-**Why a separate pass.**
+   The checker sees only the item, its speaker and the definition: "Does
+   this show X? Answer yes or no, and copy the words that show it." Those
+   words must be found inside the item. A "no", or words that cannot be
+   found, sends the item to the review queue. Which checker is to be tried
+   on dev: Qwen 3.6 35B and Gemma 4 12B are installed. If neither checks
+   well, the check falls to Claude in the review queue.
+4. **Review and samples.**
+   - Claude Code works the queue: held, disputed and failed checks.
+   - Sérgio samples each week.
+   - Each kind of tag gets a measured error rate. A kind above the agreed
+     rate is not published until it is fixed.
 
-- The reading stays as tested.
-- Tags can be made again, with a new vocabulary version or a new tactic,
-  without reading the corpus again (about 700 machine hours for English).
-- The tagger writes short labels, not quotes, so it should be much faster
-  than reading.
-- It can be tested on its own.
+The products show how far each item got (for example "both taggers, checked,
+sampled"), and link it to its source.
 
-**Two taggers, as for reading** (the 31B and Qwen 3.8 27B), compared by
-software:
-
-- tags both give are published;
-- a tag only one gives is held for review;
-- `uses` against `describes` is disputed.
-
-A tag such as Groomer-Panic or Physical-Coercion says what a person or an
-organisation does, so it gets the same care as a statement. Tags on a held
-or disputed statement are held with it.
-
-**Records.** A small table links a statement to a concept, with the mode,
-the cue span, the run and a review state. Every tag is an undoable,
-recorded decision. Each run records its prompt version and the vocabulary
-version (ontology v3.0 and the seed date).
-
-**Time.** Unknown until measured. A first guess is a third to half of
-reading time: 230 to 350 hours for both taggers over the English corpus,
-10 to 15 days of continuous running. Only one model fits in memory at a
-time, so tagging cannot run at the same time as reading. It can follow the
-reading batch by batch, but the machine time adds up either way.
-
-### 3. Document tags: software first
+## Document tags: software first
 
 | Facet | Where it comes from |
 |---|---|
 | Genre | The medium, the DOI record (journal article), the kind the titles step names (report, law, letter, statement…), recordings |
-| Actor type, religious tradition | The publisher's entry in the Entity Registry (ministry, therapy practice, advocacy, academic, media, government…) |
+| Actor type, religious tradition | The publisher's entry in the Entity Registry; otherwise the actor tags of the source's own voice |
 | Country | The organisation's country, not the text's language (ontology rule): the Entity Registry, then fingerprints (a UK charity number means GB). A country-code domain is only a hint, marked inferred. |
-| Source stance | From the readings: the stance of the source's own voice (statements by its author or publisher). If it is split, "mixed". The registry's pro/anti lists are a hint to check, never the answer. |
+| Source stance | From the readings: the stance of the source's own voice (statements by its author or publisher). If it is split, "mixed". |
 | Era | The publication date; when there is none, the capture date, marked as such |
 
 What software cannot decide stays empty and goes on a review list for the
-researcher interface. A model is used only where there is no other route,
-as a recorded decision with a quote.
+researcher interface.
+
+## Records
+
+- Tags go in a table `tag`: the statement (a usage), the concept, the mode,
+  the optional cue span, the run and a review state.
+- Excerpts go in a table `asset`: the kind, the version and the span in its
+  text, the speaker, the run and a review state.
+- Each is proposed, compared and checked as recorded decisions, and can be
+  undone. Runs record the prompt version and the vocabulary version.
+
+## Time
+
+Unknown until measured. A first guess is a third to half of reading time:
+
+- 230 to 350 hours for both taggers over the English corpus;
+- the checker's short questions on top.
+
+Only one model fits in memory at a time. Tagging follows the reading batch
+by batch; the machine time adds up either way.
 
 ## Testing
 
-- Add about 30 tag expectations to the dev entries. They are drafted by
-  Claude agents from the stored text and reviewed by Sérgio. They include
-  "must not" cases:
-  - a critic describing a tactic is not tagged as using it;
+- **Dev expectations.** About 30 tag and excerpt expectations on the dev
+  entries, drafted by Claude agents from the stored text and reviewed by
+  Sérgio. They include "must not" cases:
+  - a critic describing a practice is not tagged as using it;
   - the list of people heard in the French report carries no tags;
-  - template wording in the Harvest covenant is not tagged as practice done
-    to someone.
-- New holdout entries get tag expectations too.
-- Proposed gate: every tag expectation passes on dev and holdout. Phase 4
-  then measures the sample error rate.
+  - the Harvest covenant is a conversion script, template wording, not a
+    testimony.
+- **New holdout entries** get them too.
+- **Proposed gate:** every expectation passes on dev and holdout, and the
+  check layer's error rate is measured.
 
 ## Order of work
 
-1. Seed the harm and target lists. Build the terms-in-use link and the
-   document tags (software); report coverage.
-2. Write prompt `tag-v1` and the tag table. Run both taggers on the dev set;
-   measure time and score.
-3. Sérgio decides on the open questions. Tagging then follows the English
-   reading batch by batch.
-
-## Open questions for Sérgio
-
-1. Two taggers, as for reading, or one tagger plus a sampled audit (half
-   the time)?
-2. Which lists in the first pass? Proposed: tactics, practices, functions,
-   harm and target, keeping only what passes on dev.
-3. Harm vocabulary. The old Sanity tags mixed types (psychological,
-   medical, faith-based) with severity (mild, moderate, severe) and a
-   content warning (graphic); its severity tags are marked superseded.
-   Which harm types and which severity scale?
-4. The ontology's other kinds: evidence, migration, network, landmark, and
-   assets such as testimony excerpts, prayer scripts and course structures.
-   Now or later? The assets matter for the documentary and for teaching.
+1. Tables `tag` and `asset`, the actor list, prompt `tag-v1`, the tagging
+   pass and the comparison of the two taggers.
+2. Run both taggers on dev, measure time, score against the expectations.
+3. The checker: try the candidates on dev.
+4. Terms in use and the document tags (software).
