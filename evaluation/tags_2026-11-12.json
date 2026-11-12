@@ -1,207 +1,117 @@
 {
   "version": "tags-2026-11-12",
   "base": "testset_2026-11-10.json",
-  "note": "Tag and excerpt expectations, scored on their own (testset score --tags). The 13 dev entries of 10 Nov were drafted by a Claude agent from the stored text before any tagging; 8 entries added 12 Nov (4 dev, 4 holdout) cover prayer scripts, course structures and counter-sermons. Holdout expectations are not shown to whoever tunes the taggers. For Sérgio's review.",
+  "note": "Tag and excerpt expectations, scored on their own (testset score --tags). The 13 dev entries of 10 Nov were drafted by a Claude agent from the stored text before any tagging; 8 entries added 12 Nov (4 dev, 4 holdout) cover prayer scripts, course structures and counter-sermons. Holdout expectations are not shown to whoever tunes the taggers. For Sérgio's review. Since tag-v2 tags clusters, not tactics, each tactic option has its cluster beside it (the tactic's primary cluster in the ontology, and its secondary where the case needs it); tactic:* has cluster:*.",
   "entries": [
     {"key": "fr-4501", "expect": [
-      {"id": "tg-fr-p42-petit-not-uses", "case": "French p. 42: critic describes Torrents de Vie", "check": "tag", "must": "none",
-       "anchor": "Tout en disant qu’on ne guérit pas l’homosexualité", "tag_any": ["tactic:*", "practice:*"], "mode": "uses",
-       "note": "Valérie Petit, arguing for the ban, reports what Torrents de Vie says. She uses no tactic and offers no practice. (The second reader made Torrents de Vie the speaker here; the first reader's statement, which is the one tagged, has Petit.)"},
-      {"id": "tg-fr-p45-breton-detrans", "case": "French p. 45: Breton on 'détrans'", "check": "tag",
-       "anchor": "Or certains jeunes ont été incités à subir des interventions médicales", "tag_any": ["tactic: Detrans-Propaganda", "tactic: Anti-Trans-Rhetoric*", "tactic: Child-Safeguarding-Inversion"], "mode": "uses",
-       "note": "Breton uses detransition and regret to ask that practices affirming a gender identity be sanctioned."},
-      {"id": "tg-fr-p64-list-no-tags", "case": "French pp. 63–64: list of people heard", "check": "tag", "must": "none",
-       "anchor": "M. Jean-Michel Dunand Roux, prieur", "tag_any": ["tactic:*", "practice:*", "function:*"],
-       "note": "Being heard by the rapporteure says nothing about practising or opposing anything."},
-      {"id": "tg-fr-p42-rapporteure-actor", "case": "French p. 42: role line", "check": "actor",
-       "anchor": "C’est effectivement le juge qui décidera", "actor_any": ["politician or legislator"],
-       "note": "Turn header 'Mme Laurence Vanceunebrock, rapporteure.' just before."}
+      {"id": "tg-fr-p42-petit-not-uses", "case": "French p. 42: critic describes Torrents de Vie", "check": "tag", "must": "none", "anchor": "Tout en disant qu’on ne guérit pas l’homosexualité", "tag_any": ["tactic:*", "practice:*", "cluster:*"], "mode": "uses", "note": "Valérie Petit, arguing for the ban, reports what Torrents de Vie says. She uses no tactic and offers no practice. (The second reader made Torrents de Vie the speaker here; the first reader's statement, which is the one tagged, has Petit.)"},
+      {"id": "tg-fr-p45-breton-detrans", "case": "French p. 45: Breton on 'détrans'", "check": "tag", "anchor": "Or certains jeunes ont été incités à subir des interventions médicales", "tag_any": ["tactic: Detrans-Propaganda", "tactic: Anti-Trans-Rhetoric*", "tactic: Child-Safeguarding-Inversion", "cluster: Anti-Trans/ROGD", "cluster: Pro-Trans-SOGICE"], "mode": "uses", "note": "Breton uses detransition and regret to ask that practices affirming a gender identity be sanctioned."},
+      {"id": "tg-fr-p64-list-no-tags", "case": "French pp. 63–64: list of people heard", "check": "tag", "must": "none", "anchor": "M. Jean-Michel Dunand Roux, prieur", "tag_any": ["tactic:*", "practice:*", "function:*", "cluster:*"], "note": "Being heard by the rapporteure says nothing about practising or opposing anything."},
+      {"id": "tg-fr-p42-rapporteure-actor", "case": "French p. 42: role line", "check": "actor", "anchor": "C’est effectivement le juge qui décidera", "actor_any": ["politician or legislator"], "note": "Turn header 'Mme Laurence Vanceunebrock, rapporteure.' just before."}
     ]},
     {"key": "exodus-closure", "expect": [
-      {"id": "tg-ex-chambers-actor", "case": "Exodus p. 1: role line", "check": "actor",
-       "anchor": "we’ve ceased to be a living, breathing organism", "actor_any": ["leader or founder"],
-       "note": "'said Alan Chambers, President of Exodus' in the same sentence."},
-      {"id": "tg-ex-exodus-ministry-actor", "case": "Exodus p. 1: self-description", "check": "actor",
-       "anchor": "the oldest and largest Christian ministry dealing with faith and homosexuality", "actor_any": ["ministry"]}
+      {"id": "tg-ex-chambers-actor", "case": "Exodus p. 1: role line", "check": "actor", "anchor": "we’ve ceased to be a living, breathing organism", "actor_any": ["leader or founder"], "note": "'said Alan Chambers, President of Exodus' in the same sentence."},
+      {"id": "tg-ex-exodus-ministry-actor", "case": "Exodus p. 1: self-description", "check": "actor", "anchor": "the oldest and largest Christian ministry dealing with faith and homosexuality", "actor_any": ["ministry"]}
     ]},
     {"key": "harvest-covenant", "expect": [
-      {"id": "tg-hc-s1-conversion-script", "case": "Harvest covenant: Sample 1", "check": "excerpt",
-       "anchor": "This struggle is ongoing but I am seeking to walk in repentance", "kind_any": ["conversion_script"],
-       "note": "A covenant for a group: TAGGING.md names covenants as conversion scripts. The anchor is Sample 1's wording (Sample 2 differs)."},
-      {"id": "tg-hc-s1-not-testimony", "case": "Harvest covenant: template, not testimony", "check": "excerpt", "must": "none",
-       "anchor": "This struggle is ongoing but I am seeking to walk in repentance", "kind_any": ["testimony"],
-       "note": "First-person template wording for signers to adopt; no one's account."},
-      {"id": "tg-hc-template-not-survivor", "case": "Harvest covenant: template voice", "check": "actor", "must": "none",
-       "anchor": "This struggle is ongoing but I am seeking to walk in repentance", "actor_any": ["went through change efforts"],
-       "note": "The 'I' is the template's blank signer, not a person who says they went through change efforts."}
+      {"id": "tg-hc-s1-conversion-script", "case": "Harvest covenant: Sample 1", "check": "excerpt", "anchor": "This struggle is ongoing but I am seeking to walk in repentance", "kind_any": ["conversion_script"], "note": "A covenant for a group: TAGGING.md names covenants as conversion scripts. The anchor is Sample 1's wording (Sample 2 differs)."},
+      {"id": "tg-hc-s1-not-testimony", "case": "Harvest covenant: template, not testimony", "check": "excerpt", "must": "none", "anchor": "This struggle is ongoing but I am seeking to walk in repentance", "kind_any": ["testimony"], "note": "First-person template wording for signers to adopt; no one's account."},
+      {"id": "tg-hc-template-not-survivor", "case": "Harvest covenant: template voice", "check": "actor", "must": "none", "anchor": "This struggle is ongoing but I am seeking to walk in repentance", "actor_any": ["went through change efforts"], "note": "The 'I' is the template's blank signer, not a person who says they went through change efforts."}
     ]},
     {"key": "eternity-exodus", "expect": [
-      {"id": "tg-et-reparative-described", "case": "Term in quotation marks, criticised", "check": "tag",
-       "anchor": "the problems of the old Exodus approach that used “reparative therapy”", "tag_any": ["term: Reparative Therapy"], "mode": "describes"},
-      {"id": "tg-et-brookman-offers", "case": "Living Waters continues its ministry", "check": "tag",
-       "anchor": "We remain a ministry that reaches out with compassion", "tag_any": ["practice: Pastoral Care", "practice: Identity Realignment", "practice: Spiritual Healing"], "mode": "uses",
-       "note": "Ron Brookman speaks for a ministry that stands with people 'no matter how slow the process of change may be'."}
+      {"id": "tg-et-reparative-described", "case": "Term in quotation marks, criticised", "check": "tag", "anchor": "the problems of the old Exodus approach that used “reparative therapy”", "tag_any": ["term: Reparative Therapy"], "mode": "describes"},
+      {"id": "tg-et-brookman-offers", "case": "Living Waters continues its ministry", "check": "tag", "anchor": "We remain a ministry that reaches out with compassion", "tag_any": ["practice: Pastoral Care", "practice: Identity Realignment", "practice: Spiritual Healing"], "mode": "uses", "note": "Ron Brookman speaks for a ministry that stands with people 'no matter how slow the process of change may be'."}
     ]},
     {"key": "france24-torrents", "expect": [
-      {"id": "tg-f24-medication-described", "case": "MP reports doctors' practice", "check": "tag",
-       "anchor": "doctors who \"treat\" homosexuality with anti-anxiety medication", "tag_any": ["practice: Medicalization-Abuse"], "mode": "describes"},
-      {"id": "tg-f24-favier-not-uses", "case": "Critic describes Torrents de Vie and Courage", "check": "tag", "must": "none",
-       "anchor": "which offer controversial \"courses\" on sexual reorientation", "tag_any": ["practice:*", "tactic:*"], "mode": "uses",
-       "note": "Anthony Favier (David & Jonathan) reports the courses; he does not offer them."}
+      {"id": "tg-f24-medication-described", "case": "MP reports doctors' practice", "check": "tag", "anchor": "doctors who \"treat\" homosexuality with anti-anxiety medication", "tag_any": ["practice: Medicalization-Abuse"], "mode": "describes"},
+      {"id": "tg-f24-favier-not-uses", "case": "Critic describes Torrents de Vie and Courage", "check": "tag", "must": "none", "anchor": "which offer controversial \"courses\" on sexual reorientation", "tag_any": ["practice:*", "tactic:*", "cluster:*"], "mode": "uses", "note": "Anthony Favier (David & Jonathan) reports the courses; he does not offer them."}
     ]},
     {"key": "cohen-cnn", "expect": [
-      {"id": "tg-cc-cohen-practice", "case": "Practitioner on his own work", "check": "tag",
-       "anchor": "i've literally helped thousands of men and women", "tag_any": ["practice: Psychotherapy (change/suppression)", "practice: Identity Realignment"], "mode": "uses",
-       "note": "'as a psychotherapist i've literally helped thousands … change from homosexual to heterosexual'. The anchor occurs once in each of the two copies; only one is read."},
-      {"id": "tg-cc-cohen-actor", "case": "Self-description", "check": "actor",
-       "anchor": "i'm living proof that change is possible", "actor_any": ["therapist or counsellor", "went through change efforts"],
-       "note": "He calls himself a psychotherapist and a former homosexual; either type is stated."},
-      {"id": "tg-cc-cohen-testimony", "case": "Cohen's own story", "check": "excerpt",
-       "anchor": "i had a passionate desire to marry a woman", "kind_any": ["testimony"],
-       "note": "First-person account: a male partner, several therapists, then 'come out straight'."}
+      {"id": "tg-cc-cohen-practice", "case": "Practitioner on his own work", "check": "tag", "anchor": "i've literally helped thousands of men and women", "tag_any": ["practice: Psychotherapy (change/suppression)", "practice: Identity Realignment"], "mode": "uses", "note": "'as a psychotherapist i've literally helped thousands … change from homosexual to heterosexual'. The anchor occurs once in each of the two copies; only one is read."},
+      {"id": "tg-cc-cohen-actor", "case": "Self-description", "check": "actor", "anchor": "i'm living proof that change is possible", "actor_any": ["therapist or counsellor", "went through change efforts"], "note": "He calls himself a psychotherapist and a former homosexual; either type is stated."},
+      {"id": "tg-cc-cohen-testimony", "case": "Cohen's own story", "check": "excerpt", "anchor": "i had a passionate desire to marry a woman", "kind_any": ["testimony"], "note": "First-person account: a male partner, several therapists, then 'come out straight'."}
     ]},
     {"key": "mirrorweb-challenge", "expect": [
-      {"id": "tg-mw-no-excerpt", "case": "Bot-check page", "check": "excerpt", "must": "none",
-       "anchor": "Due to a recent increase in automated AI crawlers", "kind_any": ["testimony", "prayer_script", "conversion_script", "course_structure", "counter_sermon"]}
+      {"id": "tg-mw-no-excerpt", "case": "Bot-check page", "check": "excerpt", "must": "none", "anchor": "Due to a recent increase in automated AI crawlers", "kind_any": ["testimony", "prayer_script", "conversion_script", "course_structure", "counter_sermon"]}
     ]},
     {"key": "bacp-mou", "expect": [
-      {"id": "tg-mou-terms-described", "case": "Terms named by the MoU", "check": "tag",
-       "anchor": "terms including, but not limited to, ‘reparative therapy’, ‘gay cure therapy’", "tag_any": ["term: Reparative Therapy", "term: Gay Cure"], "mode": "describes",
-       "note": "The signatories list other people's names for the practice, in quotation marks."},
-      {"id": "tg-mou-critic-not-uses", "case": "Collective criticism of the practice", "check": "tag", "must": "none",
-       "anchor": "is unethical and potentially harmful", "tag_any": ["tactic:*", "practice:*"], "mode": "uses"}
+      {"id": "tg-mou-terms-described", "case": "Terms named by the MoU", "check": "tag", "anchor": "terms including, but not limited to, ‘reparative therapy’, ‘gay cure therapy’", "tag_any": ["term: Reparative Therapy", "term: Gay Cure"], "mode": "describes", "note": "The signatories list other people's names for the practice, in quotation marks."},
+      {"id": "tg-mou-critic-not-uses", "case": "Collective criticism of the practice", "check": "tag", "must": "none", "anchor": "is unethical and potentially harmful", "tag_any": ["tactic:*", "practice:*", "cluster:*"], "mode": "uses"}
     ]},
     {"key": "christianconcern-exgay", "expect": [
-      {"id": "tg-cce-ct-scare-quotes", "case": "Ban opponent's scare quotes", "check": "tag",
-       "anchor": "Several governments have promised to take action to stop ‘conversion therapy’", "tag_any": ["term: Conversion Therapy"], "mode": "describes"},
-      {"id": "tg-cce-ssa-own-word", "case": "Ban opponent's own word", "check": "tag",
-       "anchor": "Many people have experienced significant change in their same-sex attraction", "tag_any": ["term: SSA"], "mode": "uses",
-       "note": "Software matches 'same-sex attraction' to the lexicon term SSA; the introduction uses it as its own word, without quotation marks."},
-      {"id": "tg-cce-ban-overreach", "case": "Sterling on the ban", "check": "tag",
-       "anchor": "church leaders will face persecution simply for leading a person", "tag_any": ["tactic: Policy-Resistance-Frame*", "tactic: Religious-Freedom-Shield", "tactic: PastoralCoercion-LegislativeLoophole"], "mode": "uses"},
-      {"id": "tg-cce-sterling-testimony", "case": "Sterling's story", "check": "excerpt",
-       "anchor": "I randomly heard an inner voice saying", "kind_any": ["testimony"],
-       "note": "First-person account of leaving 'that LGBT life'; he calls it 'my testimony' later in the interview."}
+      {"id": "tg-cce-ct-scare-quotes", "case": "Ban opponent's scare quotes", "check": "tag", "anchor": "Several governments have promised to take action to stop ‘conversion therapy’", "tag_any": ["term: Conversion Therapy"], "mode": "describes"},
+      {"id": "tg-cce-ssa-own-word", "case": "Ban opponent's own word", "check": "tag", "anchor": "Many people have experienced significant change in their same-sex attraction", "tag_any": ["term: SSA"], "mode": "uses", "note": "Software matches 'same-sex attraction' to the lexicon term SSA; the introduction uses it as its own word, without quotation marks."},
+      {"id": "tg-cce-ban-overreach", "case": "Sterling on the ban", "check": "tag", "anchor": "church leaders will face persecution simply for leading a person", "tag_any": ["tactic: Policy-Resistance-Frame*", "tactic: Religious-Freedom-Shield", "tactic: PastoralCoercion-LegislativeLoophole", "cluster: Policy-Resistance"], "mode": "uses"},
+      {"id": "tg-cce-sterling-testimony", "case": "Sterling's story", "check": "excerpt", "anchor": "I randomly heard an inner voice saying", "kind_any": ["testimony"], "note": "First-person account of leaving 'that LGBT life'; he calls it 'my testimony' later in the interview."}
     ]},
     {"key": "exodus-moving-on", "expect": [
-      {"id": "tg-emo-causal", "case": "Root-cause theory", "check": "tag",
-       "anchor": "Seeing homosexuality as arising out of unmet needs", "tag_any": ["tactic: Causal-Theory-Frame"], "mode": "uses"},
-      {"id": "tg-emo-new-directions", "case": "The ministry's own programme", "check": "tag",
-       "anchor": "In the first week of our 21-week New Directions program", "tag_any": ["practice: Identity Realignment", "practice: Pastoral Care"], "mode": "uses"}
+      {"id": "tg-emo-causal", "case": "Root-cause theory", "check": "tag", "anchor": "Seeing homosexuality as arising out of unmet needs", "tag_any": ["tactic: Causal-Theory-Frame", "cluster: Pseudo-Science"], "mode": "uses"},
+      {"id": "tg-emo-new-directions", "case": "The ministry's own programme", "check": "tag", "anchor": "In the first week of our 21-week New Directions program", "tag_any": ["practice: Identity Realignment", "practice: Pastoral Care"], "mode": "uses"}
     ]},
     {"key": "davidson-therapeutic-choice", "expect": [
-      {"id": "tg-md-term-rejected", "case": "Davidson rejects the term", "check": "tag",
-       "anchor": "this term conversion therapy is a useful one", "tag_any": ["term: Conversion Therapy"], "mode": "describes",
-       "note": "'It's something that we don't use': the term is criticised, not his own word."},
-      {"id": "tg-md-fluidity-work", "case": "Davidson on what the therapy does", "check": "tag",
-       "anchor": "to strengthen that that side of the fluidity that they comfortable with", "tag_any": ["practice: Psychotherapy (change/suppression)", "practice: Coaching/Counselling-Rebrand", "tactic: Rebranding-SOGICE*"], "mode": "uses",
-       "note": "Anchor copies the captions' 'that that'."},
-      {"id": "tg-md-founder-actor", "case": "Self-description", "check": "actor",
-       "anchor": "I founded core issues, trust", "actor_any": ["leader or founder", "went through change efforts"],
-       "note": "He founded Core Issues Trust and, just before, says he sought professional help for his own conflict; either type is stated."}
+      {"id": "tg-md-term-rejected", "case": "Davidson rejects the term", "check": "tag", "anchor": "this term conversion therapy is a useful one", "tag_any": ["term: Conversion Therapy"], "mode": "describes", "note": "'It's something that we don't use': the term is criticised, not his own word."},
+      {"id": "tg-md-fluidity-work", "case": "Davidson on what the therapy does", "check": "tag", "anchor": "to strengthen that that side of the fluidity that they comfortable with", "tag_any": ["practice: Psychotherapy (change/suppression)", "practice: Coaching/Counselling-Rebrand", "tactic: Rebranding-SOGICE*", "cluster: SSA-Rhetoric", "cluster: Policy-Resistance"], "mode": "uses", "note": "Anchor copies the captions' 'that that'."},
+      {"id": "tg-md-founder-actor", "case": "Self-description", "check": "actor", "anchor": "I founded core issues, trust", "actor_any": ["leader or founder", "went through change efforts"], "note": "He founded Core Issues Trust and, just before, says he sought professional help for his own conflict; either type is stated."}
     ]},
     {"key": "stoptheban-testimonies", "expect": [
-      {"id": "tg-stb-trans-regret", "case": "Campaign site on transition", "check": "tag",
-       "anchor": "a lifetime of regret for making an irreversible decision to chop off", "tag_any": ["tactic: Anti-Trans-Rhetoric*", "tactic: Detrans-Propaganda", "tactic: Sex-Rejection-Frame"], "mode": "uses"},
-      {"id": "tg-stb-wenman-actor", "case": "Caption under a name", "check": "actor",
-       "anchor": "Conversion therapy saved my life", "actor_any": ["went through change efforts"],
-       "note": "Robert Wenman's caption; the page introduces the list as 'real ex-gays and ex-transgenders'."},
-      {"id": "tg-stb-intro-not-testimony", "case": "Site's framing of the videos", "check": "excerpt", "must": "none",
-       "anchor": "These testimonies were all recorded and submitted to parliamentarians", "kind_any": ["testimony"],
-       "note": "The campaign's own narration about the testimonies is not a testimony."}
+      {"id": "tg-stb-trans-regret", "case": "Campaign site on transition", "check": "tag", "anchor": "a lifetime of regret for making an irreversible decision to chop off", "tag_any": ["tactic: Anti-Trans-Rhetoric*", "tactic: Detrans-Propaganda", "tactic: Sex-Rejection-Frame", "cluster: Anti-Trans/ROGD", "cluster: Pro-Trans-SOGICE"], "mode": "uses"},
+      {"id": "tg-stb-wenman-actor", "case": "Caption under a name", "check": "actor", "anchor": "Conversion therapy saved my life", "actor_any": ["went through change efforts"], "note": "Robert Wenman's caption; the page introduces the list as 'real ex-gays and ex-transgenders'."},
+      {"id": "tg-stb-intro-not-testimony", "case": "Site's framing of the videos", "check": "excerpt", "must": "none", "anchor": "These testimonies were all recorded and submitted to parliamentarians", "kind_any": ["testimony"], "note": "The campaign's own narration about the testimonies is not a testimony."}
     ]},
     {"key": "trevor-still-happening", "expect": [
-      {"id": "tg-tr-rebrand-described", "case": "Report on evasive wording", "check": "tag",
-       "anchor": "shifting instead to broader, more ambiguous terminology and descriptors", "tag_any": ["tactic: Rebranding-SOGICE*", "tactic: Platform-Evasion"], "mode": "describes"},
-      {"id": "tg-tr-rebrand-not-uses", "case": "Report on evasive wording", "check": "tag", "must": "none",
-       "anchor": "shifting instead to broader, more ambiguous terminology and descriptors", "tag_any": ["tactic:*"], "mode": "uses",
-       "note": "The Trevor Project reports practitioners' rebranding; it does not rebrand."},
-      {"id": "tg-tr-therapist-actor", "case": "Quoted legislative testimony", "check": "actor",
-       "anchor": "I am a licensed psychotherapist in two states.", "actor_any": ["therapist or counsellor"]}
+      {"id": "tg-tr-rebrand-described", "case": "Report on evasive wording", "check": "tag", "anchor": "shifting instead to broader, more ambiguous terminology and descriptors", "tag_any": ["tactic: Rebranding-SOGICE*", "tactic: Platform-Evasion", "cluster: SSA-Rhetoric", "cluster: Policy-Resistance"], "mode": "describes"},
+      {"id": "tg-tr-rebrand-not-uses", "case": "Report on evasive wording", "check": "tag", "must": "none", "anchor": "shifting instead to broader, more ambiguous terminology and descriptors", "tag_any": ["tactic:*", "cluster:*"], "mode": "uses", "note": "The Trevor Project reports practitioners' rebranding; it does not rebrand."},
+      {"id": "tg-tr-therapist-actor", "case": "Quoted legislative testimony", "check": "actor", "anchor": "I am a licensed psychotherapist in two states.", "actor_any": ["therapist or counsellor"]}
     ]},
     {"key": "lifebuilders-deliverance", "expect": [
-      {"id": "tg-ld-prayer-script", "case": "Deliverance prayer over a named person", "check": "excerpt",
-       "anchor": "and close the doorway forever with the precious blood of Jesus", "kind_any": ["prayer_script"], "note": "Under 'PRAYERS': 'I break and sever all demonic ties from ____ … Release ____ in Jesus Name … Cleanse ____ from their sins': a prayer said over someone, with blanks for their name."},
-      {"id": "tg-ld-renounce-not-testimony", "case": "Template prayer, not testimony", "check": "excerpt", "must": "none",
-       "anchor": "I here and now renounce and repudiate the moral impurity sins", "kind_any": ["testimony"], "note": "First-person wording for the counselee to pray; no one's account."},
-      {"id": "tg-ld-template-not-survivor", "case": "Template voice", "check": "actor", "must": "none",
-       "anchor": "I here and now renounce and repudiate the moral impurity sins", "actor_any": ["went through change efforts"], "note": "The 'I' is whoever prays the worksheet's prayer, not a person who says they went through change efforts."},
-      {"id": "tg-ld-deliverance-offered", "case": "The worksheet's own practice", "check": "tag",
-       "anchor": "then you are wasting your time going through deliverance", "tag_any": ["practice: Deliverance", "practice: Spiritual Healing"], "mode": "uses", "note": "The worksheet prepares people for deliverance from 'sexual strongholds': its publisher offers the practice first-hand."}
+      {"id": "tg-ld-prayer-script", "case": "Deliverance prayer over a named person", "check": "excerpt", "anchor": "and close the doorway forever with the precious blood of Jesus", "kind_any": ["prayer_script"], "note": "Under 'PRAYERS': 'I break and sever all demonic ties from ____ … Release ____ in Jesus Name … Cleanse ____ from their sins': a prayer said over someone, with blanks for their name."},
+      {"id": "tg-ld-renounce-not-testimony", "case": "Template prayer, not testimony", "check": "excerpt", "must": "none", "anchor": "I here and now renounce and repudiate the moral impurity sins", "kind_any": ["testimony"], "note": "First-person wording for the counselee to pray; no one's account."},
+      {"id": "tg-ld-template-not-survivor", "case": "Template voice", "check": "actor", "must": "none", "anchor": "I here and now renounce and repudiate the moral impurity sins", "actor_any": ["went through change efforts"], "note": "The 'I' is whoever prays the worksheet's prayer, not a person who says they went through change efforts."},
+      {"id": "tg-ld-deliverance-offered", "case": "The worksheet's own practice", "check": "tag", "anchor": "then you are wasting your time going through deliverance", "tag_any": ["practice: Deliverance", "practice: Spiritual Healing"], "mode": "uses", "note": "The worksheet prepares people for deliverance from 'sexual strongholds': its publisher offers the practice first-hand."}
     ]},
     {"key": "coastchristian-living-waters", "expect": [
-      {"id": "tg-cl-schedule-course", "case": "Dated class schedule", "check": "excerpt",
-       "anchor": "Chapter 6: Imago Dei - Cross & Confession", "kind_any": ["course_structure"], "note": "'2026 Class Schedule': four sections, twenty chapters by date."},
-      {"id": "tg-cl-meeting-course", "case": "The parts of each meeting", "check": "excerpt",
-       "anchor": "THE WORD - Living Waters teachings combine psychological insights and biblical truths", "kind_any": ["course_structure"], "note": "'Each meeting includes: WORSHIP … THE WORD … THE WORKS OF JESUS': the parts of a group meeting."},
-      {"id": "tg-cl-meeting-not-script", "case": "Outline without words to be said", "check": "excerpt", "must": "none",
-       "anchor": "THE WORD - Living Waters teachings combine psychological insights and biblical truths", "kind_any": ["conversion_script"], "note": "The page outlines the meeting but gives no words to be said, prayed or vowed (docs/TAGGING.md, question 6)."},
-      {"id": "tg-cl-programme-runs", "case": "The church runs the programme", "check": "tag",
-       "anchor": "Living Waters is an in-depth, Christcentered program for people seeking healing", "tag_any": ["practice: Identity Realignment", "practice: Pastoral Care", "practice: Spiritual Healing"], "mode": "uses", "note": "Coast Christian Fellowship hosts the sessions; the page lists 'Unwanted same-sex attraction' and 'Gender identity issues' among its reasons to attend."},
-      {"id": "tg-cl-ssa-own-word", "case": "The church's own word", "check": "tag",
-       "anchor": "particularly relevant to those struggling with same sex attraction", "tag_any": ["term: Struggling with SSA", "term: SSA"], "mode": "uses", "note": "Plain wording, no quotation marks."}
+      {"id": "tg-cl-schedule-course", "case": "Dated class schedule", "check": "excerpt", "anchor": "Chapter 6: Imago Dei - Cross & Confession", "kind_any": ["course_structure"], "note": "'2026 Class Schedule': four sections, twenty chapters by date."},
+      {"id": "tg-cl-meeting-course", "case": "The parts of each meeting", "check": "excerpt", "anchor": "THE WORD - Living Waters teachings combine psychological insights and biblical truths", "kind_any": ["course_structure"], "note": "'Each meeting includes: WORSHIP … THE WORD … THE WORKS OF JESUS': the parts of a group meeting."},
+      {"id": "tg-cl-meeting-not-script", "case": "Outline without words to be said", "check": "excerpt", "must": "none", "anchor": "THE WORD - Living Waters teachings combine psychological insights and biblical truths", "kind_any": ["conversion_script"], "note": "The page outlines the meeting but gives no words to be said, prayed or vowed (docs/TAGGING.md, question 6)."},
+      {"id": "tg-cl-programme-runs", "case": "The church runs the programme", "check": "tag", "anchor": "Living Waters is an in-depth, Christcentered program for people seeking healing", "tag_any": ["practice: Identity Realignment", "practice: Pastoral Care", "practice: Spiritual Healing"], "mode": "uses", "note": "Coast Christian Fellowship hosts the sessions; the page lists 'Unwanted same-sex attraction' and 'Gender identity issues' among its reasons to attend."},
+      {"id": "tg-cl-ssa-own-word", "case": "The church's own word", "check": "tag", "anchor": "particularly relevant to those struggling with same sex attraction", "tag_any": ["term: Struggling with SSA", "term: SSA"], "mode": "uses", "note": "Plain wording, no quotation marks."}
     ]},
     {"key": "churchinthecliff-sermon", "expect": [
-      {"id": "tg-cic-counter-sermon", "case": "Scott's answer to the ex-gay movement", "check": "excerpt",
-       "anchor": "God’s wisdom, Sophia, the message of the cross, is a scandal", "kind_any": ["counter_sermon"], "note": "After describing the ex-gay movement, Scott answers it from 1 Corinthians: 'Imagine, two men married to one another! … If you want to find God, look for the scandal.'"},
-      {"id": "tg-cic-jann-not-testimony", "case": "First person, not about change efforts", "check": "excerpt", "must": "none",
-       "anchor": "Both my parents were preachers, but only one was ordained", "kind_any": ["testimony"], "note": "Jann's story of her call to ordination is a first-person account, but not of change efforts."},
-      {"id": "tg-cic-programme-described", "case": "Critic describes an ex-gay programme", "check": "tag",
-       "anchor": "reconstruct proper gender identity and reestablish non-sexual, same-sex friendships", "tag_any": ["practice: Identity Realignment", "practice: Pastoral Care"], "mode": "describes"},
-      {"id": "tg-cic-programme-not-uses", "case": "Critic describes an ex-gay programme", "check": "tag", "must": "none",
-       "anchor": "reconstruct proper gender identity and reestablish non-sexual, same-sex friendships", "tag_any": ["practice:*"], "mode": "uses", "note": "Scott reports the programme from Tanya Erzen's book; he does not run or undergo it."}
+      {"id": "tg-cic-counter-sermon", "case": "Scott's answer to the ex-gay movement", "check": "excerpt", "anchor": "God’s wisdom, Sophia, the message of the cross, is a scandal", "kind_any": ["counter_sermon"], "note": "After describing the ex-gay movement, Scott answers it from 1 Corinthians: 'Imagine, two men married to one another! … If you want to find God, look for the scandal.'"},
+      {"id": "tg-cic-jann-not-testimony", "case": "First person, not about change efforts", "check": "excerpt", "must": "none", "anchor": "Both my parents were preachers, but only one was ordained", "kind_any": ["testimony"], "note": "Jann's story of her call to ordination is a first-person account, but not of change efforts."},
+      {"id": "tg-cic-programme-described", "case": "Critic describes an ex-gay programme", "check": "tag", "anchor": "reconstruct proper gender identity and reestablish non-sexual, same-sex friendships", "tag_any": ["practice: Identity Realignment", "practice: Pastoral Care"], "mode": "describes"},
+      {"id": "tg-cic-programme-not-uses", "case": "Critic describes an ex-gay programme", "check": "tag", "must": "none", "anchor": "reconstruct proper gender identity and reestablish non-sexual, same-sex friendships", "tag_any": ["practice:*"], "mode": "uses", "note": "Scott reports the programme from Tanya Erzen's book; he does not run or undergo it."}
     ]},
     {"key": "banconversion-justin", "expect": [
-      {"id": "tg-js-testimony", "case": "Justin's own account", "check": "excerpt",
-       "anchor": "It was here that I underwent six years of conversion practices", "kind_any": ["testimony"]},
-      {"id": "tg-js-survivor-actor", "case": "Self-description", "check": "actor",
-       "anchor": "Going through an exorcism is an incredibly emotionally traumatising experience", "actor_any": ["went through change efforts"], "note": "'I underwent six years of conversion practices' a few lines before."},
-      {"id": "tg-js-exorcism", "case": "What was done to him", "check": "tag",
-       "anchor": "things like exorcisms, having demons cast out of me", "tag_any": ["practice: Exorcism", "practice: Deliverance"], "note": "No mode: he went through it and criticises it."},
-      {"id": "tg-js-ssa-scare-quotes", "case": "Term in scare quotes", "check": "tag",
-       "anchor": "‘same-sex attraction’ was The Big One that needed to be ‘fixed’", "tag_any": ["term: SSA"], "mode": "describes"},
-      {"id": "tg-js-helpline-not-testimony", "case": "Campaign notice after the story", "check": "excerpt", "must": "none",
-       "anchor": "please give the National Conversion Practices Helpline a call or email", "kind_any": ["testimony"], "note": "The site's call to action and helpline are not part of Justin's account."}
+      {"id": "tg-js-testimony", "case": "Justin's own account", "check": "excerpt", "anchor": "It was here that I underwent six years of conversion practices", "kind_any": ["testimony"]},
+      {"id": "tg-js-survivor-actor", "case": "Self-description", "check": "actor", "anchor": "Going through an exorcism is an incredibly emotionally traumatising experience", "actor_any": ["went through change efforts"], "note": "'I underwent six years of conversion practices' a few lines before."},
+      {"id": "tg-js-exorcism", "case": "What was done to him", "check": "tag", "anchor": "things like exorcisms, having demons cast out of me", "tag_any": ["practice: Exorcism", "practice: Deliverance"], "note": "No mode: he went through it and criticises it."},
+      {"id": "tg-js-ssa-scare-quotes", "case": "Term in scare quotes", "check": "tag", "anchor": "‘same-sex attraction’ was The Big One that needed to be ‘fixed’", "tag_any": ["term: SSA"], "mode": "describes"},
+      {"id": "tg-js-helpline-not-testimony", "case": "Campaign notice after the story", "check": "excerpt", "must": "none", "anchor": "please give the National Conversion Practices Helpline a call or email", "kind_any": ["testimony"], "note": "The site's call to action and helpline are not part of Justin's account."}
     ]},
     {"key": "fathersforlife-prayer", "expect": [
-      {"id": "tg-ff-prayer-script", "case": "Prayer for people with homosexual temptations", "check": "excerpt",
-       "anchor": "Help them loving Father to forgive those who have hurt them", "kind_any": ["prayer_script"]},
-      {"id": "tg-ff-case-histories-not-testimony", "case": "Author relays case histories", "check": "excerpt", "must": "none",
-       "anchor": "I am amazed how many people have come out of", "kind_any": ["testimony"], "note": "O'Leary reports what she read in case histories; she gives no account of going through, giving or leaving change efforts."},
-      {"id": "tg-ff-prayer-practice", "case": "Prayer for change", "check": "tag",
-       "anchor": "All this begins with prayer, individual and corporate, for homosexual persons", "tag_any": ["practice: Spiritual Healing"], "note": "Prayer so that people 'see that healing and freedom are possible'. No mode: she promotes it and also offers her own prayer."}
+      {"id": "tg-ff-prayer-script", "case": "Prayer for people with homosexual temptations", "check": "excerpt", "anchor": "Help them loving Father to forgive those who have hurt them", "kind_any": ["prayer_script"]},
+      {"id": "tg-ff-case-histories-not-testimony", "case": "Author relays case histories", "check": "excerpt", "must": "none", "anchor": "I am amazed how many people have come out of", "kind_any": ["testimony"], "note": "O'Leary reports what she read in case histories; she gives no account of going through, giving or leaving change efforts."},
+      {"id": "tg-ff-prayer-practice", "case": "Prayer for change", "check": "tag", "anchor": "All this begins with prayer, individual and corporate, for homosexual persons", "tag_any": ["practice: Spiritual Healing"], "note": "Prayer so that people 'see that healing and freedom are possible'. No mode: she promotes it and also offers her own prayer."}
     ]},
     {"key": "embracethedesign-course", "expect": [
-      {"id": "tg-etd-modules-course", "case": "Ten modules", "check": "excerpt",
-       "anchor": "The Healing Process for Those Who Claimed a Transgender Identity", "kind_any": ["course_structure"]},
-      {"id": "tg-etd-modules-not-script", "case": "Outline without words to be said", "check": "excerpt", "must": "none",
-       "anchor": "The Healing Process for Those Who Claimed a Transgender Identity", "kind_any": ["conversion_script"], "note": "Module titles only; no words to be said, prayed or vowed."},
-      {"id": "tg-etd-return-design", "case": "What the course teaches", "check": "tag",
-       "anchor": "How to help someone affected by gender ideology return to God’s design", "tag_any": ["practice: Identity Realignment", "practice: Pastoral Care", "practice: Spiritual Healing"], "note": "No mode: the course trains others to do it."},
-      {"id": "tg-etd-gender-ideology-own-word", "case": "The publisher's own word", "check": "tag",
-       "anchor": "directly affected by gender ideology, this book is for you", "tag_any": ["term: Gender Ideology"], "mode": "uses"}
+      {"id": "tg-etd-modules-course", "case": "Ten modules", "check": "excerpt", "anchor": "The Healing Process for Those Who Claimed a Transgender Identity", "kind_any": ["course_structure"]},
+      {"id": "tg-etd-modules-not-script", "case": "Outline without words to be said", "check": "excerpt", "must": "none", "anchor": "The Healing Process for Those Who Claimed a Transgender Identity", "kind_any": ["conversion_script"], "note": "Module titles only; no words to be said, prayed or vowed."},
+      {"id": "tg-etd-return-design", "case": "What the course teaches", "check": "tag", "anchor": "How to help someone affected by gender ideology return to God’s design", "tag_any": ["practice: Identity Realignment", "practice: Pastoral Care", "practice: Spiritual Healing"], "note": "No mode: the course trains others to do it."},
+      {"id": "tg-etd-gender-ideology-own-word", "case": "The publisher's own word", "check": "tag", "anchor": "directly affected by gender ideology, this book is for you", "tag_any": ["term: Gender Ideology"], "mode": "uses"}
     ]},
     {"key": "qchristian-theology", "expect": [
-      {"id": "tg-qc-counter-sermon", "case": "Cortez's guidance on reading Scripture", "check": "excerpt",
-       "anchor": "Jesus isn’t asking us to parse Greek and Hebrew words", "kind_any": ["counter_sermon"]},
-      {"id": "tg-qc-cortez-actor", "case": "Role line", "check": "actor",
-       "anchor": "There are many theologians who have opposing views to each other", "actor_any": ["pastor or clergy", "leader or founder"], "note": "'Q Christian Fellowship Board Member Rev. Danny Cortez shares the following guidance:' just before."},
-      {"id": "tg-qc-example-not-testimony", "case": "Invented example", "check": "excerpt", "must": "none",
-       "anchor": "Jane schedules a meeting with her pastor, Robert", "kind_any": ["testimony"]},
-      {"id": "tg-qc-example-not-uses", "case": "Invented example", "check": "tag", "must": "none",
-       "anchor": "Robert counsels Jane to start attending the church’s new support group", "tag_any": ["practice:*"], "mode": "uses", "note": "Q Christian describes what non-affirming theology leads to; it runs no such group."},
-      {"id": "tg-qc-side-b-own-word", "case": "The organisation's own term", "check": "tag",
-       "anchor": "Side B refers to a theological viewpoint reserved for LGBTQ+ persons only", "tag_any": ["term: Side B"], "mode": "uses"}
+      {"id": "tg-qc-counter-sermon", "case": "Cortez's guidance on reading Scripture", "check": "excerpt", "anchor": "Jesus isn’t asking us to parse Greek and Hebrew words", "kind_any": ["counter_sermon"]},
+      {"id": "tg-qc-cortez-actor", "case": "Role line", "check": "actor", "anchor": "There are many theologians who have opposing views to each other", "actor_any": ["pastor or clergy", "leader or founder"], "note": "'Q Christian Fellowship Board Member Rev. Danny Cortez shares the following guidance:' just before."},
+      {"id": "tg-qc-example-not-testimony", "case": "Invented example", "check": "excerpt", "must": "none", "anchor": "Jane schedules a meeting with her pastor, Robert", "kind_any": ["testimony"]},
+      {"id": "tg-qc-example-not-uses", "case": "Invented example", "check": "tag", "must": "none", "anchor": "Robert counsels Jane to start attending the church’s new support group", "tag_any": ["practice:*"], "mode": "uses", "note": "Q Christian describes what non-affirming theology leads to; it runs no such group."},
+      {"id": "tg-qc-side-b-own-word", "case": "The organisation's own term", "check": "tag", "anchor": "Side B refers to a theological viewpoint reserved for LGBTQ+ persons only", "tag_any": ["term: Side B"], "mode": "uses"}
     ]},
     {"key": "uniting-sogice-proposal", "expect": [
-      {"id": "tg-uc-olivia-testimony", "case": "Olivia's account", "check": "excerpt",
-       "anchor": "I was about 12 when a senior youth member came out", "kind_any": ["testimony"]},
-      {"id": "tg-uc-olivia-actor", "case": "Self-description", "check": "actor",
-       "anchor": "That’s where I experienced conversion practices", "actor_any": ["went through change efforts"]},
-      {"id": "tg-uc-olivia-mentoring", "case": "What was done to her", "check": "tag",
-       "anchor": "My leaders took me aside for mentoring conversations fortnightly", "tag_any": ["practice: Pastoral Care", "practice: Identity Realignment"], "note": "No mode: she went through it and criticises it."},
-      {"id": "tg-uc-ct-so-called", "case": "Term held at a distance", "check": "tag",
-       "anchor": "written in response to so-called “conversion therapy” practices aimed at LGBTQA+ people", "tag_any": ["term: Conversion Therapy"], "mode": "describes"}
+      {"id": "tg-uc-olivia-testimony", "case": "Olivia's account", "check": "excerpt", "anchor": "I was about 12 when a senior youth member came out", "kind_any": ["testimony"]},
+      {"id": "tg-uc-olivia-actor", "case": "Self-description", "check": "actor", "anchor": "That’s where I experienced conversion practices", "actor_any": ["went through change efforts"]},
+      {"id": "tg-uc-olivia-mentoring", "case": "What was done to her", "check": "tag", "anchor": "My leaders took me aside for mentoring conversations fortnightly", "tag_any": ["practice: Pastoral Care", "practice: Identity Realignment"], "note": "No mode: she went through it and criticises it."},
+      {"id": "tg-uc-ct-so-called", "case": "Term held at a distance", "check": "tag", "anchor": "written in response to so-called “conversion therapy” practices aimed at LGBTQA+ people", "tag_any": ["term: Conversion Therapy"], "mode": "describes"}
     ]}
   ]
 }

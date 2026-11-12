@@ -197,6 +197,54 @@ by batch; the machine time adds up either way.
 3. The checker: try the candidates on dev.
 4. Terms in use and the document tags (software).
 
+## First trial: prompt tag-v1 on dev (12 November 2026)
+
+Both taggers tagged the 15 dev sources' 1,845 statements (73 sections), on a
+copy of the archive, with tag-v1: 44 tactics, one actor type per statement.
+
+**Time.** Tagging costs about two-thirds of reading, not a third:
+
+| Tagger | Seconds per 1,000 characters | Tokens per call, in / out |
+|---|---:|---:|
+| Gemma 4 31B | 8.3 | 7,000 / 1,550 |
+| Qwen 3.8 27B | 6.0 | 7,000 / 1,600 |
+
+For the English corpus that is about 430 hours for both taggers, on top of
+about 700 for reading: some 47 days of continuous running in all. A third
+of each call's prompt was the tactic definitions, which tag-v2 drops.
+
+**Agreement.** Counted per tag:
+
+| Kind | Both taggers | Mode disputed | One tagger only |
+|---|---:|---:|---:|
+| Actor type | 475 | 0 | 616 |
+| Term | 188 | 199 | 13 |
+| Tactic | 105 | 3 | 282 |
+| Practice | 64 | 3 | 104 |
+| Function | 5 | 0 | 67 |
+
+- **Term modes split on question 1 below.** For a critic's plain
+  "conversion therapy", one tagger said "uses" and the other "describes".
+- **Tactics agreed least.** That is one reason for clusters (question 3).
+- **Functions had no definitions.** Almost every function tag came from one
+  tagger only.
+
+**Expectations.** 33 of the 52 dev expectations could be scored; the other
+19 belong to the four new dev entries, not read yet.
+
+| View | Pass | Fail |
+|---|---:|---:|
+| What both taggers agree on | 29 | 4 |
+| 31B alone | 31 | 2 |
+| Qwen alone | 32 | 1 |
+
+What failed in the agreed view:
+
+- Cohen's own story was not kept as a testimony.
+- The Exodus "Moving On" programme got no practice that both agreed on.
+- The Stop the Ban caption under a name got no actor type.
+- One anchor has no statement at all: the readers recorded none there.
+
 ## Questions from writing the dev expectations (12 November 2026)
 
 A Claude agent drafted 34 tag and excerpt expectations for 13 dev entries
