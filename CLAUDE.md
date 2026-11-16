@@ -13,6 +13,7 @@ Purpose).
 
 The full plan is the "SurvivingSOGICE — Project Redesign" doc (9 Nov 2026).
 `docs/PLAN.md` is the working summary. Read it before planning work.
+An orchestrator starting cold reads `docs/ORCHESTRATION.md` next: who does what, in what order, with what gate.
 
 ## The core rule
 

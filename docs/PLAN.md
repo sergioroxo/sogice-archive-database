@@ -1,5 +1,7 @@
 # Plan (working summary, 9 Nov 2026)
 
+How the plan is carried out, by whom and in what order: `docs/ORCHESTRATION.md` (the orchestrator's runbook, 16 Nov 2026).
+
 ## Purpose (Sérgio, 11 Nov 2026)
 
 The archive is first of all Sérgio's research tool: a searchable record of
