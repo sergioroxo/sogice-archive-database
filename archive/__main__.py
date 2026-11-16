@@ -364,13 +364,17 @@ def cmd_tag(args: argparse.Namespace) -> int:
     client = OllamaClient(cfg.base_url, cfg.timeout_seconds)
     log = lambda line: print(line, flush=True)
     results, compared = [], []
+    rules_on = args.rules_only or args.actor_rules or "actor_rules" in tag.PROMPT_FEATURES.get(prompt.version, ())
     for start in range(0, len(sources), args.batch):
         batch = sources[start:start + args.batch]
-        for layer in ((first, second) if not args.one else (first,)):
+        for layer in ((first, second) if not (args.one or args.rules_only) else (first,) if args.one else ()):
             log(f"=== batch {start // args.batch + 1}: {layer.model} tags {len(batch)} source(s)")
             results += tag.tag_sources(conn, client, layer, batch, primary_model=cfg.model_for("reading"),
                                        prompt=prompt, again=args.again, log=log)
         keepers = sorted({read.keeper(conn, s) for s in batch})
+        if rules_on:   # actor types that need no judgement, before the taggers are compared (no model)
+            ruled = tag.apply_actor_rules(conn, keepers, models=[first.model, second.model])
+            log(f"=== batch {start // args.batch + 1}: actor rules {json.dumps(ruled)}")
         outcome = tag.compare(conn, keepers, primary_model=first.model, second_model=second.model)
         compared.append(outcome)
         log(f"=== batch {start // args.batch + 1}: compare {json.dumps(outcome['counts'])}")
@@ -708,6 +712,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--again", action="store_true", help="tag sources already tagged with this prompt")
     p.add_argument("--batch", type=int, default=25, help="sources per batch (both taggers, then compare)")
     p.add_argument("--one", action="store_true", help="the first tagger only (trials)")
+    p.add_argument("--actor-rules", action="store_true",
+                   help="apply the actor rules (actors/v1) before comparing; always on from tag-v4")
+    p.add_argument("--rules-only", action="store_true",
+                   help="no model: apply the actor rules to the stored tags, then compare again")
     p.add_argument("--dry-run", action="store_true", help="show what would be tagged and the first section")
     p.set_defaults(func=cmd_tag)
 

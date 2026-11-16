@@ -58,11 +58,21 @@ DEFAULT_SECONDS_PER_1000_CHARS = 15
 # The lists each prompt version tags with. tag-v1 offered the 44 tactics; from tag-v2 the seven clusters
 # (Sérgio, 12 Nov 2026: the tactics overlapped too much to tag reliably).
 PROMPT_LISTS = {"tag-v1": ("tactic", "practice", "function"), "tag-v2": ("cluster", "practice", "function"),
-                "tag-v3": ("cluster", "practice", "function")}
+                "tag-v3": ("cluster", "practice", "function"), "tag-v4": ("cluster", "practice", "function")}
 # tag-v2: up to two actor types per statement (a speaker may state two roles). tag-v3: the same, given once
 # per speaker (software applies them to the speaker's other statements, spread_actor_types).
-PROMPT_FEATURES = {"tag-v2": frozenset({"actor_list"}), "tag-v3": frozenset({"actor_list"})}
+# tag-v4: the lists of tag-v3 with stricter wording (docs/TAGGING.md, "Built, not yet measured"); the actor
+# rules (apply_actor_rules) run after it, before the comparison.
+PROMPT_FEATURES = {"tag-v2": frozenset({"actor_list"}), "tag-v3": frozenset({"actor_list"}),
+                   "tag-v4": frozenset({"actor_list", "actor_rules"})}
 MAX_ACTORS = 2
+# Actor types software can refuse without a model (apply_actor_rules): the words are only the speaker's name,
+# they are a role line about someone else, or the Entity Registry says the speaker is the other kind.
+ACTOR_RULE = "actors/v1"
+ACTOR_RULE_ID = f"rule:{ACTOR_RULE}"
+FIRST_PERSON = {"i", "my", "me", "myself", "we", "our", "us", "je", "j", "moi", "mon", "ma", "mes", "nous", "notre",
+                "yo", "mi", "mis", "nosotros", "nuestro", "nuestra", "eu", "meu", "minha", "nos", "nosso", "nossa"}
+ROLE_LINE_CHARS = 80   # how far before the words a name may stand for "Name, role"
 
 
 class TagError(RuntimeError):
@@ -454,6 +464,165 @@ def spread_actor_types(conn: sqlite3.Connection, run_id: str, statements: list[d
                                    "the same run; software applies it to each of their statements.")
             added += 1
     return added
+
+
+# --------------------------------------------------------------------------- actor rules (software, no model)
+
+def _role_words() -> frozenset:
+    from . import rules
+    return frozenset(w for group in (rules.POSITIONS, rules.PROFESSIONS, rules.SITTING_ROLES, rules.TITLES,
+                                     rules.BODIES) for phrase in group for w in phrase)
+
+
+def _head(label: str | None) -> str:
+    """A speaker label without what follows the name: "Alan Chambers, president of Exodus" -> "Alan Chambers"."""
+    return re.split(r"[,(;:]| [-–—] ", _blank(label), maxsplit=1)[0].strip()
+
+
+def _name_words(label: str | None) -> list[str]:
+    from .rules import STOP, fold
+    return [w for w in fold(label).split() if w not in STOP]
+
+
+def speaker_entity(conn: sqlite3.Connection, speaker: str | None) -> sqlite3.Row | None:
+    """The Entity Registry entry a speaker label names, by name or variant (as review._known matches names).
+
+    Registry entries only (seed vocabularies, not names the readers proposed). The whole label is tried, then
+    the name before a comma or bracket. None when nothing or more than one entry matches.
+    """
+    keys = [k for k in dict.fromkeys((normalize_label(_blank(speaker)), normalize_label(_head(speaker))))
+            if k and k not in GENERIC_SPEAKERS]
+    for key in keys:
+        ids = {r[0] for r in conn.execute(
+            """SELECT id FROM entity WHERE normalized_label = ? AND id NOT LIKE 'ent_%' AND review_state <> 'rejected'
+               UNION SELECT v.entity_id FROM entity_variant v JOIN entity e ON e.id = v.entity_id
+               WHERE v.normalized_label = ? AND v.entity_id NOT LIKE 'ent_%' AND v.review_state <> 'rejected'
+                 AND e.review_state <> 'rejected'""", (key, key))}
+        if len(ids) == 1:
+            return conn.execute("SELECT id, kind, label, description FROM entity WHERE id = ?", (ids.pop(),)).fetchone()
+        if ids:
+            return None
+    return None
+
+
+def name_only(cue: str | None, speaker: str | None) -> bool:
+    """The words are only the speaker's own name or label: every word that counts is a capitalised word of the
+    speaker's label, and none is a role, profession, title or kind of body ("M. Paul Molac"; not "Exodus
+    president", not "Core Issues Trust")."""
+    from .rules import STOP, fold
+    own, roles = set(_name_words(speaker)), _role_words()
+    words = [w for w in re.findall(r"[^\W\d_]+(?:['’-][^\W\d_]+)*", _blank(cue)) if fold(w) and
+             any(part not in STOP for part in fold(w).split())]
+    if not words or not own:
+        return False
+    for w in words:
+        parts = [part for part in fold(w).split() if part not in STOP]
+        if not w[0].isupper() or any(part in roles or part not in own for part in parts):
+            return False
+    return True
+
+
+def names_another(cue: str | None, before: str, speaker: str | None, others: list[list[str]]) -> str | None:
+    """The words are a role line about someone else: they hold another person's full name, or follow it
+    directly ("Dr Jane Roe, a psychologist"), and say nothing of this speaker. Returns that name, or None.
+
+    ``others``: the folded name words (two or more) of the other speakers of the source and of the registry's
+    people. ``before``: the text just before the words. First-person words ("I am a …") are never about another.
+    """
+    from .rules import fold
+    folded = fold(cue).split()
+    own = set(_name_words(_head(speaker)))
+    if not folded or FIRST_PERSON & set(folded) or own & set(folded):
+        return None
+    tail = fold(before).split()
+    for name in others:
+        if len(name) < 2 or own & set(name):
+            continue   # the same person under another label
+        n = len(name)
+        inside = any(folded[i:i + n] == name for i in range(len(folded) - n + 1))
+        if inside or (tail[-n:] == name and not own & set(tail[-(n + 6):])):
+            return " ".join(name)
+    return None
+
+
+def apply_actor_rules(conn: sqlite3.Connection, source_ids: list[str], *, models: list[str]) -> dict:
+    """Reject actor types that need no judgement (rule ``actors/v1``), before the taggers are compared.
+
+    For each actor-type tag of the taggers' current runs, not ruled on by a reviewer:
+
+    - *name only*: the located words are only the speaker's own name or label;
+    - *another person*: the words name another speaker of the source or a person of the Entity Registry, or
+      follow that name directly, and say nothing of this speaker;
+    - *registry kind*: the Entity Registry knows the speaker as a person and the type is one for organisations,
+      or the reverse.
+
+    Each is a recorded 'reject' decision by the rule, with the words and the reason; the run can be undone
+    (``review undo --run``). Returns the run id and counts (the function commits).
+    """
+    conn.row_factory = sqlite3.Row
+    from .rules import fold
+    run_id = f"run_{uuid.uuid4().hex}"
+    counts: Counter = Counter()
+    people = [w for w in (_name_words(r[0]) for r in conn.execute(
+        """SELECT label FROM entity WHERE kind = 'person' AND id NOT LIKE 'ent_%' AND review_state <> 'rejected'
+           UNION SELECT v.label FROM entity_variant v JOIN entity e ON e.id = v.entity_id
+           WHERE e.kind = 'person' AND e.id NOT LIKE 'ent_%' AND v.review_state <> 'rejected'""")) if len(w) >= 2]
+    with conn:
+        conn.execute("INSERT INTO run(id, role, inputs, started_at) VALUES (?, 'other', ?, ?)",
+                     (run_id, canonical_json({"job": "actor rules", "rule": ACTOR_RULE, "models": models,
+                                              "sources": len(source_ids)}), utc_now()))
+        for source_id in source_ids:
+            runs = [r["id"] for r in current_taggings(conn, source_id, models)]
+            if not runs:
+                continue
+            marks = ",".join("?" for _ in runs)
+            speakers = {_head(r[0]) for r in conn.execute(
+                f"""SELECT DISTINCT u.speaker FROM tag t JOIN usage u ON u.id = t.usage_id
+                    WHERE t.run_id IN ({marks}) AND u.speaker IS NOT NULL""", runs)}
+            others = [w for w in (_name_words(s) for s in speakers) if len(w) >= 2] + people
+            entities: dict = {}
+            for t in conn.execute(
+                    f"""SELECT t.*, u.speaker, c.pref_label, c.notation, p.text AS cue_text
+                        FROM tag t JOIN concept c ON c.id = t.concept_id AND c.scheme = 'actor_type'
+                        JOIN usage u ON u.id = t.usage_id LEFT JOIN passage p ON p.id = t.cue_passage_id
+                        WHERE t.run_id IN ({marks}) AND t.review_state <> 'rejected' ORDER BY t.created_at, t.id""",
+                    runs).fetchall():
+                counts["actor_tags"] += 1
+                if _settled(conn, "tag", t["id"]):
+                    counts["kept_reviewed"] += 1
+                    continue
+                speaker = t["speaker"]
+                if speaker not in entities:
+                    entities[speaker] = speaker_entity(conn, speaker)
+                entity = entities[speaker]
+                kind = {"person": "person", "organization": "organisation"}.get(entity["kind"]) if entity else None
+                wanted = (t["notation"] or "person").replace("organization", "organisation")
+                before = (t["cue_text"] or "")[max(0, (t["cue_start"] or 0) - ROLE_LINE_CHARS):t["cue_start"] or 0]
+                other = names_another(t["cue"], before, speaker, others) if t["cue"] else None
+                if kind and kind != wanted:
+                    rule, reason = "registry_kind", (
+                        f"The Entity Registry knows the speaker as a {entity['kind']} ({entity['label']}); "
+                        f"'{t['pref_label']}' is a type for {wanted}s.")
+                elif t["cue"] and name_only(t["cue"], speaker):
+                    rule, reason = "name_only", (
+                        f"The words given for '{t['pref_label']}' are only the speaker's own name or label "
+                        f"({speaker}): a name states no role.")
+                elif other:
+                    rule, reason = "another_person", (
+                        f"The words given for '{t['pref_label']}' are about someone else ({other}), not about "
+                        f"the speaker ({speaker}).")
+                else:
+                    continue
+                conn.execute("UPDATE tag SET review_state = 'rejected' WHERE id = ?", (t["id"],))
+                record_decision(conn, actor_kind="model", actor_id=ACTOR_RULE_ID, run_id=run_id, action="reject",
+                                target_table="tag", target_id=t["id"], reason=reason, quote=t["cue"],
+                                audit_verdict="fail", previous_state={"review_state": t["review_state"]},
+                                new_state={"review_state": "rejected", "rule": rule})
+                counts[rule] += 1
+        conn.execute("UPDATE run SET outcome = 'succeeded', finished_at = ?, inputs = ? WHERE id = ?",
+                     (utc_now(), canonical_json({"job": "actor rules", "rule": ACTOR_RULE, "models": models,
+                                                 "sources": len(source_ids), "counts": dict(counts)}), run_id))
+    return {"run_id": run_id, "rule": ACTOR_RULE, "counts": dict(sorted(counts.items()))}
 
 
 def write_tags(conn: sqlite3.Connection, tagged: SourceTags, *, role, prompt: read.Prompt, vocab: Vocabulary,

@@ -383,3 +383,70 @@ def test_a_term_is_used_only_in_a_statement_that_endorses(conn, tmp_path):
          "mode": "uses"}]}]}))
     report = testset.score(conn, testset.load_with_tags(base, tags), tagger="tagger-a")
     assert {r["id"]: r["status"] for r in report["results"]} == {"critic": "pass", "endorser": "pass"}
+
+
+# --------------------------------------------------------------------------- actor rules (actors/v1)
+
+def test_a_name_states_no_role_and_a_role_line_about_someone_else_is_not_the_speakers():
+    assert tag.name_only("M. Paul Molac", "M. Paul Molac")
+    assert tag.name_only("Alan Chambers", "Alan Chambers, president of Exodus")
+    assert not tag.name_only("president of Exodus", "Alan Chambers, president of Exodus")
+    assert not tag.name_only("Alan Chambers, Exodus president", "Alan Chambers, president of Exodus")
+    assert not tag.name_only("Core Issues Trust", "Core Issues Trust")      # "trust" says what it is
+    assert not tag.name_only("I went through conversion therapy", "Justin")
+    others = [["jane", "roe"], ["alan", "chambers"]]
+    assert tag.names_another("Dr Jane Roe, a licensed psychologist", "", "Mary Major", others) == "jane roe"
+    assert tag.names_another("a licensed psychologist", "my guest tonight is Dr. Jane Roe, ", "Mary Major", others) == "jane roe"
+    assert tag.names_another("I am a licensed psychologist", "with Jane Roe. ", "Mary Major", others) is None
+    assert tag.names_another("Jane Roe, a psychologist", "", "Dr Jane Roe", others) is None   # the speaker herself
+    assert tag.names_another("president of Exodus", "Alan Chambers, ", "Alan Chambers, president of Exodus", others) is None
+
+
+def _actor_reply(s1, s3):
+    return {"statements": {"S1": {"actors": s1, "terms": [], "tags": []}, "S2": {"actors": [], "terms": [], "tags": []},
+                           "S3": {"actors": s3, "terms": [], "tags": []}, "S4": {"actors": [], "terms": [], "tags": []}},
+            "excerpts": [], "new_terms": []}
+
+
+def test_actor_rules_reject_without_a_model_and_can_be_undone(conn):
+    from archive import review
+    with conn:   # the registry knows Alan Chambers as a person; example.org speaks about him
+        conn.execute("INSERT INTO entity(id, kind, label, normalized_label, description, created_at)"
+                     " VALUES ('reg:alan-chambers', 'person', 'Alan Chambers', 'alan chambers', 'Former president of Exodus.', ?)",
+                     (NOW,))
+    first = _actor_reply([{"type": "leader or founder", "words": "president of Exodus"},
+                          {"type": "ministry", "words": "president of Exodus"}],            # a type for organisations
+                         [{"type": "leader or founder", "words": "Alan Chambers, president of Exodus"}])   # about him
+    second = _actor_reply([{"type": "leader or founder", "words": "president of Exodus"},
+                           {"type": "pastor or clergy", "words": "Alan Chambers"}], [])    # the name alone
+    tag.tag_sources(conn, FakeClient([first]), FIRST, [SID], primary_model="reader-a")
+    tag.tag_sources(conn, FakeClient([second]), SECOND, [SID], primary_model="reader-a")
+    assert tag.speaker_entity(conn, "Alan Chambers, president of Exodus")["id"] == "reg:alan-chambers"
+    assert tag.speaker_entity(conn, "example.org") is None
+    ruled = tag.apply_actor_rules(conn, [SID], models=["tagger-a", "tagger-b"])
+    assert ruled["counts"]["registry_kind"] == 1 and ruled["counts"]["name_only"] == 1
+    assert ruled["counts"]["another_person"] == 2          # example.org's two statements (the type was spread)
+    rows = {(r["speaker"], r["pref_label"], r["model"]): r["review_state"] for r in conn.execute(
+        """SELECT u.speaker, c.pref_label, r.model, t.review_state FROM tag t JOIN usage u ON u.id = t.usage_id
+           JOIN concept c ON c.id = t.concept_id JOIN run r ON r.id = t.run_id WHERE c.scheme = 'actor_type'""")}
+    chambers = "Alan Chambers, president of Exodus"
+    assert rows[(chambers, "leader or founder", "tagger-a")] == rows[(chambers, "leader or founder", "tagger-b")] == "proposed"
+    assert rows[(chambers, "ministry", "tagger-a")] == rows[(chambers, "pastor or clergy", "tagger-b")] == "rejected"
+    assert rows[("example.org", "leader or founder", "tagger-a")] == "rejected"
+    decision = conn.execute("SELECT * FROM decision WHERE actor_id = ? AND reason LIKE '%Entity Registry%'",
+                            (tag.ACTOR_RULE_ID,)).fetchone()
+    assert decision["action"] == "reject" and decision["run_id"] == ruled["run_id"] and decision["quote"] == "president of Exodus"
+    # the comparison then sees only what is left: the leader type, agreed; nothing held
+    counts = tag.compare(conn, [SID], primary_model="tagger-a", second_model="tagger-b")["counts"]
+    assert counts == {"tag:two_readers_agree": 2}
+    assert tag.apply_actor_rules(conn, [SID], models=["tagger-a", "tagger-b"])["counts"].get("name_only") is None
+    assert review.undo(conn, ruled["run_id"], reason="test") == 4          # a rule run is undone like a review run
+    assert conn.execute("SELECT count(*) FROM tag WHERE review_state = 'rejected'").fetchone()[0] == 0
+    assert db.verify_decision_chain(conn).ok
+
+
+def test_tag_v4_has_the_lists_of_v3_and_turns_the_actor_rules_on(conn):
+    with conn:
+        tag.seed_lists(conn, actor_id="claude-test")
+    assert tag.vocabulary(conn, "tag-v4").sha256 == tag.vocabulary(conn, "tag-v3").sha256
+    assert "actor_rules" in tag.PROMPT_FEATURES["tag-v4"] and "actor_rules" not in tag.PROMPT_FEATURES["tag-v3"]

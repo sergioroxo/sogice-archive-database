@@ -535,6 +535,16 @@ def _render_tag(conn: sqlite3.Connection, issue: Issue) -> tuple[str, list[str],
         if speakers:
             lines += ["## Who speaks elsewhere in this source (statements both readers agreed on)", ""]
             lines += [f"- {name} ({n})" for name, n in speakers] + [""]
+    if actor:   # what the archive already knows of the speaker (Entity Registry), for the reviewer
+        from .tag import speaker_entity
+        entity = speaker_entity(conn, usages[0]["speaker"])
+        lines += ["## What the archive knows of this speaker", ""]
+        if entity:
+            description = " ".join((entity["description"] or "no description").split())[:300]
+            lines += [f"- Entity Registry: {entity['kind']} **{entity['label']}**: {description}",
+                      "  (the registry is context, not evidence: the type must still be stated in the text)", ""]
+        else:
+            lines += ["- Not in the Entity Registry under this name.", ""]
     text, context = _text_lines(conn, passages, spans, ("the statements" if grouped and not actor else "the statement")
                                 + (" and the tagger's words" if any(r.get("cue") for r in statements) else ""))
     lines += text
