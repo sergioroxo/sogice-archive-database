@@ -411,7 +411,8 @@ brief assumes the session has read `CLAUDE.md` first and follows section 6.
 **Goal.** The archive survives a disk fault and an antivirus. One model job
 at a time. Trials cannot touch the real database.
 
-**State.** No backup off the disk; seven older database snapshots in
+**State.** Steps 2–4 built and tested on 17 November (on test folders
+only). No backup off the disk yet; seven older database snapshots in
 `data/backups` (1.5 GB, last 10 November). Disk 98% full on 16 November
 (about 21 GB free; Sérgio freed some on 17 November); `data/scratch` holds
 about 21 GB of old trial copies.
@@ -421,17 +422,33 @@ about 21 GB of old trial copies.
 **Steps.**
 
 1. Sérgio: answer D10 and D11.
-2. Python: `scripts/backup.sh`: `sqlite3 data/archive.db ".backup
-   'DEST/archive-DATE.db'"`, then `rsync -a data/objects/ DEST/objects/`,
-   then a restore check (`PRAGMA integrity_check` on the copy, and a
-   count of objects). Weekly, and before every bulk run.
-3. Python: `scripts/verify_objects.py`: every `source_version.path` exists
-   and its SHA-256 matches. Report missing files (Defender). Never restore
-   from quarantine. Do not fetch the page again by default: `acquire`
-   leaves missing objects alone on purpose (`acquire.py`, the note above
+2. Done (17 November): `scripts/backup.sh DEST`. SQLite's online backup
+   of `data/archive.db` (opened read-only, safe while the database is
+   open) to `DEST/archive-YYYYMMDD-HHMM.db`, then `rsync -a data/objects/
+   DEST/objects/` (never deletes in DEST), then a restore check:
+   `PRAGMA integrity_check` on the copy, and every object its
+   `source_version` rows name (`path` and `text_path`) present in DEST.
+   One line per run in `data/reports/backups.log`. Refuses a DEST inside
+   the repository or `data/`; warns when DEST is on the same volume as
+   `data/`. Exit 0 ok, 1 refused or failed, 2 integrity check failed,
+   3 objects missing in DEST. Run it weekly and before every bulk run,
+   once D10 is answered; it has been run only on test folders.
+3. Done (17 November): `scripts/verify_objects.py [--db DB] [--data-dir
+   DIR] [--json FILE]`. Read-only: every `source_version.path` and
+   `text_path` exists and its SHA-256 matches; prints counts and each
+   missing or mismatched object with its source ids; exit 1 if any.
+   Never fetches, deletes, moves or restores. Never restore from
+   quarantine. Do not fetch the page again by default: `acquire` leaves
+   missing objects alone on purpose (`acquire.py`, the note above
    `_CHALLENGE_STORED`), because the same capture is quarantined again.
-   Copy from the backup, or list the source for Sérgio.
-4. Python: `scripts/ms_job.sh`: the lock wrapper of section 6.
+   Copy from the backup, or list the source for Sérgio. To check a
+   backup: `--db DEST/archive-….db` (objects are looked for next to it).
+   First run, 17 November: 6,886 versions name 13,247 objects (6,817
+   files, 6,430 texts); 13,245 match, 2 Wayback HTML files are missing
+   (sources `src_cb0b2a859e4b35ee`, `src_f1263d8271f6b176`), none
+   mismatched. Not acted on.
+4. Done (17 November): `scripts/ms_job.sh CMD...`, the lock wrapper of
+   section 6.
 5. Claude session: keep the trial copies that later steps need
    (`tag-dev3.db`, `review-tags-dev2.db`, the newest reading trial), list
    the rest with sizes for Sérgio; delete only what he approves.
@@ -455,7 +472,7 @@ run: check `df` in the daily status.
 > destination given as argument, rsync of `data/objects`, integrity check
 > of the copy), `scripts/verify_objects.py` (every `source_version.path`
 > exists and matches its `sha256`; JSON report; no changes), and
-> `scripts/ms_job.sh` (run a command under `flock data/ms.lock`, log start,
+> `scripts/ms_job.sh` (run a command under the `mkdir data/ms.lock.d` lock, log start,
 > end and exit code to `data/reports/ms_jobs.log`). Add tests for the
 > Python script with a fixture database. Constraints: standard library
 > only; never delete anything; never touch Microsoft Defender; nothing
@@ -1605,15 +1622,18 @@ after tests pass.
 orchestrator starts model jobs, and only through the wrapper:
 
 ```bash
-#!/bin/sh
-# scripts/ms_job.sh: one model job at a time
-mkdir -p data/reports
-exec flock data/ms.lock sh -c 'echo "$(date -u +%FT%TZ) start: $*" >> data/reports/ms_jobs.log; "$@"; rc=$?;
-  echo "$(date -u +%FT%TZ) end rc=$rc: $*" >> data/reports/ms_jobs.log; exit $rc' sh "$@"
+scripts/ms_job.sh .venv/bin/python -m archive read --limit 50
 ```
 
-(macOS has no `flock` by default: `brew install flock`, a small package,
-or use `mkdir data/ms.lock.d` as the lock. Ask before installing.)
+`scripts/ms_job.sh` takes the lock by creating the directory
+`data/ms.lock.d` (`mkdir` is atomic; macOS has no `flock`, nothing to
+install). The directory holds `owner`: the holder's PID and start time.
+A second call waits, checking every 30 s (`MS_JOB_POLL`), and logs that
+it is waiting. A lock whose PID is dead, or now belongs to another
+process, is stale and is taken over. Start, end, exit code and duration
+go to `data/reports/ms_jobs.log`; the command's exit code is passed
+through. If a job is killed with `kill -9`, the next call clears its
+lock by itself; never delete `data/ms.lock.d` while its owner runs.
 Sub-sessions never call `read`, `tag`, `check`, `titles` or an embedding
 job themselves; they hand you the command. Before a job: `ollama ps`
 shows nothing loaded. Long jobs run in `tmux` or under `nohup`, with
