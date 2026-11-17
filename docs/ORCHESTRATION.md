@@ -565,7 +565,15 @@ sources are read. read-v4 is the default; read-v5 and read-v6 were tested
 and not adopted. Time with read-v4: 31B 10.4 s and Qwen 9.0 s per 1,000
 characters (read-v6: 12.5 and 10.7; `docs/MODELS.md`). English is 109.8
 million characters: about 590 h with both readers at read-v4's speed,
-about 710 h at read-v6's. The command cannot select the corpus (finding 4).
+about 710 h at read-v6's. Corpus selection is built (step 1, 17 Nov):
+`read`, `tag`, `check` and `review prepare` take `--sources-file` and
+`--limit`, and `scripts/reading_order.py` writes the order. Its first run
+(17 Nov, read-v4, no `--first` file yet) lists **5,193 English sources,
+107.5 million characters** (what `read` would send: page furniture,
+repeats and flagged versions left out; merged copies counted with their
+keeper). Left out: 22 merged, 1,094 mostly in another language, 496 with
+no text to read, 21 already read by both readers. 4,188 of the 5,193 have
+exact matches.
 
 **Needs.** D1 (the reading prompt), D2 (the order and the demo set), S0
 (backup and lock). The Mac Studio for about 630 to 760 h (all three
@@ -573,31 +581,58 @@ languages, depending on the prompt).
 
 **Steps.**
 
-1. Claude session, no MS: corpus selection for `read`, `tag`, `check`
-   and `review prepare` (S5 step 7 and S6 use all four):
-   `--sources-file FILE` (one id per line) and `--limit N`; and
-   `scripts/reading_order.py`, which writes the pending sources of one
-   language in priority order (demo set first, then by density of term
-   and entity matches, then the rest). With tests.
+1. Done (17 Nov). Claude session, no MS: corpus selection for `read`,
+   `tag`, `check` and `review prepare` (S5 step 7 and S6 use all four):
+   `--sources-file FILE` (one id per line; blank lines and `#` comments
+   ignored, also after an id; file order kept; duplicates and merged ids
+   kept once, by keeper; an unknown id stops the command before anything
+   runs) and `--limit N` (the first N after selection). Both combine with
+   `--source` and `--testset`: file first, then `--source`, then the test
+   set. `review prepare` refuses an empty selection rather than preparing
+   the whole archive. `scripts/reading_order.py` opens the database
+   read-only and writes the pending sources of one language in priority
+   order: the `--first` file (demo set) in its order, then exact matches
+   (`usage.found_by = 'exact_match'`, not rejected or superseded) per
+   1,000 characters, densest first, then the sources without matches.
+   "Pending" means not read by both readers in `config/models.yaml` with
+   the prompt as it is now (a source one reader has read is listed; `read
+   --both` skips the reader that is done), and not failed twice by a
+   reader still to read it (retried once, then left failed for a person:
+   counted as "failed twice"). Each line carries a comment
+   with its characters and density. Tests: `tests/test_selection.py`,
+   `tests/test_reading_order.py`.
 2. Sérgio: D1. Whatever he chooses, a session that has never seen the
    holdout expectations runs the holdout score once (S16).
 3. MS: wave 1, the demo set (about 300 sources): `read --both`.
 4. Claude session: read the difficulties report and 30 random statements
    of wave 1. Any change of prompt or rule goes through section 6.
 5. Gate G1 (section 5): prompts frozen.
-6. MS: wave 2, the rest of English, in the order file, in chunks of about
-   500 sources per `ms_job.sh` call, tagging following batch by batch
-   (S5). Daily: `read --status`, failed runs, disk.
+6. MS: wave 2, the rest of English, in the order file, in chunks per
+   `ms_job.sh` call, tagging following batch by batch (S5). Daily: `read
+   --status`, failed runs, disk. Size chunks by characters, not sources:
+   in the 17 Nov order, 500 sources are anything from 1.1 to 17.1 million
+   characters (about 6 to 92 h for both readers at read-v4's speed),
+   because 21 sources over 500,000 characters hold 18% of the English
+   text (the largest 3.3 million). The comment on each line of the order
+   file gives its characters. Rerun `reading_order.py` before each chunk:
+   what is done drops out, so `--limit N` always takes the next N.
 7. MS: Portuguese, then Spanish, with the same prompts. First 10 sources
    of each: a session checks quote location rate and speaker fill before
    the rest runs. French: not in the plan; ask Sérgio after Spanish.
 
-**Commands.** (`--sources-file` and `scripts/reading_order.py` exist
-after step 1, `scripts/ms_job.sh` after S0 step 4. Until then, run a model
-job directly, one at a time, after `ollama ps` shows nothing loaded.)
+**Commands.** (`--sources-file`, `--limit` and `scripts/reading_order.py`
+exist since step 1; `scripts/ms_job.sh` after S0 step 4. Until then, run a
+model job directly, one at a time, after `ollama ps` shows nothing
+loaded.) Look before a model job: `--dry-run` with the same selection
+prints the sources and their sections and calls no model; `read
+--dry-run` and `tag --dry-run` open the database like the real command,
+so point them at a copy. The demo set (D2) goes in a file of ids given
+with `--first`.
 
 ```bash
 .venv/bin/python scripts/reading_order.py --db data/archive.db --language en --out data/reports/order-en.txt
+.venv/bin/python scripts/reading_order.py --db data/archive.db --language en --first data/reports/demo-set.txt --out data/reports/order-en.txt
+.venv/bin/python -m archive read --db data/scratch/COPY.db --sources-file data/reports/order-en.txt --limit 5 --dry-run
 scripts/ms_job.sh .venv/bin/python -m archive read --both --sources-file data/reports/order-en.txt --limit 500
 .venv/bin/python -m archive read --status
 .venv/bin/python -m archive reconcile --all --report-only

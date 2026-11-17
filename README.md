@@ -33,6 +33,8 @@ python -m archive testset show fr-4501 --grep "Torrents"   # read an entry's pas
 python -m archive read --testset --split dev             # Phase 3: local reading (docs/READING.md)
 python -m archive read --status                          # runs in progress; exit 1 if one has stalled
 python -m archive read --testset --both                  # two readers, reconcile, relation rules (docs/ACCOUNTABILITY.md)
+python scripts/reading_order.py --db data/archive.db --language en --out data/reports/order-en.txt   # sources still to read, in order (read-only)
+python -m archive read --both --sources-file data/reports/order-en.txt --limit 500   # the corpus in that order; tag, check and review prepare take both flags too
 python -m archive tag --testset --split dev             # two taggers label the statements, mark excerpts (docs/TAGGING.md)
 python -m archive check --testset --split dev           # a third model checks agreed excerpts and practices (yes/no + words)
 python -m archive tag --testset --split dev --rules-only   # actor rules on stored tags, no model (docs/TAGGING.md)

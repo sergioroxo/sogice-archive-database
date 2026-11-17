@@ -9,12 +9,15 @@
     python -m archive attach-pdfs FOLDER [--dry-run]
     python -m archive seed
     python -m archive match
-    python -m archive read [--source ID ...] [--testset [--split dev] [--entry KEY ...]]
+    python -m archive read [--sources-file FILE] [--source ID ...] [--testset [--split dev] [--entry KEY ...]]
+                           [--limit N]
                            [--prompt read-v3] [--chunk-chars N] [--again] [--dry-run]
     python -m archive read --status
     python -m archive read --testset --both     # two readers, then reconcile
     python -m archive reconcile [--testset|--all|--source ID] [--report-only] [--no-rules]
+    python -m archive tag|check [--sources-file FILE] [--source ID ...] [--testset …] [--limit N] …
     python -m archive review prepare|apply|status|undo   # the review queue (data/review/)
+                                   # prepare takes --sources-file, --source, --testset and --limit too
     python -m archive speakers SOURCE [--set "Name=role" …] [--note TEXT]   # who speaks in a recording
     python -m archive queue-add URL … [--file F] [--origin NAME]        # add pages to the source queue
     python -m archive fingerprints [--again] [--source ID …] [--queue-sites [--skip-site S …]]
@@ -243,6 +246,74 @@ def cmd_testset(args: argparse.Namespace) -> int:
     return 0
 
 
+class SelectionError(ValueError):
+    """A sources file or source id that cannot be used."""
+
+
+def sources_from_file(path: Path) -> list[str]:
+    """Source ids from a file, one per line, in file order; blank lines and ``#`` comments are ignored.
+
+    A comment may follow an id on its line (``src_… # 12,000 chars``), as ``scripts/reading_order.py`` writes.
+    """
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise SelectionError(f"cannot read sources file {path}: {exc.strerror or exc}") from exc
+    ids = []
+    for number, line in enumerate(text.splitlines(), 1):
+        item = line.split("#", 1)[0].strip()
+        if not item:
+            continue
+        if len(item.split()) > 1:
+            raise SelectionError(f"{path}, line {number}: one source id per line, got {item!r}")
+        ids.append(item)
+    return ids
+
+
+def select_sources(conn, args: argparse.Namespace) -> list[str]:
+    """The sources a command works on: ``--sources-file`` (file order), then ``--source``, then ``--testset``.
+
+    Duplicates, and ids merged into a source already selected, are kept once (``read.keeper``); the id as
+    requested is returned, so that a reading records what was asked for. ``--limit N`` keeps the first N.
+    Unknown ids stop the command before anything runs.
+    """
+    requested = sources_from_file(args.sources_file) if getattr(args, "sources_file", None) else []
+    requested += list(args.source or [])
+    if args.testset:
+        data = testset.load_testset(args.file)
+        entries = getattr(args, "entry", None)
+        requested += [s for e in data["entries"] if (not args.split or e["split"] == args.split)
+                      and (not entries or e["key"] in entries) for s in testset.entry_sources(e)]
+    chosen, seen, unknown = [], set(), []
+    for sid in requested:
+        try:
+            kept = read.keeper(conn, sid)
+        except read.ReadError:
+            unknown.append(sid)
+            continue
+        if kept not in seen:
+            seen.add(kept)
+            chosen.append(sid)
+    if unknown:
+        shown = ", ".join(unknown[:5]) + (f" and {len(unknown) - 5} more" if len(unknown) > 5 else "")
+        raise SelectionError(f"{len(unknown)} unknown source id(s): {shown}")
+    limit = getattr(args, "limit", None)
+    return chosen[:limit] if limit is not None else chosen
+
+
+def add_selection_arguments(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--sources-file", type=Path, metavar="FILE",
+                   help="source ids, one per line (# comments), in this order; with --source/--testset: all of them")
+    p.add_argument("--limit", type=_positive, metavar="N", help="at most the first N selected sources")
+
+
+def _positive(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be 1 or more")
+    return value
+
+
 def cmd_read(args: argparse.Namespace) -> int:
     from .config import load_models_config
     from .ollama import OllamaClient
@@ -257,17 +328,13 @@ def cmd_read(args: argparse.Namespace) -> int:
                   f"last progress {r['minutes_since_heartbeat']} min ago" + ("  STALLED" if r["stalled"] else ""))
         print(f"{len(rows)} reading run(s) in progress")
         return 1 if any(r["stalled"] for r in rows) else 0
-    sources = list(args.source or [])
-    if args.testset:
-        data = testset.load_testset(args.file)
-        for entry in data["entries"]:
-            if args.split and entry["split"] != args.split:
-                continue
-            if args.entry and entry["key"] not in args.entry:
-                continue
-            sources += testset.entry_sources(entry)
+    try:
+        sources = select_sources(conn, args)
+    except SelectionError as exc:
+        print(exc, file=sys.stderr)
+        return 2
     if not sources:
-        print("nothing to read: give --source or --testset", file=sys.stderr)
+        print("nothing to read: give --sources-file, --source or --testset", file=sys.stderr)
         return 2
     prompt = read.load_prompt(args.prompt)
     if args.dry_run:
@@ -334,13 +401,13 @@ def cmd_tag(args: argparse.Namespace) -> int:
     conn = db.connect(args.db)
     db.init_db(conn)
     conn.execute("PRAGMA busy_timeout = 30000")
-    sources = list(args.source or [])
-    if args.testset:
-        data = testset.load_testset(args.file)
-        sources += [s for e in data["entries"] if (not args.split or e["split"] == args.split)
-                    and (not args.entry or e["key"] in args.entry) for s in testset.entry_sources(e)]
+    try:
+        sources = select_sources(conn, args)
+    except SelectionError as exc:
+        print(exc, file=sys.stderr)
+        return 2
     if not sources:
-        print("nothing to tag: give --source or --testset", file=sys.stderr)
+        print("nothing to tag: give --sources-file, --source or --testset", file=sys.stderr)
         return 2
     cfg = load_models_config()
     first = cfg.role("tagging")
@@ -402,15 +469,14 @@ def cmd_check(args: argparse.Namespace) -> int:
     conn = db.connect(args.db)
     db.init_db(conn)
     conn.execute("PRAGMA busy_timeout = 30000")
-    sources = list(args.source or [])
-    if args.testset:
-        data = testset.load_testset(args.file)
-        sources += [s for e in data["entries"] if (not args.split or e["split"] == args.split)
-                    and (not args.entry or e["key"] in args.entry) for s in testset.entry_sources(e)]
-    sources = sorted({read.keeper(conn, s) for s in sources})
+    try:
+        sources = [read.keeper(conn, s) for s in select_sources(conn, args)]
+    except SelectionError as exc:
+        print(exc, file=sys.stderr)
+        return 2
     only = json.loads(Path(args.items).read_text()) if args.items else None
     if not sources and not only:
-        print("nothing to check: give --source, --testset or --items", file=sys.stderr)
+        print("nothing to check: give --sources-file, --source, --testset or --items", file=sys.stderr)
         return 2
     cfg = load_models_config()
     role = cfg.role(args.model_role)
@@ -471,13 +537,15 @@ def cmd_review(args: argparse.Namespace) -> int:
     db.init_db(conn)
     conn.execute("PRAGMA busy_timeout = 30000")
     if args.action == "prepare":
-        sources = list(args.source or [])
-        if args.testset:
-            data = testset.load_testset(args.file)
-            sources += [s for e in data["entries"] if not args.split or e["split"] == args.split
-                        for s in testset.entry_sources(e)]
-        from .read import keeper
-        sources = sorted({keeper(conn, s) for s in sources}) or None
+        try:
+            sources = [read.keeper(conn, s) for s in select_sources(conn, args)] or None
+        except SelectionError as exc:
+            print(exc, file=sys.stderr)
+            return 2
+        if sources is None and (args.sources_file or args.source or args.testset):
+            # no sources means the whole archive to prepare(); an empty selection must not become that
+            print("the selection is empty: nothing to prepare", file=sys.stderr)
+            return 2
         if args.sample_only and not args.sample_agreed:
             print("--sample-only needs --sample-agreed N", file=sys.stderr)
             return 2
@@ -700,6 +768,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--batch", type=int, default=25, help="with --both: sources per batch")
     p.add_argument("--model-role", default="reading",
                    help="use this role's model (config/models.yaml: audit, trial_…) with the reading settings")
+    add_selection_arguments(p)
     p.set_defaults(func=cmd_read)
 
     p = sub.add_parser("reconcile", help="compare the two models' readings; write the difficulties report")
@@ -729,6 +798,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--rules-only", action="store_true",
                    help="no model: apply the actor rules to the stored tags, then compare again")
     p.add_argument("--dry-run", action="store_true", help="show what would be tagged and the first section")
+    add_selection_arguments(p)
     p.set_defaults(func=cmd_tag)
 
     p = sub.add_parser("check", help="a third model checks the agreed excerpts and 'uses' tags (yes/no + words)")
@@ -745,6 +815,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--schemes", nargs="+", choices=["cluster", "practice", "tactic"],
                    help="which agreed 'uses' tags to ask about (default: practice; excerpts are always checked)")
     p.add_argument("--items", type=Path, help="trials: check these records only, JSON {\"tag\": [ids], \"asset\": [ids]}")
+    add_selection_arguments(p)
     p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("review", help="the review queue: packets for disputed and held records, verdicts, undo")
@@ -765,6 +836,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--run", help="with undo: the review run to reverse")
     p.add_argument("--reason", help="with undo: why")
     p.add_argument("--actor", default="sergio", help="with undo: researcher id")
+    add_selection_arguments(p)
     p.set_defaults(func=cmd_review)
 
     p = sub.add_parser("speakers", help="who speaks in a recording without speaker labels (shown to the readers)")
