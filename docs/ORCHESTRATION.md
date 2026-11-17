@@ -50,15 +50,16 @@ do not change a decision in `CLAUDE.md`.
 git status -sb && git log --oneline | head -5
 .venv/bin/python -m pytest -q                 # must pass before anything else
 .venv/bin/python -m archive report            # preservation gate and failures
-.venv/bin/python -m archive read --status     # runs in progress; exit 1 = stalled
+.venv/bin/python -m archive read --status     # reading runs in progress; exit 1 = stalled (other runs: the stuck-runs query below)
 .venv/bin/python -m archive review status     # the review queue folder
 ollama ps                                     # which model is loaded now
 df -h . && du -sh data/scratch data/objects data/archive.db
 ```
 
-**Where things stand: the database.** Read-only, always. These queries were
-written from `archive/schema.sql` and have not been run; fix a column name
-if SQLite complains, and correct this document.
+**Where things stand: the database.** Read-only, always. These queries
+were run read-only on 17 November against `data/archive.db` (a 12 November
+state, schema 13) and all worked; fix a column name if SQLite complains
+after a schema change, and correct this document.
 
 ```bash
 DB=data/archive.db
@@ -99,7 +100,8 @@ q "SELECT kind, review_state, count(*) FROM asset GROUP BY 1,2;"
 q "SELECT actor_kind, actor_id, action, count(*) FROM decision GROUP BY 1,2,3 ORDER BY 4 DESC LIMIT 30;"
 q "SELECT seq, event_hash FROM decision ORDER BY seq DESC LIMIT 1;"
 
-# Runs that are stuck
+# Runs that are stuck (any role: reading, tagging, check, preserve). On 17 November one
+# preserve run had shown 'running' since 9 November: a leftover, not a live job.
 q "SELECT id, model, started_at, heartbeat_at, progress FROM run WHERE outcome = 'running';"
 ```
 
@@ -125,7 +127,7 @@ change the status here in the same commit. Do not write a second plan.
 | 2 | Seed vocabularies | Python | `seed` | `concept`, `concept_label`, `entity`, `entity_variant` | Seeded. Tag lists (actor types, clusters) not yet in the real archive |
 | 2 | Exact matching | Python | `match` | `usage` (`found_by = 'exact_match'`) | Run: 151,271 term matches (TAGGING.md) |
 | 3 | Read, two readers | Local models | `read --both` | `run`, `usage` (`found_by = 'model'`), `relation`, `claim` | Only the 24 test-set sources. Corpus run not started |
-| 3 | Reconcile and relation rules | Python | `reconcile` (inside `read --both`) | `assessment`, `decision` | Built, measured on the test set. 974 relations |
+| 3 | Reconcile and relation rules | Python | `reconcile` (inside `read --both`) | `assessment`, `decision` | Built, measured on the test set. 974 relations, of which 576 superseded by later runs and 44 rejected |
 | 3b | Tag, two taggers, compare | Local models + Python | `tag` | `tag`, `asset`, `assessment`, view `term_use` | Built. Four trials on dev copies. Nothing tagged in the real archive |
 | 3b | Check | Local model (12B) | `check` | `decision` (action `audit`) | Built. Checker proposed, not confirmed |
 | – | Review queue | Claude Code sessions | `review prepare / apply / status / undo`, `/review-queue` | packets in `data/review`, `decision` | Built. Trials on copies only |
@@ -200,7 +202,7 @@ Portuguese and Spanish about 80, embeddings a few). It fits once, not twice:
 a second full reading does not fit comfortably, so the prompts must be
 frozen before the bulk run. The review does not fit: about 130,000 tag
 packets (400 session hours), and the reading side adds about as many. The
-dev reading queue is 368 packets for about 0.4 million characters
+dev reading queue is 368 packets for about 0.36 million characters
 (`docs/REVIEW.md`), which scales to roughly 100,000 packets for the corpus.
 That projection is mine and unmeasured. Together: some 230,000 packets and
 650 session hours, with 2% "for the researcher" already more than Sérgio
@@ -232,23 +234,30 @@ prompt, heartbeat and stall detection, failed sources marked and the batch
 going on (`read.py` 725–817).
 
 **5. "Every AI run can be undone by run id" is only partly true.** `review
-undo --run` reverses a review run (`review.py` 967). Dedupe merges can be
-undone. A reading or tagging run cannot be undone by a command: it can only
-be superseded by a new run. A generic `archive undo --run RUN` is missing
+undo --run` (`review.py`, `undo`) reverses the decisions of any run that
+changed records by decisions: review runs, and the rule, actor-rule and
+titles runs (`docs/TITLES.md`). Dedupe merges can be undone. A reading or
+tagging run cannot be undone by a command: it can only be superseded by a
+new run; `review undo` on one would write undo decisions without changing
+its records, so never point it at a reading or tagging run. A generic `archive undo --run RUN` is missing
 (S16, step 4). The decision chain itself is solid: append-only, hash
 chained, triggers refuse updates and deletes (`schema.sql` 558–600).
 
 **6. Nothing protects the real archive from a trial, or the Mac Studio from
-two jobs.** Only `read --model-role trial_*` refuses the real database
-(`__main__.py` 292). `tag --prompt tag-v4`, `check --held` and `review
+two jobs.** Only `read --model-role trial_*` and `check --model-role
+trial_*` refuse the real database (`__main__.py` 292, 395). `tag --prompt tag-v4`, `check --held` and `review
 apply` all default to `data/archive.db`. There is no lock: two terminals
 can each load a model. Section 6 gives a wrapper; S0 builds it.
 
-**7. No backup, on a disk that is 98% full, with an antivirus that removes
-evidence files.** The plan's Phase 0 gate ("backup working", 27 November)
-is not met. Defender has quarantined a preserved capture before
-(`docs/HANDOFF.md`). There is no routine that checks stored objects against
-their hashes. One disk fault loses the project. This is the first job (S0).
+**7. No backup off this disk, which is nearly full, with an antivirus that
+removes evidence files.** `data/backups` holds seven database snapshots
+(1.5 GB, the last of 10 November), on the same disk, and none of
+`data/objects`. The plan's Phase 0 gate ("backup working", 27 November) is
+not met. Defender has quarantined a preserved capture before
+(`docs/HANDOFF.md`). `Depot.read` checks an object's SHA-256 whenever it is
+read, and `index` flags missing or corrupt objects, but no routine checks
+all stored objects on a schedule. One disk fault loses the project. This is
+the first job (S0).
 
 **8. Governance is absent from the repository.** No data management plan,
 no Sikt notification, no ethics note, no licence for code or data, no
@@ -305,7 +314,8 @@ from captions. Media files are counted, not downloaded; there is no
 transcription code (`report.py` 139) and no table for clips. The gate "1
 real clip" needs a decision on rights and a small manual route (S12).
 
-**14. Docs out of date.** `README.md` says "Phase 1". `docs/PLAN.md` still
+**14. Docs out of date.** `README.md` was brought up to date on this
+branch (17 November). `docs/PLAN.md` still
 lists the 44 tactics, harm and target as passage facets, and gives Phases 1
 and 2 future dates though both are done. `docs/HANDOFF.md` and
 `docs/KICKOFF.md` are obsolete. `schema.sql` lets `usage.found_by` be
@@ -395,8 +405,10 @@ brief assumes the session has read `CLAUDE.md` first and follows section 6.
 **Goal.** The archive survives a disk fault and an antivirus. One model job
 at a time. Trials cannot touch the real database.
 
-**State.** Nothing built. Disk 98% full, about 21 GB free; `data/scratch`
-holds 21 GB of old trial copies.
+**State.** No backup off the disk; seven older database snapshots in
+`data/backups` (1.5 GB, last 10 November). Disk 98% full on 16 November
+(about 21 GB free; Sérgio freed some on 17 November); `data/scratch` holds
+about 21 GB of old trial copies.
 
 **Needs.** Sérgio: the backup destination (D10), yes to the clean-up (D11).
 
@@ -409,7 +421,10 @@ holds 21 GB of old trial copies.
    count of objects). Weekly, and before every bulk run.
 3. Python: `scripts/verify_objects.py`: every `source_version.path` exists
    and its SHA-256 matches. Report missing files (Defender). Never restore
-   from quarantine; fetch the page again, or copy from the backup.
+   from quarantine. Do not fetch the page again by default: `acquire`
+   leaves missing objects alone on purpose (`acquire.py`, the note above
+   `_CHALLENGE_STORED`), because the same capture is quarantined again.
+   Copy from the backup, or list the source for Sérgio.
 4. Python: `scripts/ms_job.sh`: the lock wrapper of section 6.
 5. Claude session: keep the trial copies that later steps need
    (`tag-dev3.db`, `review-tags-dev2.db`, the newest reading trial), list
@@ -499,8 +514,9 @@ Serves the lexicon, tags, search.
 
 **State.** Seeded: Lexicon v2.1, ontology, practices, functions, Entity
 Registry, GOV.UK glossary; the April glossary through a merge map. Tag
-lists (19 actor types, 7 clusters, function definitions) in
-`seeds/tag_lists_2026-11-12.json`, added by the first tagging run. Waiting
+lists: 19 actor types and the function definitions in
+`seeds/tag_lists_2026-11-12.json`, the 7 clusters from
+`seeds/SOGICE_Ontology_v3.0.md`; added by the first tagging run. Waiting
 for Sérgio: the actor-type list, the function definitions (drafted by
 Claude), the vocabulary boundaries the reviewers found unclear.
 
@@ -535,8 +551,9 @@ tags differ. Freeze the tag lists before the bulk run (gate G1).
 > `archive/tag.py` `LISTS_SEED` at it, update the tests, and add a short
 > dated note to `docs/TAGGING.md`. Constraints: never edit a seed file or
 > prompt that a run has used; model names only in `config/models.yaml`;
-> `pytest` passes. Done when: `archive tag --testset --split dev
-> --dry-run` shows the new lists and the tests pass.
+> `pytest` passes. Done when: `archive tag --db COPY --testset --split
+> dev --dry-run` shows the new lists and the tests pass. (Since 17
+> November a dry run keeps no data, but use a copy anyway.)
 
 ### S3. Reading: English, then Portuguese, then Spanish
 
@@ -545,21 +562,24 @@ stance, entities, claims, relations. Serves everything.
 
 **State.** Built and measured on the test set. Only the 24 test-set
 sources are read. read-v4 is the default; read-v5 and read-v6 were tested
-and not adopted. Time: 31B 12.5 s and Qwen 10.7 s per 1,000 characters
-(`docs/MODELS.md`): about 700 h for English with both. The command cannot
-select the corpus (finding 4).
+and not adopted. Time with read-v4: 31B 10.4 s and Qwen 9.0 s per 1,000
+characters (read-v6: 12.5 and 10.7; `docs/MODELS.md`). English is 109.8
+million characters: about 590 h with both readers at read-v4's speed,
+about 710 h at read-v6's. The command cannot select the corpus (finding 4).
 
 **Needs.** D1 (the reading prompt), D2 (the order and the demo set), S0
-(backup and lock). The Mac Studio for about 780 h.
+(backup and lock). The Mac Studio for about 630 to 760 h (all three
+languages, depending on the prompt).
 
 **Steps.**
 
-1. Claude session, no MS: corpus selection for `read` and `tag`:
+1. Claude session, no MS: corpus selection for `read`, `tag`, `check`
+   and `review prepare` (S5 step 7 and S6 use all four):
    `--sources-file FILE` (one id per line) and `--limit N`; and
    `scripts/reading_order.py`, which writes the pending sources of one
    language in priority order (demo set first, then by density of term
    and entity matches, then the rest). With tests.
-2. Sérgio: D1. If he chooses read-v6, a session that has never seen the
+2. Sérgio: D1. Whatever he chooses, a session that has never seen the
    holdout expectations runs the holdout score once (S16).
 3. MS: wave 1, the demo set (about 300 sources): `read --both`.
 4. Claude session: read the difficulties report and 30 random statements
@@ -572,7 +592,9 @@ select the corpus (finding 4).
    of each: a session checks quote location rate and speaker fill before
    the rest runs. French: not in the plan; ask Sérgio after Spanish.
 
-**Commands.** (`--sources-file` exists after step 1.)
+**Commands.** (`--sources-file` and `scripts/reading_order.py` exist
+after step 1, `scripts/ms_job.sh` after S0 step 4. Until then, run a model
+job directly, one at a time, after `ollama ps` shows nothing loaded.)
 
 ```bash
 .venv/bin/python scripts/reading_order.py --db data/archive.db --language en --out data/reports/order-en.txt
@@ -585,12 +607,15 @@ scripts/ms_job.sh .venv/bin/python -m archive read --both --sources-file data/re
 speaker and stance filled; at most 15 s per 1,000 characters). For the
 run: failed sources under 2%; every failed source listed with its error.
 
-**Estimate.** MS 700 h English, about 80 h Portuguese and Spanish.
+**Estimate.** MS about 590 to 710 h English (read-v4 or read-v6 speed);
+Portuguese and Spanish (7.6 million characters) about 40 to 50 h of
+reading, about 80 h with their tagging.
 Session 1 h a week of checks. Sérgio: D1 and D2.
 
 **Risks.** A prompt change after wave 2 starts costs up to 700 h: G1
-exists to prevent it. A stalled model: `read --status` exits 1 after 20
-minutes without progress; kill, and the next call closes the stalled run
+exists to prevent it. A stalled model: `read --status` (reading runs
+only; tagging and check runs: the stuck-runs query in section 1) exits 1
+after 20 minutes without progress; kill, and the next call closes the stalled run
 and goes on. Ollama or model update mid-run: do not update; record
 `ollama --version` and the model digests at the start.
 
@@ -598,9 +623,9 @@ and goes on. Ollama or model update mid-run: do not update; record
 
 **Brief.**
 
-> Goal: let `read` and `tag` run over the corpus in a given order. Add
-> `--sources-file` and `--limit` to both commands in
-> `archive/__main__.py`, and write `scripts/reading_order.py`: sources
+> Goal: let `read`, `tag`, `check` and `review prepare` run over the
+> corpus in a given order. Add `--sources-file` and `--limit` to these
+> four commands in `archive/__main__.py`, and write `scripts/reading_order.py`: sources
 > not merged, with passages mostly in the given language, not yet read by
 > both readers with the given prompt; demo-set ids first (a file given
 > with `--first`), then by number of exact matches per 1,000 characters,
@@ -617,8 +642,9 @@ holds only real questions. Serves the network and the review load.
 agreement), `rules.py` (`relations/v1`: ends must be names in the text,
 role lines, bare professions, amendments). The seven rules of the review
 trial are adopted. Open: an own-voice rule for author or publisher
-speaker labels (78 disputes on the test set); 23 publisher disagreements;
-the two test-set conflicts (fr-p42).
+speaker labels (78 disputes on the test set, 46 of them on dev); the two
+test-set conflicts (fr-p42). (The 23 publisher disagreements of the titles
+pass are settled: the old publisher is kept, `docs/TITLES.md`.)
 
 **Needs.** D6 (own-voice rule), D7 (fr-p42). No Mac Studio: rules run on
 stored readings.
@@ -633,8 +659,7 @@ stored readings.
    keep one statement with the canonical label. Recorded as rule
    decisions, like `relations/v1`. Measure on a copy of the dev trial:
    disputes before and after, and the dev score must not fall.
-4. Claude session: the 23 publisher disagreements as review packets.
-5. Speaker lists for recordings without labels: `archive speakers SRC
+4. Speaker lists for recordings without labels: `archive speakers SRC
    --set "Name=host"` for each recording in the demo set first.
 
 **Commands.**
@@ -645,7 +670,9 @@ stored readings.
 .venv/bin/python -m archive review prepare --db COPY --folder data/scratch/q --testset --split dev
 ```
 
-**Gate.** Statement disputes on dev fall by at least 50 of the 78; no dev
+**Gate.** Of the 78 own-voice disputes, 46 are on dev (France 24 40,
+Christian Concern 6; Público's 30 and the APA's 2 are holdout entries, not
+to be looked at by the tuner). Those 46 fall by at least 35; no dev
 expectation lost; every rule decision carries its reason and quote.
 
 **Estimate.** Session 5 h. Sérgio 30 min.
@@ -675,15 +702,16 @@ search, the network filters and the exhibition.
 
 **State.** Built and tried four times on dev (`docs/TAGGING.md`). Not run
 on the real archive. Agreement with tag-v3: actor types 60%, terms 90%,
-clusters 30%, practices 43%, functions 23%. Dev queue: 476 tag packets.
-Built on 16–17 November on branch `fable/tagging-v4`, with unit tests,
-**not yet measured** (details in `docs/TAGGING.md`, "Built, not yet
-measured"). All six are in the branch. Not built: the parliamentary-record
-rule (D22).
+clusters 30%, practices 43%, functions 23%. Dev queue: 476 tag packets
+(404 now that new terms go to the lexicon list, item D). Built on 16–17
+November on branch `fable/tagging-v4`, with unit tests (details in
+`docs/TAGGING.md`, "Built, not yet measured"). Item A was measured on 17
+November (step 1) and changed to `actors/v2`; B to F are not yet
+measured. Not built: the parliamentary-record rule (D22).
 
 | Item | What | Where |
 |---|---|---|
-| A | Actor rules `actors/v1`: an actor type is dropped when its words are only the speaker's name, or name another person, or the Entity Registry says the speaker is the other kind (person against organisation). Registry entry shown in actor packets | `archive/tag.py` `apply_actor_rules`; `tag --rules-only` |
+| A | Actor rules `actors/v2`: an actor type is dropped when its words begin with, or directly follow, another person's name, or the Entity Registry says the speaker is the other kind (person against organisation). Words that are only the speaker's name are counted, not dropped (v1 dropped them; see step 1). Registry entry shown in actor packets | `archive/tag.py` `apply_actor_rules`; `tag --rules-only` |
 | B | Prompt tag-v4 | `prompts/tag-v4.md` |
 | C | The checker asks about practices and excerpts only | `archive/check.py` `SCHEMES`; `check --schemes` for trials |
 | D | New terms leave the queue for a lexicon candidates list | `archive/review.py` `lexicon_candidates`; `review candidates` |
@@ -696,22 +724,37 @@ the rules), D5 (vocabulary). The dev trial copies in `data/scratch`.
 
 **Steps.**
 
-1. Python, no model (10 minutes): measure A alone on the tag-v3 trial.
+1. Done on 17 November: A alone on the tag-v3 trial (Python, no model,
+   seconds). To repeat it, on a fresh copy:
 
    ```bash
+   rm -f data/scratch/tag-dev3-rules.db*
    cp data/scratch/tag-dev3.db data/scratch/tag-dev3-rules.db
-   .venv/bin/python scripts/tagging_report.py --db data/scratch/tag-dev3-rules.db --split dev > data/reports/tagging-v3-before.txt
    .venv/bin/python -m archive tag --db data/scratch/tag-dev3-rules.db --testset --split dev --rules-only
    .venv/bin/python scripts/tagging_report.py --db data/scratch/tag-dev3-rules.db --split dev \
        --calibration data/scratch/review-tags-dev2.db \
        --runs run_cec238c9341b45279d66e61f7685c3dd run_8fdb1b16ff2a484e88784a01193abf01
    ```
 
-   Read: actor agreement per speaker and type (was 60%: 75 both, 14 and
-   36 alone); actor packets in the queue (was 50); of the 15 calibration
-   actor packets, how many of the rejected ones the rules now drop, and
-   whether any confirmed one is dropped (must be none, or explain each).
-2. MS: tag-v4 on a few dev entries first, then the full dev run.
+   Result. `actors/v1` failed the test "no type the calibration reviewers
+   ruled right is dropped": it dropped 115 such tags against 163 ruled
+   wrong, and agreement per speaker fell from 60% to 58%. Its name-only
+   rule refused true types whose words were the name: deputies in the
+   Assemblée nationale report as politicians, Harvest USA as a ministry,
+   The Trevor Project as an advocacy group. The calibration reviewer had
+   proposed flagging these, not refusing them. Its another-person rule
+   matched a name anywhere in the words ("started Strong Support").
+   `actors/v2` drops only role lines that begin with or directly follow
+   another person's name, and counts name-only words (1,178 tags) without
+   refusing them. On the same copy: no tag ruled right is dropped; 155
+   ruled wrong are; actor agreement per tag 55% → 59%, per speaker 60% →
+   60%; statements in held-tag packets 1,812 → 1,628; actor packets 49 →
+   48; dev expectations unchanged (38 agreed; 43 and 43 alone). Two types
+   both taggers gave lose one tagger's copy because its words were about
+   someone else; the other copy goes to review, so neither type is lost.
+2. MS: tag-v4 on a few dev entries first, then the full dev run. (Until
+   S0 step 4 builds `scripts/ms_job.sh`, run the command without it, one
+   job at a time, after `ollama ps` shows nothing loaded.)
 
    ```bash
    cp data/scratch/tag-dev3.db data/scratch/tag-dev4.db
@@ -740,13 +783,15 @@ the rules), D5 (vocabulary). The dev trial copies in `data/scratch`.
 4. Claude session: the agreed-tags sample (item E), on the copy.
 
    ```bash
-   $P -m archive review prepare --db $C --folder data/scratch/sample-dev4 --testset --split dev --sample-agreed 50
+   $P -m archive review prepare --db $C --folder data/scratch/sample-dev4 --testset --split dev --sample-agreed 50 --sample-only
    ```
 
-   Then two or three fresh reviewer sessions, blind, exactly as the
-   calibration did. Give each: `prompts/review-v3.md`, the tagging prompt
-   the packets name, and a list of packet files from
-   `data/scratch/sample-dev4/open/`. Forbid: `keys/`, the database, the
+   `--sample-only` matters: without it the folder also gets the whole dev
+   queue (about 400 packets), and sample packets cannot be told from the
+   others without opening `keys/`. Then two or three fresh reviewer
+   sessions, blind, exactly as the calibration did. Give each:
+   `prompts/review-v3.md`, the tagging prompt the packets name, and a list
+   of packet files from `data/scratch/sample-dev4/open/`. Forbid: `keys/`, the database, the
    code, `docs/`. Each writes verdicts to `verdicts/`. Then once:
    `$P -m archive review apply --db $C --folder data/scratch/sample-dev4`,
    then `$P scripts/tagging_report.py --db $C --split dev --sample-folder
@@ -754,19 +799,19 @@ the rules), D5 (vocabulary). The dev trial copies in `data/scratch`.
 5. Orchestrator: write the numbers into `docs/TAGGING.md` ("Fifth trial")
    and ask Sérgio D4 with the table below filled in.
 
-   | Measure | tag-v3 | tag-v3 + rules | tag-v4 + rules | Wanted |
+   | Measure | tag-v3 | tag-v3 + rules (`actors/v2`, 17 Nov) | tag-v4 + rules | Wanted |
    |---|---|---|---|---|
-   | Actor types agreed (per speaker and type) | 60% | | | ≥ 80% |
-   | Clusters agreed | 30% | | | ≥ 45% |
-   | Practices agreed | 43% | | | ≥ 55% |
-   | Functions agreed | 23% | | | ≥ 35% |
-   | Terms agreed | 90% | | | ≥ 90% |
-   | Dev expectations, agreed view (of 52) | 38 | | | ≥ 40 |
-   | Dev expectations, each tagger alone | 43, 43 | | | ≥ 43 |
-   | Tag packets in the dev queue | 476 | | | ≤ 330 |
-   | Calibration: rejected tags no longer given | – | | | most |
-   | Calibration: confirmed tags lost | – | | | few |
-   | Agreed tags wrong (sample of 50) | not measured | | | ≤ 10% |
+   | Actor types agreed (per speaker and type) | 60% | 60% | | ≥ 80% |
+   | Clusters agreed | 30% | 30% (the rules touch actor types only) | | ≥ 45% |
+   | Practices agreed | 43% | 43% | | ≥ 55% |
+   | Functions agreed | 23% | 23% | | ≥ 35% |
+   | Terms agreed | 90% | 90% | | ≥ 90% |
+   | Dev expectations, agreed view (of 52) | 38 | 38 | | ≥ 40 |
+   | Dev expectations, each tagger alone | 43, 43 | 43, 43 | | ≥ 43 |
+   | Tag packets in the dev queue | 476 (404 with new terms on the list) | 403 (statements in held-tag packets 1,812 → 1,628) | | ≤ 330 |
+   | Calibration: rejected tags no longer given | – | 155 of 305 (actor types: 155 of 237) | | most |
+   | Calibration: confirmed tags lost | – | 0 (`actors/v1`: 115) | | none |
+   | Agreed tags wrong (sample of 50) | not measured | – | | ≤ 10% |
    | Seconds per 1,000 characters (31B, Qwen) | 8.2, 5.7 | – | | not slower |
 
    The "wanted" column is this session's proposal, not a decision.
@@ -774,9 +819,15 @@ the rules), D5 (vocabulary). The dev trial copies in `data/scratch`.
 7. MS: tag wave 1 (demo set), then follow the reading batch by batch.
 
    ```bash
-   scripts/ms_job.sh .venv/bin/python -m archive tag --sources-file data/reports/order-en.txt --limit 500
+   # PROMPT: the tagging prompt Sérgio adopted at D4 (tag-v3 is still the command's default)
+   scripts/ms_job.sh .venv/bin/python -m archive tag --prompt PROMPT --sources-file data/reports/order-en.txt --limit 500
    scripts/ms_job.sh .venv/bin/python -m archive check --sources-file data/reports/order-en.txt --limit 500
    ```
+
+   (`--sources-file` and `--limit` exist after S3 step 1; `ms_job.sh`
+   after S0 step 4. Better still: make the adopted prompt the default in
+   `archive/__main__.py` when D4 is decided, so no bulk command can run the
+   old one.)
 
 **Gate.** To adopt tag-v4: no row of the table worse than tag-v3 beyond
 noise (run-to-run variation is real: repeat one dev entry twice to see
@@ -788,9 +839,10 @@ Portuguese and Spanish; check about 10 h (practices and excerpts only).
 Sessions: 3 h. Sérgio: D4, 20 minutes.
 
 **Risks.** tag-v4 lowers recall (stricter rules make both taggers give
-less): the "each tagger alone" row shows it. The name-only rule drops a
-true type whose only stated evidence is an organisation's descriptive
-name ("… Church"): the calibration comparison shows how often. Agreement
+less): the "each tagger alone" row shows it. tag-v4 asks for the words
+that state a role rather than the name, and allows the name alone only
+for a member speaking in a parliament's own debate; if the 31B or Qwen then gives fewer true actor types, the
+calibration comparison shows it as "right: lost". Agreement
 stays low for functions: then ask Sérgio whether functions are published
 only from the lexicon (proposal 5) for now.
 
@@ -804,7 +856,8 @@ only from the lexicon (proposal 5) for now.
 > `data/archive.db`. Constraints: dev split only (`--split dev` on every
 > command; never print an entry of `evaluation/*.json` whose split is not
 > "dev"); one model job at a time through `scripts/ms_job.sh`; do not
-> edit `prompts/tag-v4.md` after its first run (write tag-v5); model
+> edit `prompts/tag-v4.md` after its first run (write tag-v5; it was last
+> changed on 17 November, before any run); model
 > names stay in `config/models.yaml`. Done when: the table in S5 step 5
 > is filled, `docs/TAGGING.md` has a dated "Fifth trial" section with the
 > numbers and what failed, tests pass, and the question D4 is ready for
@@ -947,7 +1000,7 @@ quote. Serves the 2D network and the WebXR scene.
 
 **State.** Entity Registry v1.1 seeded (people, organisations; a kind and
 a description; entries marked unverified). 974 relations from the test
-set. Relation rules built. No graph export, no co-mention layer, no
+set, of which 354 current (576 superseded by later runs, 44 rejected). Relation rules built. No graph export, no co-mention layer, no
 resolution of readers' entity names to registry entries beyond exact and
 variant matches.
 
@@ -1309,8 +1362,9 @@ support), Sikt. No session can decide this; sessions draft.
    every release honours, a takedown route on the public site.
 5. Licences (D18). The YouTube captions decision recorded in the DMP.
 6. Defender: never change its settings; never restore from quarantine.
-   `verify_objects.py` (S0) lists what it removed; re-fetch or take from
-   backup; tell Sérgio.
+   `verify_objects.py` (S0) lists what it removed; take it from the
+   backup, or list the source for Sérgio. No automatic re-fetch: the same
+   capture is quarantined again (`acquire.py`).
 7. The public repository: D12.
 
 **Gate.** Before any public release or exhibition: the Sikt and UiB
@@ -1379,8 +1433,11 @@ holdout expectation. `undo --run` restores a fixture exactly (tested).
 
 **Estimate.** Sessions 8 h. MS 2 h per holdout run. Sérgio 2 h.
 
-**Risks.** The holdout is public and small (5 and 4 entries): treat its
-score as a smoke test, and Sérgio's weekly sample as the real measure.
+**Risks.** The holdout is public and small: 9 of the 28 entries. The
+five of 10 November have been seen by tuning sessions (`docs/TESTSET.md`),
+so only the four of 12 November are an unseen test, and a session once
+saw three holdout term expectations by mistake (`docs/TAGGING.md`). Treat
+its score as a smoke test, and Sérgio's weekly sample as the real measure.
 
 **Brief.**
 
@@ -1445,7 +1502,7 @@ section 7 (D20). None is assumed here.
 | Gate | What must be true | Target |
 |---|---|---|
 | G0 | Backup restores; job lock; trial copies sorted (S0) | 20 Nov |
-| G1 | Prompts frozen: D1 decided; tag-v4 and the actor rules measured and D4 decided; tag lists reviewed (D5) or frozen as they are; corpus selection built (S3 step 1); holdout run by a non-tuner | 27 Nov |
+| G1 | Prompts frozen: D1 decided; tag-v4 and the actor rules measured and D4 decided; tag lists reviewed (D5) or frozen as they are; corpus selection built (S3 step 1); holdout run by a non-tuner (only its four entries of 12 November are unseen) | 27 Nov |
 | G2 | Demo set read, tagged, checked | 4 Dec |
 | G3 | Demo set reviewed; first weekly samples; error rates per kind | 18 Dec |
 | G4 | WebXR spike runs on the Quest with test-set data (S13 step 2) | 18 Dec |
@@ -1475,8 +1532,8 @@ S15 waits for other people: start it first.
 
 1. **S0**: backup to the destination Sérgio names, `verify_objects`,
    the job lock. Nothing long runs before a backup exists.
-2. **S5 steps 1–5**: measure the actor rules on the tag-v3 trial (no
-   model), then tag-v4 on dev (93 minutes), the check, the queue, the
+2. **S5 steps 2–5** (step 1, the actor rules alone, was done on 17
+   November): tag-v4 on dev (93 minutes), the check, the queue, the
    agreed-tags sample. Bring Sérgio D4 with numbers.
 3. **Send Sérgio the first batch of decisions** (section 7: D1, D2, D3,
    D10, D11, and the governance question of S15 step 1), and start lane
@@ -1513,7 +1570,8 @@ or use `mkdir data/ms.lock.d` as the lock. Ask before installing.)
 Sub-sessions never call `read`, `tag`, `check`, `titles` or an embedding
 job themselves; they hand you the command. Before a job: `ollama ps`
 shows nothing loaded. Long jobs run in `tmux` or under `nohup`, with
-output to `data/reports/`. Check `read --status` twice a day.
+output to `data/reports/`. Check `read --status` and the stuck-runs
+query (section 1) twice a day.
 
 **Trials.** Only on copies in `data/scratch/`, never on
 `data/archive.db`. Name the copy after the trial. Keep the copies a
@@ -1550,7 +1608,7 @@ already made") with the date, in the same commit as the change.
 
 | When | What |
 |---|---|
-| Twice a day | `read --status`; the job log; disk |
+| Twice a day | `read --status`; the stuck-runs query; the job log; disk |
 | Daily | A five-line status in `data/reports/status-DATE.md`: jobs done, failures, queue size, blocked on |
 | Weekly | Backup and restore check; Sérgio's sample (30–50); error rates per kind; this document's statuses; a short report to Sérgio |
 | Before a bulk run | Backup; tests; model digests recorded; prompts frozen |
@@ -1589,10 +1647,10 @@ Ordered by what they block. "Rec." is this session's recommendation.
 
 | # | Decision | Options | Rec. | Blocks |
 |---|---|---|---|---|
-| D1 | The reading prompt for the bulk run | (a) read-v4, the default; (b) read-v5: position on a ban, software sets the stance; (c) read-v6 | **read-v6 if its dev score is not below read-v4's on the automatic checks; else v5.** Stance checks found read-v4 wrong 8 times in 8 on defenders of change efforts, and under option B stance now decides whose word a term is. Its known cost: reference lists read as relations (queue 368 → 505 in `docs/REVIEW.md`); pair it with a rule that drops them. Then one holdout run by a non-tuner | G1, the whole run |
+| D1 | The reading prompt for the bulk run | (a) read-v4, the default; (b) read-v5: position on a ban, software sets the stance; (c) read-v6 | Already measured on dev (`docs/MODELS.md`): automatic-check failures, both readers reconciled, read-v4 3, read-v5 5, read-v6 7 (6 without `fr-p42-no-authorship`); read-v6 was not adopted. So the choice is read-v4, best on the checks, against read-v5, written to fix stance: the stance checks found read-v4 wrong 8 times in 8 on defenders of change efforts, and under option B stance decides whose word a term is. **Rec.: before deciding, compare the stances of those 8 statements in the read-v5 trial copy (`data/scratch/read-v5.db`; Python, no model). If read-v5 gets most of them right, read-v5; if not, read-v4, with stance checks kept in the review queue.** Either way: one holdout run by a non-tuner | G1, the whole run |
 | D2 | Order of the bulk run and the demo set | (a) as queued; (b) demo set of about 300 sources first, then by match density | **(b)**; he picks from a software shortlist | G2 |
 | D3 | The checker | (a) Gemma 4 12B with check-v2, as proposed; (b) none | **(a), on practices and excerpts only** (its cluster flags were false alarms 10 times in 12) | S5 |
-| D4 | Adopt tag-v4 and the actor rules | After the numbers of S5 step 5 | Adopt what the table supports; the actor rules can be adopted alone | G1 |
+| D4 | Adopt tag-v4 and the actor rules | After the numbers of S5 step 5 | The actor rules `actors/v2` are measured (S5 step 1: no right type lost, 155 wrong dropped, a 10% smaller held-tag load, agreement unchanged): adopt them alone now. tag-v4 after its dev run | G1 |
 | D5 | Vocabulary: the actor-type list; where Spiritual Healing, Deliverance and Pastoral Care divide; prayer script against conversion script; ROGD-Frame under two clusters; Recruitment Frame against Pseudo-Diagnostic; is affirming theology that never mentions change efforts a counter-sermon | His rulings, a sentence or two each | Rule on the three practice boundaries first (practices agree 43%); ROGD-Frame under one cluster for tagging, cross-referenced; counter-sermon only when it answers change efforts, as defined | G1 (or freeze as is) |
 | D6 | Own-voice rule in reconcile for author or publisher labels (78 disputes) | (a) build as in S4; (b) leave to review | **(a)**, measured on dev first | Review load |
 | D7 | Test set conflicts: the fr-p42 nested-quote rule; `fr-p42-no-authorship` against the amendment rule | His ruling on what the right reading is | The expectation follows the plan's test case (never ministry authorship); the amendment rule gets an exception for quoted wording | S16 |
@@ -1610,7 +1668,7 @@ Ordered by what they block. "Rec." is this session's recommendation.
 | D19 | The drafted tag expectations; the two "lost with the tactics"; three holdout term expectations under option B | Review; accept the fitting labels | Accept "euphemism, described" and the counselling-rebrand practice as passes; a non-tuner brings him the three holdout ones | S16 |
 | D20 | The bulk review queue (about 230,000 packets) | (a) as decided: everything one by one, however long it takes, bulk items unpublished meanwhile; (b) one by one for relations, actor types, practices and excerpts; clusters and functions from one tagger stay internal until agreement improves; (c) one-tagger tags judged by sample per kind and tagger | **(a) for the demo set now; decide (b) after tag-v4 is measured.** (c) contradicts the calibration (57% right) | After the demo |
 | D21 | Speaker lists for recordings without labels | Per recording, with `archive speakers` | Demo-set recordings first; he names the speakers, a session enters them | S4 |
-| D22 | Parliamentary records: members speaking are "politician or legislator" by rule | Build as a proposal that goes to review; or leave to the taggers | Build after the actor rules are measured, only if actor packets remain many | S5 |
+| D22 | Parliamentary records: members speaking are "politician or legislator" by rule | Build as a proposal that goes to review; or leave to the taggers | The actor rules are measured (S5 step 1): actor packets on dev barely fell (49 → 48) and per-speaker agreement stayed at 60%, so build it, as a proposal that goes to review, measured on dev | S5 |
 | D23 | Functions from the lexicon (proposal 5) | Build; not now | After the demo set | S2 |
 | D24 | Governance: what exists already (Sikt, DMP, ethics) | – | Answer this week; it has the longest waiting time | Every release |
 

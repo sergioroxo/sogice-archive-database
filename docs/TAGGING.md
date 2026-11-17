@@ -820,24 +820,25 @@ database, so each has unit tests only. The measurement, with commands and
 the table to fill, is in `docs/ORCHESTRATION.md` (S5). Nothing here is
 adopted: tag-v3 stays the default prompt until Sérgio decides.
 
-**A. Actor rules (`actors/v1`, software, no model).** `tag.apply_actor_rules`
-rejects an actor type that needs no judgement, before the taggers are
-compared:
+**A. Actor rules (`actors/v2`, software, no model; measured, see "Actor
+rules measured" below).** `tag.apply_actor_rules` rejects an actor type
+that needs no judgement, before the taggers are compared:
 
-- *name only*: the words given are only the speaker's own name or label.
-  A word counts against this when it is a role, profession, title or kind
-  of body (the lists of `archive/rules.py`), so "Exodus president" and
-  "Core Issues Trust" stay;
-- *another person*: the words hold the full name of another speaker of
-  the source, or of a person in the Entity Registry, or follow that name
-  directly ("Dr X, a psychologist"), and say nothing of this speaker.
-  First-person words are never about another;
+- *another person*: the words begin with the full name of another speaker
+  of the source, or of a person in the Entity Registry (after a title of
+  address: "Dr X, a psychologist"), or follow that name directly in the
+  text, and say nothing of this speaker. First-person words are never
+  about another;
 - *registry kind*: the Entity Registry knows the speaker as a person and
   the type is for organisations, or the reverse. Speakers are matched by
   name or variant, the whole label first, then the name before a comma.
 
-Each rejection is a recorded decision by `rule:actors/v1`, with the words
-and the reason, and the run can be undone (`review undo --run`). The rules
+Words that are only the speaker's own name or label are counted
+(`name_only_kept`), not rejected. A word counts against "name only" when
+it is a role, profession, title or kind of body (the lists of
+`archive/rules.py`), so "Exodus president" and "Core Issues Trust" are not
+name-only. Each rejection is a recorded decision by `rule:actors/v2`, with
+the words and the reason, and the run can be undone (`review undo --run`). The rules
 run with tag-v4, with `tag --actor-rules`, or alone on stored tags with
 `tag --rules-only` (no model: measure them on the tag-v3 trial first).
 Actor-type packets now show the speaker's Entity Registry entry, as
@@ -846,7 +847,10 @@ record are politicians (proposal 2); it needs a reliable mark of which
 sources are parliamentary records.
 
 **B. Prompt tag-v4** (`prompts/tag-v4.md`; same lists as tag-v3, not
-longer). What changed: actor words are never the name alone and never
+longer). What changed: actor words are the words that state the role,
+not the name (the name alone only for a member speaking in a
+parliament's own debate; changed on 17 November, before any run, after
+the actor-rule measurement), and never
 about someone else; a practice needs a named or shown method, with
 examples of general mentions; a cluster for a ban needs words that report
 or answer the argument; Policy-Resistance needs a ban in view, and a law
@@ -865,10 +869,62 @@ which taggers proposed it, most widely found first.
 **E. A sample of agreed tags.** `review prepare --sample-agreed N` writes N
 packets (kind `tag_sample`) for random tags both taggers agree on, taken
 in turn from each kind. The packet does not say that the taggers agree.
-Rulings are applied like any other.
+Rulings are applied like any other. Add `--sample-only` and a folder of
+its own, so blind reviewers get the sample and nothing else (17 November;
+without it the folder also holds the whole queue).
 
 **F. One measurement script.** `scripts/tagging_report.py --db COPY --split
 dev` prints agreement per kind (actor types also per speaker and type) and
 the queue by kind; with `--calibration DB --runs …` what became of each
 tag the calibration reviewers ruled on; with `--sample-folder` the error
 rate of agreed tags.
+
+## Actor rules measured (17 November 2026)
+
+Opus on the Mac Studio, on a copy of the tag-v3 trial (`tag-dev3.db`),
+with `tag --rules-only` (no model, about a second) and
+`scripts/tagging_report.py` against the calibration rulings
+(`docs/ORCHESTRATION.md`, S5 step 1).
+
+**`actors/v1` as built failed.** The test was that no actor type the
+calibration reviewers ruled right is dropped. It dropped 278 tags they
+had ruled on: 163 ruled wrong and 115 ruled right. Agreement per speaker
+fell from 60% to 58%. Of its 1,438 rejections, 1,178 came from the
+name-only rule, mostly true types whose words were a name: deputies
+speaking in the Assemblée nationale report as politicians or legislators,
+Harvest USA as a ministry, The Trevor Project as an advocacy group, and a
+survivor whose own account, elsewhere in the source, states what he went
+through. The calibration reviewer had proposed flagging name-only words,
+not refusing the type. The another-person rule matched a name anywhere in
+the words, so a speaker who "started Strong Support" lost the type
+"leader or founder".
+
+**`actors/v2`.** Name-only words are counted, not refused; another person
+counts only when the words begin with that name or directly follow it.
+On a fresh copy of the same trial:
+
+| Measure | tag-v3 | + `actors/v1` | + `actors/v2` |
+|---|---:|---:|---:|
+| Actor tags rejected by the rules | – | 1,438 | 222 |
+| Calibration: ruled right, dropped | – | 115 | 0 |
+| Calibration: ruled wrong, dropped | – | 163 | 155 |
+| Actor types agreed, per tag | 55% | 53% | 59% |
+| Actor types agreed, per speaker and type | 60% | 58% | 60% |
+| Statements in held-tag packets | 1,812 | 1,438 | 1,628 |
+| Actor-type packets | 49 | 38 | 48 |
+| Dev expectations: agreed; each tagger alone | 38; 43, 43 | – | 38; 43, 43 |
+
+Every rejection outside the calibration set was read, and all are about
+someone else: another member's name given as the words, the president of
+an association (Anthony Favier) credited to another speaker, an
+organisation's name ("Strong Support") given as a person's role, a girl
+the speaker talks about. Two types both taggers gave lose one tagger's
+copy this way; the other copy goes to review, so neither type is lost.
+The Registry rule never fired on dev.
+
+**What it means.** The rules are safe and small: about a tenth less of the
+held-tag load, no change in agreement per speaker. They do not reach the
+80% the runbook asks of actor types; that needs tag-v4's wording, the
+parliamentary-record rule (members speaking in a parliament's own record
+are politicians, D22), or both. Proposal: adopt `actors/v2` alone now
+(D4); decide tag-v4 after its dev run.
