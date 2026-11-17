@@ -928,3 +928,98 @@ held-tag load, no change in agreement per speaker. They do not reach the
 parliamentary-record rule (members speaking in a parliament's own record
 are politicians, D22), or both. Proposal: adopt `actors/v2` alone now
 (D4); decide tag-v4 after its dev run.
+
+## Fifth trial: tag-v4 with the actor rules (17 November 2026)
+
+Both taggers with `prompts/tag-v4.md` (as changed on 17 November) on a
+copy of the tag-v3 trial (`tag-dev4.db`), the 19 dev entries, the actor
+rules `actors/v2` before the comparison, then the checker. Commands:
+`docs/ORCHESTRATION.md`, S5 steps 2 and 3. No failures. The tag-v3 column
+is the fourth trial with `actors/v2` applied (see "Actor rules measured").
+
+| Measure | tag-v3 + rules | tag-v4 + rules |
+|---|---:|---:|
+| Actor types agreed, per speaker and type | 60% | 63% |
+| Clusters agreed | 30% | 31% |
+| Practices agreed | 43% | 40% |
+| Functions agreed | 23% | 33% |
+| Terms agreed (mode disputes; on endorsing statements) | 90% (18; 2) | 84% (44; 7) |
+| Dev expectations: agreed view; each tagger alone (of 52) | 38; 43, 43 | 36; 42, 41 |
+| Tag packets in the dev queue | 403 | 347 |
+| Statements in held-tag packets | 1,628 | 1,758 |
+| Calibration, ruled right: now agreed / lost | 12 / 0 | 123 / 43 |
+| Calibration, ruled wrong: no longer given / now agreed | 155 / 2 | 221 / 16 |
+| Minutes for the dev entries (31B, Qwen) | 54.9, 38.3 | 47.8, 34.0 |
+
+The checker (12B, practices and excerpts only) asked about 22 agreed
+items in 42 seconds and flagged 4 (2 practices, 2 excerpts).
+
+**What changed in the dev expectations.** Agreed view: one gained
+(Cohen's actor type), three lost (root-cause theory in Exodus "Moving
+on", Breton on "détrans", the Life Builders deliverance prayer, which the
+31B now calls a conversion script). Each tagger alone lost one or two
+the same way: a neighbouring label or excerpt kind, or Qwen missing
+Justin's testimony. This is within the run-to-run variation seen before.
+
+**Terms.** Most new mode disputes are "Conversion Therapy" in statements
+that criticise, describe or report: option B makes those "describes" by
+the stance, and they never reach the queue. On endorsing statements,
+where the mode counts, disputes rose from 2 to 7 (Ex-Gay, SSA: the 31B
+"uses", Qwen "describes"). tag-v4 shortened the term lines of tag-v3.
+
+**What it means.** tag-v4 trades recall for agreement. It is about 13%
+faster, gives 14% fewer tag packets and moves 123 tags the reviewers had
+ruled right from the queue to agreement. But 16 tags ruled wrong are now
+agreed (published without review), and 43 ruled right are no longer given
+by either tagger: clusters 26, functions 11, practices 6. No actor type
+ruled right is lost. Against the runbook's gate (no row worse beyond
+noise, a smaller queue, the agreed-tag error rate measured), practices
+and terms are worse, the queue is smaller, and the error rate is still
+unmeasured: of the tags that became agreed, about 1 in 9 had been ruled
+wrong (16 of 139), which is the order of error the sample has to settle.
+
+**Proposal (for D4).** Adopt `actors/v2` now, with tag-v3. Before
+deciding on tag-v4, measure the agreed-tag error rate (S5 step 4) on both
+copies, `tag-dev3-rules.db` and `tag-dev4.db`, 50 tags each. If tag-v4's
+is not higher, adopt it with tag-v3's term lines restored (as tag-v5);
+if it is higher, keep tag-v3.
+
+**Agreed tags, sampled (S5 step 4, 17 November).** 50 random agreed tags
+from each copy (10 of each kind, `review prepare --sample-agreed 50
+--sample-only`), shuffled together and judged by three blind Claude
+reviewer sessions with review-v3, then applied (`review apply`).
+
+| Agreed tags wrong | tag-v3 + rules | tag-v4 + rules |
+|---|---:|---:|
+| All | 5 of 50 (10%) | 4 of 49 (8%); 1 to the researcher |
+| Actor types | 3 of 10 | 0 of 10 |
+| Clusters | 1 of 10 | 2 of 10 |
+| Functions | 0 of 10 | 2 of 10 |
+| Practices | 1 of 10 | 0 of 9 |
+| Terms | 0 of 10 | 0 of 10 |
+
+With 50 tags each the two rates do not differ beyond chance; both are at
+the runbook's 10%. The errors differ in kind. Under tag-v3, actor types:
+a member of parliament named without a title, which tag-v3's rules do
+not allow but tag-v4's do (the same tag was ruled wrong under tag-v3 and
+right under tag-v4 by one reviewer, right under both by another: the
+reviewers judge by the rules of the prompt the packet names), and "went
+through change efforts" resting only on "struggled with SSA". Under
+tag-v4: Policy-Resistance given twice without a ban in view (once to the
+defence of a law that orders research into a cure, which tag-v4 itself
+says is not a ban), a general religious maxim as Moral-Purity Frame, and
+Testimonial Marketing for a story that promotes no programme. Unclear in
+the rules: developmental-cause arguments between SSA-Rhetoric and
+Pseudo-Science; whether a residential setting is needed for
+Retreat/Bootcamp (sent to the researcher).
+
+Outside the tags, the reviewers flagged wrong stances again (defenders of
+change efforts marked "criticizes", deputies backing the ban marked
+"endorses") and a host's words credited to the guest in the Davidson
+interview: reading errors, which matter for D1 more than any tag.
+
+**Proposal (for D4), updated.** tag-v4 does not raise the error rate of
+what is published, gives 14% fewer packets and is 13% faster. Adopt its
+direction as tag-v5: tag-v4 with tag-v3's term lines restored and the
+Policy-Resistance line made stricter, then one dev run (about 85
+minutes) and the same report before the bulk run. `actors/v2` now.

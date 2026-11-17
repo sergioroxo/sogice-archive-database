@@ -58,13 +58,15 @@ DEFAULT_SECONDS_PER_1000_CHARS = 15
 # The lists each prompt version tags with. tag-v1 offered the 44 tactics; from tag-v2 the seven clusters
 # (Sérgio, 12 Nov 2026: the tactics overlapped too much to tag reliably).
 PROMPT_LISTS = {"tag-v1": ("tactic", "practice", "function"), "tag-v2": ("cluster", "practice", "function"),
-                "tag-v3": ("cluster", "practice", "function"), "tag-v4": ("cluster", "practice", "function")}
+                "tag-v3": ("cluster", "practice", "function"), "tag-v4": ("cluster", "practice", "function"),
+                "tag-v5": ("cluster", "practice", "function")}
 # tag-v2: up to two actor types per statement (a speaker may state two roles). tag-v3: the same, given once
 # per speaker (software applies them to the speaker's other statements, spread_actor_types).
 # tag-v4: the lists of tag-v3 with stricter wording (docs/TAGGING.md, "Built, not yet measured"); the actor
-# rules (apply_actor_rules) run after it, before the comparison.
+# rules (apply_actor_rules) run after it, before the comparison. tag-v5 (17 Nov): tag-v4 with tag-v3's term rules
+# back and stricter Policy-Resistance and function lines, from the fifth trial's blind sample (docs/TAGGING.md).
 PROMPT_FEATURES = {"tag-v2": frozenset({"actor_list"}), "tag-v3": frozenset({"actor_list"}),
-                   "tag-v4": frozenset({"actor_list", "actor_rules"})}
+                   "tag-v4": frozenset({"actor_list", "actor_rules"}), "tag-v5": frozenset({"actor_list", "actor_rules"})}
 MAX_ACTORS = 2
 # Actor types software can refuse without a model (apply_actor_rules): the words are a role line about someone
 # else, or the Entity Registry says the speaker is the other kind. actors/v1 also refused words that are only the

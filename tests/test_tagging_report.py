@@ -79,3 +79,14 @@ def test_tag_v4_says_what_the_reviewers_found(conn):
                    "A function needs the words that do it", "A general mention", "Never words about someone else"):
         assert phrase in v4
     assert len(v4) <= len(read.load_prompt("tag-v3").text)      # not longer: reading the input is half of a run
+
+
+def test_tag_v5_keeps_v4_and_brings_back_the_term_rules(conn):
+    v5 = read.load_prompt("tag-v5").text
+    for phrase in ("Copy those words, not the name", "Never words about someone else", "A general mention",
+                   "plainly uses it", "never left out", "funds or orders change efforts",
+                   "about sexuality or gender"):
+        assert phrase in v5
+    assert len(v5) <= len(read.load_prompt("tag-v3").text)      # not longer: reading the input is half of a run
+    assert tag.PROMPT_LISTS["tag-v5"] == tag.PROMPT_LISTS["tag-v4"]
+    assert "actor_rules" in tag.PROMPT_FEATURES["tag-v5"]

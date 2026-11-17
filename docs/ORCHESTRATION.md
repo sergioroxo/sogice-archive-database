@@ -266,6 +266,12 @@ archive links named people to sexual orientation and religion: special
 categories under GDPR article 9. "Public testimony with attribution" is a
 research decision, not yet a legal basis on paper. It may exist outside the
 repository; if not, it gates every public release and the demo (S15).
+*Answered by Sérgio on 17 November (D24):* the project has an approval in
+RETTE (UiB); under the NESH guidelines publicly available material is
+expected to be usable, and the archive is not used to analyse the
+material for quantitative or qualitative research. What the repository
+still lacks is the practical part: the flags, suppression and takedown
+route below (S15 steps 4–5).
 
 **9. Tagging: the method is sound; the agreement is too low to run on the
 corpus yet.** Measured on dev with tag-v3: clusters 30%, practices 43%,
@@ -706,8 +712,9 @@ clusters 30%, practices 43%, functions 23%. Dev queue: 476 tag packets
 (404 now that new terms go to the lexicon list, item D). Built on 16–17
 November on branch `fable/tagging-v4`, with unit tests (details in
 `docs/TAGGING.md`, "Built, not yet measured"). Item A was measured on 17
-November (step 1) and changed to `actors/v2`; B to F are not yet
-measured. Not built: the parliamentary-record rule (D22).
+November (step 1) and changed to `actors/v2`; B (tag-v4) was measured
+the same day (steps 2 to 4, `docs/TAGGING.md` "Fifth trial"),
+including the agreed-tag sample on both prompts. Not built: the parliamentary-record rule (D22).
 
 | Item | What | Where |
 |---|---|---|
@@ -799,20 +806,22 @@ the rules), D5 (vocabulary). The dev trial copies in `data/scratch`.
 5. Orchestrator: write the numbers into `docs/TAGGING.md` ("Fifth trial")
    and ask Sérgio D4 with the table below filled in.
 
-   | Measure | tag-v3 | tag-v3 + rules (`actors/v2`, 17 Nov) | tag-v4 + rules | Wanted |
+   | Measure | tag-v3 | tag-v3 + rules (`actors/v2`, 17 Nov) | tag-v4 + rules (17 Nov) | Wanted |
    |---|---|---|---|---|
-   | Actor types agreed (per speaker and type) | 60% | 60% | | ≥ 80% |
-   | Clusters agreed | 30% | 30% (the rules touch actor types only) | | ≥ 45% |
-   | Practices agreed | 43% | 43% | | ≥ 55% |
-   | Functions agreed | 23% | 23% | | ≥ 35% |
-   | Terms agreed | 90% | 90% | | ≥ 90% |
-   | Dev expectations, agreed view (of 52) | 38 | 38 | | ≥ 40 |
-   | Dev expectations, each tagger alone | 43, 43 | 43, 43 | | ≥ 43 |
-   | Tag packets in the dev queue | 476 (404 with new terms on the list) | 403 (statements in held-tag packets 1,812 → 1,628) | | ≤ 330 |
-   | Calibration: rejected tags no longer given | – | 155 of 305 (actor types: 155 of 237) | | most |
-   | Calibration: confirmed tags lost | – | 0 (`actors/v1`: 115) | | none |
-   | Agreed tags wrong (sample of 50) | not measured | – | | ≤ 10% |
-   | Seconds per 1,000 characters (31B, Qwen) | 8.2, 5.7 | – | | not slower |
+   | Actor types agreed (per speaker and type) | 60% | 60% | 63% | ≥ 80% |
+   | Clusters agreed | 30% | 30% (the rules touch actor types only) | 31% | ≥ 45% |
+   | Practices agreed | 43% | 43% | 40% | ≥ 55% |
+   | Functions agreed | 23% | 23% | 33% | ≥ 35% |
+   | Terms agreed | 90% | 90% (disputes on endorsing statements: 2) | 84% (on endorsing statements: 7) | ≥ 90% |
+   | Dev expectations, agreed view (of 52) | 38 | 38 | 36 | ≥ 40 |
+   | Dev expectations, each tagger alone | 43, 43 | 43, 43 | 42, 41 | ≥ 43 |
+   | Tag packets in the dev queue | 476 (404 with new terms on the list) | 403 (statements in held-tag packets 1,812 → 1,628) | 347 (statements 1,758) | ≤ 330 |
+   | Calibration: rejected tags no longer given | – | 155 of 305 (actor types: 155 of 237) | 221 of 307; 16 now agreed | most |
+   | Calibration: confirmed tags lost | – | 0 (`actors/v1`: 115) | 43 (clusters 26, functions 11, practices 6); 123 now agreed | none |
+   | Agreed tags wrong (sample of 50, blind) | not measured | 10% (5 of 50) | 8% (4 of 49) | ≤ 10% |
+   | Seconds per 1,000 characters (31B, Qwen) | 8.2, 5.7 | – | about 7.1, 5.1 | not slower |
+
+   Details and what changed: `docs/TAGGING.md`, "Fifth trial".
 
    The "wanted" column is this session's proposal, not a decision.
 6. If adopted: a session that did not tune runs the holdout once (S16).
@@ -1341,15 +1350,19 @@ metadata and short quotes open; excerpt text restricted (D18).
 **Goal.** The project may lawfully and decently hold and publish what it
 publishes. Serves every release and the demo.
 
-**State.** Nothing in the repository (finding 8). Possibly handled
-outside it; ask Sérgio first.
+**State.** Approved outside the repository: RETTE (UiB), with the NESH
+guidelines on publicly available material (Sérgio, 17 November). Nothing
+of it in the repository yet: no data management plan text, no flags on
+`entity`, no suppression or takedown route.
 
 **Needs.** Sérgio, UiB (data protection officer, research data
 support), Sikt. No session can decide this; sessions draft.
 
 **Steps.**
 
-1. Sérgio: what exists already: Sikt notification? DMP? ethics advice?
+1. Done (17 November): RETTE approval; NESH guidelines. Sérgio: put the
+   RETTE reference (number, date, what it covers) where sessions can cite
+   it, e.g. a line in `docs/PLAN.md`.
 2. Claude session: draft a data management plan from the repository:
    what is collected, from where, how stored, who has access, what is
    published, retention, backups. He edits and submits.
@@ -1367,9 +1380,9 @@ support), Sikt. No session can decide this; sessions draft.
    capture is quarantined again (`acquire.py`).
 7. The public repository: D12.
 
-**Gate.** Before any public release or exhibition: the Sikt and UiB
-answers are on file; the suppression list is honoured by a test; the
-takedown route exists.
+**Gate.** Before any public release or exhibition: the RETTE reference is
+on file; the suppression list is honoured by a test; the takedown route
+exists.
 
 **Estimate.** Sessions 6 h of drafting. Sérgio 8–12 h, with waiting
 time at UiB and Sikt: start in November.
@@ -1532,9 +1545,8 @@ S15 waits for other people: start it first.
 
 1. **S0**: backup to the destination Sérgio names, `verify_objects`,
    the job lock. Nothing long runs before a backup exists.
-2. **S5 steps 2–5** (step 1, the actor rules alone, was done on 17
-   November): tag-v4 on dev (93 minutes), the check, the queue, the
-   agreed-tags sample. Bring Sérgio D4 with numbers.
+2. **S5 step 5** (steps 1–4 were done on 17 November): Sérgio's D4;
+   if he chooses tag-v5, write it and run it once on dev.
 3. **Send Sérgio the first batch of decisions** (section 7: D1, D2, D3,
    D10, D11, and the governance question of S15 step 1), and start lane
    B with S3 step 1 (corpus selection) and S14 (release selection).
@@ -1650,7 +1662,7 @@ Ordered by what they block. "Rec." is this session's recommendation.
 | D1 | The reading prompt for the bulk run | (a) read-v4, the default; (b) read-v5: position on a ban, software sets the stance; (c) read-v6 | Already measured on dev (`docs/MODELS.md`): automatic-check failures, both readers reconciled, read-v4 3, read-v5 5, read-v6 7 (6 without `fr-p42-no-authorship`); read-v6 was not adopted. So the choice is read-v4, best on the checks, against read-v5, written to fix stance: the stance checks found read-v4 wrong 8 times in 8 on defenders of change efforts, and under option B stance decides whose word a term is. **Rec.: before deciding, compare the stances of those 8 statements in the read-v5 trial copy (`data/scratch/read-v5.db`; Python, no model). If read-v5 gets most of them right, read-v5; if not, read-v4, with stance checks kept in the review queue.** Either way: one holdout run by a non-tuner | G1, the whole run |
 | D2 | Order of the bulk run and the demo set | (a) as queued; (b) demo set of about 300 sources first, then by match density | **(b)**; he picks from a software shortlist | G2 |
 | D3 | The checker | (a) Gemma 4 12B with check-v2, as proposed; (b) none | **(a), on practices and excerpts only** (its cluster flags were false alarms 10 times in 12) | S5 |
-| D4 | Adopt tag-v4 and the actor rules | After the numbers of S5 step 5 | The actor rules `actors/v2` are measured (S5 step 1: no right type lost, 155 wrong dropped, a 10% smaller held-tag load, agreement unchanged): adopt them alone now. tag-v4 after its dev run | G1 |
+| D4 | Adopt tag-v4 and the actor rules | After the numbers of S5 step 5 | The actor rules `actors/v2` are measured (S5 step 1: no right type lost, 155 wrong dropped, a 10% smaller held-tag load, agreement unchanged): adopt them alone now. tag-v4 is measured (S5 steps 2–3): 14% fewer packets and 123 tags ruled right now agreed, but 43 ruled right lost and 16 ruled wrong now agreed. The agreed-tag error rate is measured (step 4, blind, 50 each): tag-v3 10%, tag-v4 8%, no real difference. So: tag-v5 = tag-v4 with tag-v3's term lines and a stricter Policy-Resistance line, one dev run, then freeze | G1 |
 | D5 | Vocabulary: the actor-type list; where Spiritual Healing, Deliverance and Pastoral Care divide; prayer script against conversion script; ROGD-Frame under two clusters; Recruitment Frame against Pseudo-Diagnostic; is affirming theology that never mentions change efforts a counter-sermon | His rulings, a sentence or two each | Rule on the three practice boundaries first (practices agree 43%); ROGD-Frame under one cluster for tagging, cross-referenced; counter-sermon only when it answers change efforts, as defined | G1 (or freeze as is) |
 | D6 | Own-voice rule in reconcile for author or publisher labels (78 disputes) | (a) build as in S4; (b) leave to review | **(a)**, measured on dev first | Review load |
 | D7 | Test set conflicts: the fr-p42 nested-quote rule; `fr-p42-no-authorship` against the amendment rule | His ruling on what the right reading is | The expectation follows the plan's test case (never ministry authorship); the amendment rule gets an exception for quoted wording | S16 |
@@ -1670,7 +1682,7 @@ Ordered by what they block. "Rec." is this session's recommendation.
 | D21 | Speaker lists for recordings without labels | Per recording, with `archive speakers` | Demo-set recordings first; he names the speakers, a session enters them | S4 |
 | D22 | Parliamentary records: members speaking are "politician or legislator" by rule | Build as a proposal that goes to review; or leave to the taggers | The actor rules are measured (S5 step 1): actor packets on dev barely fell (49 → 48) and per-speaker agreement stayed at 60%, so build it, as a proposal that goes to review, measured on dev | S5 |
 | D23 | Functions from the lexicon (proposal 5) | Build; not now | After the demo set | S2 |
-| D24 | Governance: what exists already (Sikt, DMP, ethics) | – | Answer this week; it has the longest waiting time | Every release |
+| D24 | Governance: what exists already (Sikt, DMP, ethics) | – | **Answered 17 Nov:** RETTE approval (UiB); NESH guidelines on publicly available material; no quantitative or qualitative analysis of the material. Left: the RETTE reference on file, and S15 steps 4–5 | Every release |
 
 ---
 
