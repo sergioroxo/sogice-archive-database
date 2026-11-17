@@ -4,7 +4,9 @@ What the two taggers agree on is checked by a model that tagged nothing:
 
 - every excerpt both taggers kept (testimony, prayer script, conversion script, course structure,
   counter-sermon);
-- every agreed "uses" tag of a cluster or a practice: what someone argues, or does first-hand.
+- every agreed "uses" tag of a practice: what someone does first-hand. Clusters are no longer checked by
+  default: in the calibration review the check's flags on agreed clusters were false alarms 10 times in 12
+  (docs/TAGGING.md). ``schemes`` (``check --schemes cluster practice``) asks about them again, for trials.
 
 A trial can also ask about what only one tagger gave (``held=True``), to see whether the check could settle
 those instead of the review queue, or about chosen records of any kind (``only``: tags of a cluster, practice,
@@ -43,7 +45,8 @@ from .tag import EXCERPT_KINDS
 
 DEFAULT_PROMPT = "check-v2"   # since the dev trial (docs/TAGGING.md); check-v3 (any kind and mode) for trials
 JOB = "check"
-SCHEMES = ("cluster", "practice")
+SCHEMES = ("practice",)   # until 16 Nov 2026 also "cluster" (TRIAL_SCHEMES)
+TRIAL_SCHEMES = ("cluster", "practice", "tactic")
 MAX_WORDS_CHARS = 400
 CONTEXT_CHARS = 1500
 CONTEXT_PROMPTS = {"check-v2", "check-v3"}   # these prompts also show the source title and the passage around a statement
@@ -61,7 +64,8 @@ SCHEMA = {"type": "object", "additionalProperties": False, "required": ["answer"
                          "words": {"type": "string"}, "reason": {"type": "string"}}}
 
 
-def items_to_check(conn: sqlite3.Connection, source_ids: list[str], *, held: bool = False) -> list[dict]:
+def items_to_check(conn: sqlite3.Connection, source_ids: list[str], *, held: bool = False,
+                   schemes: tuple = SCHEMES) -> list[dict]:
     """The agreed items to check: the kept copy of each (the other tagger's is superseded).
 
     ``held`` adds what only one tagger gave (a trial: could the check settle those?).
@@ -78,9 +82,9 @@ def items_to_check(conn: sqlite3.Connection, source_ids: list[str], *, held: boo
                 JOIN concept c ON c.id = g.concept_id JOIN usage u ON u.id = g.usage_id
                 JOIN passage p ON p.id = u.passage_id JOIN source src ON src.id = a.source_id
                 WHERE {which} AND g.review_state NOT IN ('superseded', 'rejected')
-                  AND g.mode = 'uses' AND c.scheme IN ({','.join('?' for _ in SCHEMES)})
+                  AND g.mode = 'uses' AND c.scheme IN ({','.join('?' for _ in schemes)})
                   AND a.source_id IN ({marks}) ORDER BY a.confidence DESC, a.source_id, g.id""",
-            (*confidences, *SCHEMES, *source_ids)):
+            (*confidences, *schemes, *source_ids)):
         items.append({"table": "tag", "id": r["id"], "source_id": r["source_id"], "kind": r["scheme"],
                       "held": r["confidence"] != "two_readers_agree",
                       "concept_id": r["concept_id"], "usage_id": r["usage_id"], "label": r["pref_label"],
@@ -223,18 +227,18 @@ def verdict(item: dict, data) -> tuple[str, str | None]:
 
 
 def check(conn: sqlite3.Connection, client, role, source_ids: list[str], *, prompt: read.Prompt | None = None,
-          decoys: bool = False, held: bool = False, only: dict | None = None,
+          decoys: bool = False, held: bool = False, only: dict | None = None, schemes: tuple = SCHEMES,
           log: Callable[[str], None] = lambda _: None) -> dict:
     """Check the agreed items of these sources (or the ``only`` records) with one model. Returns counts and
     every answer."""
     conn.row_factory = sqlite3.Row
     prompt = prompt or read.load_prompt(DEFAULT_PROMPT)
     items = (items_by_id(conn, only.get("tag", []), only.get("asset", [])) if only
-             else items_to_check(conn, source_ids, held=held))
+             else items_to_check(conn, source_ids, held=held, schemes=tuple(schemes)))
     source_ids = sorted({i["source_id"] for i in items}) if only else source_ids
     run_id = f"run_{uuid.uuid4().hex}"
     inputs = {"job": JOB, "sources": sorted(source_ids), "items": len(items), "decoys": decoys, "held": held,
-              "prompt_sha256": prompt.sha256}
+              "schemes": list(schemes), "prompt_sha256": prompt.sha256}
     with conn:
         conn.execute("INSERT INTO run(id, role, model, prompt_version, inputs, started_at) VALUES (?, 'audit', ?, ?, ?, ?)",
                      (run_id, role.model, prompt.version, canonical_json(inputs), utc_now()))

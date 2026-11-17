@@ -106,3 +106,17 @@ def test_chosen_records_of_any_kind_and_mode_can_be_checked(conn):
                          only={"tag": [euphemism]})
     assert result["counts"] == {"held_function:pass": 1} and result["answers"][0]["mode"] == "uses"
     assert "A tagger gave the label below" in client.calls[0]["messages"][0]["content"]
+
+
+def test_only_practices_and_excerpts_are_checked_unless_a_trial_asks_for_clusters(conn):
+    _tag_and_compare(conn)
+    assert check.SCHEMES == ("practice",)
+    with conn:   # the agreed "uses" tag as a cluster: the calibration found the check's cluster flags unreliable
+        conn.execute("UPDATE concept SET scheme = 'cluster' WHERE id = 'practice:spiritual-healing'")
+    assert [(i["table"], i["label"]) for i in check.items_to_check(conn, [SID])] == [("asset", "testimony")]
+    asked = check.items_to_check(conn, [SID], schemes=("cluster", "practice"))
+    assert [(i["kind"], i["label"]) for i in asked] == [("cluster", "Spiritual Healing"), ("excerpt", "testimony")]
+    result = check.check(conn, FakeClient([{"answer": "yes", "words": "I prayed every night", "reason": "r"}]),
+                         CHECKER, [SID])
+    assert result["items"] == 1 and result["counts"] == {"excerpt:pass": 1}
+    assert json.loads(conn.execute("SELECT inputs FROM run WHERE role = 'audit'").fetchone()[0])["schemes"] == ["practice"]

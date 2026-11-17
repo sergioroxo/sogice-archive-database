@@ -21,7 +21,11 @@ two taggers have not settled is reviewed one by one (Sérgio, 12 Nov 2026):
   got with that type in the source.
 - **tag_checked**: both taggers agree, but the checker (a third model) said the statement does not show it,
   or a stance check upheld a "criticizes" that the tag contradicts.
-- **excerpt_held**, **excerpt_checked**: the same for excerpts and new terms.
+- **excerpt_held**, **excerpt_checked**: the same for excerpts. New terms are not reviewed here: they are
+  proposals for the lexicon, never published as entries, and go to a list for Sérgio (``lexicon_candidates``,
+  written to ``lexicon_candidates.json`` in the queue folder; docs/TAGGING.md proposal 2).
+- **tag_sample**: a random tag both taggers agree on (``prepare(sample_agreed=N)``), asked without saying so,
+  to measure the error rate of what is published without review.
 - **stance_check**: both taggers say a statement makes an argument only a defender of change efforts makes
   (PRO_CHANGE_CLUSTERS) and both readers marked it "criticizes": the statement's stance is reviewed first.
 
@@ -68,8 +72,9 @@ from .testset import norm
 
 PROMPT = "review-v3"
 KINDS = ("statement_dispute", "relation_dispute", "relation_held", "tag_dispute", "tag_held", "tag_checked",
-         "excerpt_held", "excerpt_checked", "stance_check")
-SINGLE = ("relation_held", "tag_held", "tag_checked", "excerpt_held", "excerpt_checked", "stance_check")   # one: A
+         "excerpt_held", "excerpt_checked", "stance_check", "tag_sample")
+SINGLE = ("relation_held", "tag_held", "tag_checked", "excerpt_held", "excerpt_checked", "stance_check",
+          "tag_sample")   # one: A
 # Clusters only a speaker who defends change efforts argues (prompts/tag-v3.md: a cluster is an argument for change
 # efforts or against a ban). Anti-Gender, Anti-Trans/ROGD and Pro-Trans-SOGICE are left out: critics of change
 # efforts for LGB people can argue them. Both taggers giving one of these as "uses" on a statement the readers
@@ -280,7 +285,8 @@ def tag_issues(conn: sqlite3.Connection, source_ids: list[str] | None = None) ->
     for row in conn.execute(
             f"""SELECT x.*, a.confidence FROM asset x JOIN assessment a ON a.target_table = 'asset'
                 AND a.target_id = x.id AND a.current = 1
-                WHERE x.review_state = 'proposed'{where} ORDER BY a.source_id, x.id""", args):
+                WHERE x.review_state = 'proposed' AND x.kind <> 'new_term'{where}
+                ORDER BY a.source_id, x.id""", args):
         rec = dict(row)
         confidence = rec.pop("confidence")
         if confidence in HELD_CONFIDENCE:
@@ -289,6 +295,94 @@ def tag_issues(conn: sqlite3.Connection, source_ids: list[str] | None = None) ->
             issues.append(Issue(issue_id([rec["id"]]), "excerpt_checked", "asset", rec["source_id"], [rec],
                                 confidence))
     return issues
+
+
+CANDIDATES = "lexicon_candidates.json"
+
+
+def lexicon_candidates(conn: sqlite3.Connection, source_ids: list[str] | None = None) -> list[dict]:
+    """New terms the taggers proposed, one entry per term: where, in which words, and which taggers gave it.
+
+    They are proposals for the lexicon (never entries, never published), so they wait for Sérgio on a list
+    instead of going through the review queue. Most often proposed first.
+    """
+    from .seeds import normalize_label
+    conn.row_factory = sqlite3.Row
+    where, args = _source_filter(source_ids)
+    terms: dict = {}
+    for r in conn.execute(
+            f"""SELECT x.id, x.label, x.text, x.source_id, x.review_state, a.confidence, a.proposed_by,
+                       s.title, s.url, s.archive_url,
+                       (SELECT d.quote FROM decision d WHERE d.target_table = 'asset' AND d.target_id = x.id
+                        AND d.action = 'propose' ORDER BY d.seq LIMIT 1) AS context
+                FROM asset x JOIN assessment a ON a.target_table = 'asset' AND a.target_id = x.id AND a.current = 1
+                JOIN source s ON s.id = x.source_id
+                WHERE x.kind = 'new_term' AND x.review_state IN ('proposed', 'confirmed'){where}
+                ORDER BY a.source_id, x.char_start, x.id""", args):
+        label = r["label"] or r["text"]
+        entry = terms.setdefault(normalize_label(label), {"term": label, "sources": 0, "both_taggers": 0, "found": []})
+        taggers = json.loads(r["proposed_by"] or "[]")
+        entry["found"].append({"asset_id": r["id"], "as_printed": label, "quote": r["context"] or label,
+                               "source_id": r["source_id"], "title": r["title"], "url": r["url"],
+                               "archive_url": r["archive_url"], "taggers": taggers})
+        entry["both_taggers"] += len(taggers) > 1
+    for entry in terms.values():
+        entry["sources"] = len({f["source_id"] for f in entry["found"]})
+    return sorted(terms.values(), key=lambda e: (-e["sources"], -e["both_taggers"], e["term"].casefold()))
+
+
+def write_candidates(conn: sqlite3.Connection, source_ids: list[str] | None = None, *, base: Path | None = None) -> list[dict]:
+    found = lexicon_candidates(conn, source_ids)
+    (folder(base) / CANDIDATES).write_text(json.dumps(found, indent=1, ensure_ascii=False), encoding="utf-8")
+    return found
+
+
+def sample_issues(conn: sqlite3.Connection, n: int, source_ids: list[str] | None = None, *, seed: int = 0) -> list[Issue]:
+    """``n`` random tags both taggers agree on and nobody has ruled on, as issues of kind ``tag_sample``.
+
+    These are published without review, so their error rate is the one that reaches the public. Taken in turn
+    from each kind of tag (actor type, cluster, practice, function, and terms in endorsing statements), so
+    every kind is measured; an actor type counts once per speaker and source (the statement where it is stated).
+    """
+    from .tag import _speaker_key
+    where, args = _source_filter(source_ids)
+    by_scheme: dict = {}
+    seen_actor = set()
+    for row in conn.execute(
+            f"""SELECT t.*, a.source_id, a.confidence, c.scheme, u.speaker AS _speaker
+                FROM tag t JOIN assessment a ON a.target_table = 'tag' AND a.target_id = t.id AND a.current = 1
+                JOIN concept c ON c.id = t.concept_id JOIN usage u ON u.id = t.usage_id
+                WHERE t.review_state = 'proposed' AND a.confidence = 'two_readers_agree'
+                  AND u.review_state IN ('proposed', 'confirmed')
+                  AND NOT (c.scheme = 'term' AND u.stance <> 'endorses'){where}
+                ORDER BY a.source_id, (t.cue IS NULL), t.created_at, t.id""", args):
+        rec = dict(row)
+        sid = rec.pop("source_id")
+        rec.pop("confidence")
+        if _settled_by_reviewer(conn, rec["id"]):
+            continue
+        if rec["scheme"] == "actor_type":
+            key = (sid, _speaker_key(rec["_speaker"]) or rec["usage_id"], rec["concept_id"])
+            if key in seen_actor:
+                continue
+            seen_actor.add(key)
+        by_scheme.setdefault(rec["scheme"], []).append((sid, rec))
+    rng = random.Random(f"sample:{seed}")
+    for rows in by_scheme.values():
+        rng.shuffle(rows)
+    picked = []
+    while len(picked) < n and any(by_scheme.values()):
+        for scheme in sorted(by_scheme):
+            if by_scheme[scheme] and len(picked) < n:
+                picked.append(by_scheme[scheme].pop())
+    issues = [Issue(issue_id([rec["id"], "tag_sample"]), "tag_sample", "tag", sid, [rec], "two_readers_agree", priority=4)
+              for sid, rec in picked]
+    return issues
+
+
+def _settled_by_reviewer(conn: sqlite3.Connection, tag_id: str) -> bool:
+    from .tag import _settled
+    return _settled(conn, "tag", tag_id)
 
 
 # --------------------------------------------------------------------------- packets
@@ -437,6 +531,8 @@ TAG_QUESTIONS = {
     "actor_held": "Only one tagger gave this speaker this type. Does the text state that the speaker is this (A), "
                   "or not (neither); or needs_researcher? The ruling applies to each of the speaker's statements "
                   "listed.",
+    "tag_sample": "Does the statement show this label, in this mode (A); not at all, or in the other mode or under "
+                  "another label (neither, with `correct`); or needs_researcher?",
     "tag_checked": "Both taggers gave this label; a check flagged it. Does the statement show it, in this mode (A); "
                    "not at all, or in the other mode (neither, with `correct` for the mode); or needs_researcher?",
     "excerpt_held": "Only one tagger marked this. Is it a {kind}, as marked (A); not (neither; with `correct` when "
@@ -527,7 +623,8 @@ def _render_tag(conn: sqlite3.Connection, issue: Issue) -> tuple[str, list[str],
     grouped = len(statements) > 1
     question = TAG_QUESTIONS["actor_held" if actor and issue.kind == "tag_held" else
                              "group_held" if grouped else issue.kind]
-    lines = [f"# Review {issue.id}", "", f"Kind: {issue.kind.replace('_', ' ')}",
+    shown_kind = "tag check" if issue.kind == "tag_sample" else issue.kind.replace("_", " ")   # a sample is not named
+    lines = [f"# Review {issue.id}", "", f"Kind: {shown_kind}",
              f"Tagging rules: {', '.join(f'prompts/{v}.md' for v in prompts) or 'see prompts/'}", "",
              f"**Question.** {question}", "", "## Source", "", source_header(conn, issue.source_id), ""]
     if actor:
@@ -703,10 +800,17 @@ def render(conn: sqlite3.Connection, issue: Issue) -> tuple[str, list[str], list
 
 
 def prepare(conn: sqlite3.Connection, source_ids: list[str] | None = None, *, base: Path | None = None,
-            seed: int = 0) -> dict:
-    """Write packets for open issues; drop packets whose issue is gone. Idempotent."""
+            seed: int = 0, sample_agreed: int = 0) -> dict:
+    """Write packets for open issues; drop packets whose issue is gone. Idempotent.
+
+    ``sample_agreed``: also write that many packets for random tags both taggers agree on (``sample_issues``).
+    Sample packets already written are kept by later calls, whatever their arguments.
+    """
     root = folder(base)
     issues = find_issues(conn, source_ids)
+    if sample_agreed:
+        issues += sample_issues(conn, sample_agreed, source_ids, seed=seed)
+    candidates = write_candidates(conn, source_ids, base=root)
     current = {i.id for i in issues}
     closed = {p.stem.split("-", 1)[1] for d in ("done", "researcher") for p in (root / d).glob("*.md")}
     existing = {p.stem.split("-", 1)[1]: p for p in (root / "open").glob("*.md")}
@@ -716,6 +820,8 @@ def prepare(conn: sqlite3.Connection, source_ids: list[str] | None = None, *, ba
         key_path = root / "keys" / f"{iid}.json"
         key = json.loads(key_path.read_text()) if key_path.exists() else {}
         in_scope = not scope or key.get("source_id") in scope
+        if key.get("kind") == "tag_sample":   # a drawn sample stays until it is ruled on
+            continue
         if iid not in current and in_scope and not (root / "verdicts" / f"{iid}.json").exists():
             path.unlink()
             key_path.unlink(missing_ok=True)
@@ -747,7 +853,7 @@ def prepare(conn: sqlite3.Connection, source_ids: list[str] | None = None, *, ba
         (root / "keys" / f"{issue.id}.json").write_text(json.dumps(key, indent=1), encoding="utf-8")
         written[issue.kind] += 1
     return {"issues": len(issues), "written": dict(written), "dropped": dropped,
-            "open": len(list((root / "open").glob("*.md")))}
+            "open": len(list((root / "open").glob("*.md"))), "lexicon_candidates": len(candidates)}
 
 
 def _model_of(conn: sqlite3.Connection, table: str, record_id: str) -> str | None:

@@ -188,3 +188,45 @@ def test_an_agreed_pro_change_argument_on_a_critical_statement_sends_the_stance_
     review.prepare(conn, base=queue)
     flagged = [k for k in _keys(queue, "tag_checked")]
     assert len(flagged) == 1 and _concept(conn, flagged[0]) == "cluster:policy-resistance"
+
+
+def test_new_terms_go_to_a_lexicon_list_not_to_the_queue(conn, tmp_path):
+    second = second_reply()
+    second["new_terms"] = []                       # only one tagger proposes the term now
+    tag.tag_sources(conn, FakeClient([first_reply()]), FIRST, [SID], primary_model="reader-a", prompt=V1)
+    tag.tag_sources(conn, FakeClient([second]), SECOND, [SID], primary_model="reader-a", prompt=V1)
+    tag.compare(conn, [SID], primary_model="tagger-a", second_model="tagger-b")
+    queue = tmp_path / "review"
+    result = review.prepare(conn, base=queue)
+    assert result["lexicon_candidates"] == 1
+    assert not any(k.get("asset_kind") == "new_term" for k in _keys(queue))     # no packet for it
+    listed = json.loads((queue / review.CANDIDATES).read_text())
+    assert [c["term"] for c in listed] == ["SSA coaching"] and listed[0]["sources"] == 1
+    found = listed[0]["found"][0]
+    assert found["quote"] == "The group used SSA coaching." and found["taggers"] == ["tagger-a"]
+    assert found["source_id"] == SID and found["url"] == "https://example.org/a"
+    # proposed by both: still one entry, marked as given by both taggers
+    tag.tag_sources(conn, FakeClient([second_reply()]), SECOND, [SID], primary_model="reader-a", prompt=V1, again=True)
+    tag.compare(conn, [SID], primary_model="tagger-a", second_model="tagger-b")
+    both = review.lexicon_candidates(conn)
+    assert len(both) == 1 and both[0]["both_taggers"] == 1 and both[0]["found"][0]["taggers"] == ["tagger-a", "tagger-b"]
+
+
+def test_a_sample_of_agreed_tags_is_asked_blind_and_ruled_on_like_any_packet(conn, tmp_path):
+    _tagged_and_checked(conn, healing="yes", testimony="yes")
+    queue = tmp_path / "review"
+    assert "tag_sample" not in review.prepare(conn, base=queue)["written"]       # never without asking
+    written = review.prepare(conn, base=queue, sample_agreed=5, seed=3)["written"]
+    assert written == {"tag_sample": 1}        # the agreed practice; terms the stance settles are not sampled
+    key = _keys(queue, "tag_sample")[0]
+    packet = next((queue / "open").glob(f"*-{key['issue']}.md")).read_text()
+    assert "Kind: tag check" in packet and "sample" not in packet and "Both taggers" not in packet
+    assert "**Spiritual Healing**" in packet and "Other labels of this kind" in packet
+    assert review.prepare(conn, base=queue)["dropped"] == 0                      # a later prepare keeps the sample
+    assert review.prepare(conn, base=queue, sample_agreed=5, seed=3)["written"] == {}
+    _verdict(queue, key, verdict="neither", quote="I prayed every night", reason="General prayer, no method.",
+             confidence="high")
+    result = review.apply(conn, reviewer=REVIEWER, base=queue)
+    assert result["counts"]["tag_sample:rejected"] == 1
+    assert _state(conn, "tag", key["labels"]["A"]["id"])[0] == "rejected"
+    assert review.sample_issues(conn, 5) == []                                   # ruled on: not drawn again

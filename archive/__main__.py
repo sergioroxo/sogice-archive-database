@@ -412,7 +412,8 @@ def cmd_check(args: argparse.Namespace) -> int:
     role = cfg.role(args.model_role)
     client = OllamaClient(cfg.base_url, cfg.timeout_seconds)
     result = check.check(conn, client, role, sources, prompt=read.load_prompt(args.prompt), decoys=args.decoys,
-                         held=args.held, only=only, log=lambda line: print(line, flush=True))
+                         held=args.held, only=only, schemes=tuple(args.schemes or check.SCHEMES),
+                         log=lambda line: print(line, flush=True))
     conn.close()
     stamp = time.strftime("%Y%m%d-%H%M%S")
     queue_import.write_report(result, paths.reports_dir(), f"check-{stamp}.json")
@@ -473,7 +474,11 @@ def cmd_review(args: argparse.Namespace) -> int:
                         for s in testset.entry_sources(e)]
         from .read import keeper
         sources = sorted({keeper(conn, s) for s in sources}) or None
-        print(json.dumps(review.prepare(conn, sources, base=base), indent=1))
+        print(json.dumps(review.prepare(conn, sources, base=base, sample_agreed=args.sample_agreed,
+                                        seed=args.seed), indent=1))
+    elif args.action == "candidates":   # new terms the taggers proposed: a list for the lexicon, not packets
+        found = review.write_candidates(conn, None, base=base)
+        print(json.dumps({"lexicon_candidates": len(found), "file": str(review.folder(base) / review.CANDIDATES)}))
     elif args.action == "apply":
         cfg = load_models_config()
         reviewer = args.reviewer or cfg.review_model
@@ -730,17 +735,22 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--model-role", default="checking", help="role in config/models.yaml (trial_* on a copy only)")
     p.add_argument("--decoys", action="store_true", help="also ask about a label each item was not given (trials)")
     p.add_argument("--held", action="store_true", help="also check what only one tagger gave (trials)")
+    p.add_argument("--schemes", nargs="+", choices=["cluster", "practice", "tactic"],
+                   help="which agreed 'uses' tags to ask about (default: practice; excerpts are always checked)")
     p.add_argument("--items", type=Path, help="trials: check these records only, JSON {\"tag\": [ids], \"asset\": [ids]}")
     p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("review", help="the review queue: packets for disputed and held records, verdicts, undo")
-    p.add_argument("action", choices=["prepare", "apply", "status", "undo"])
+    p.add_argument("action", choices=["prepare", "apply", "status", "undo", "candidates"])
     p.add_argument("--db", type=Path, default=paths.database_path())
     p.add_argument("--folder", type=Path, help="queue folder (default data/review)")
     p.add_argument("--source", action="append", help="with prepare: only this source")
     p.add_argument("--testset", action="store_true", help="with prepare: the test-set sources")
     p.add_argument("--split", choices=["dev", "holdout"])
     p.add_argument("--file", type=Path, default=paths.REPO_ROOT / "evaluation" / "testset_2026-11-10.json")
+    p.add_argument("--sample-agreed", type=int, default=0, metavar="N",
+                   help="with prepare: also N packets for random tags both taggers agree on (to measure their error rate)")
+    p.add_argument("--seed", type=int, default=0, help="with prepare: seed for the A/B order and the sample")
     p.add_argument("--reviewer", help="with apply: the reviewing model's name (default: review.model in the config)")
     p.add_argument("--run", help="with undo: the review run to reverse")
     p.add_argument("--reason", help="with undo: why")
