@@ -9,7 +9,8 @@ archive search and documentary research packets.
 
 Researcher: Sérgio Galvão Roxo, University of Bergen.
 
-Status: Phase 1, preserving the corpus (November 2026). See `docs/PLAN.md`.
+Status (17 November 2026): the corpus is preserved and matched; reading and tagging are measured on the
+test set; the corpus reading run has not started. See `docs/PLAN.md` and `docs/ORCHESTRATION.md`.
 
 ## Running it
 
@@ -33,7 +34,9 @@ python -m archive read --testset --split dev             # Phase 3: local readin
 python -m archive read --status                          # runs in progress; exit 1 if one has stalled
 python -m archive read --testset --both                  # two readers, reconcile, relation rules (docs/ACCOUNTABILITY.md)
 python -m archive tag --testset --split dev             # two taggers label the statements, mark excerpts (docs/TAGGING.md)
-python -m archive check --testset --split dev           # a third model checks agreed excerpts and 'uses' tags (yes/no + words)
+python -m archive check --testset --split dev           # a third model checks agreed excerpts and practices (yes/no + words)
+python -m archive tag --testset --split dev --rules-only   # actor rules on stored tags, no model (docs/TAGGING.md)
+python scripts/tagging_report.py --db COPY --split dev   # agreement, queue size, comparison with rulings
 python -m archive speakers src_… --set "Name=host"       # who speaks in a recording without labels (read-v5)
 python -m archive fingerprints                          # identifiers in page code shared by sites (docs/FINGERPRINTS.md)
 python -m archive queue-add URL … --origin NAME         # add pages to the source queue

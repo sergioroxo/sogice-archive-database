@@ -676,9 +676,10 @@ search, the network filters and the exhibition.
 **State.** Built and tried four times on dev (`docs/TAGGING.md`). Not run
 on the real archive. Agreement with tag-v3: actor types 60%, terms 90%,
 clusters 30%, practices 43%, functions 23%. Dev queue: 476 tag packets.
-Built on 16–17 November on branch `fable/tagging-v4`, **not yet
-measured** (see "Built, not yet measured" in `docs/TAGGING.md` for what
-of this list is really in the branch):
+Built on 16–17 November on branch `fable/tagging-v4`, with unit tests,
+**not yet measured** (details in `docs/TAGGING.md`, "Built, not yet
+measured"). All six are in the branch. Not built: the parliamentary-record
+rule (D22).
 
 | Item | What | Where |
 |---|---|---|
@@ -748,7 +749,8 @@ the rules), D5 (vocabulary). The dev trial copies in `data/scratch`.
    `data/scratch/sample-dev4/open/`. Forbid: `keys/`, the database, the
    code, `docs/`. Each writes verdicts to `verdicts/`. Then once:
    `$P -m archive review apply --db $C --folder data/scratch/sample-dev4`,
-   and `tagging_report.py` prints the error rate of agreed tags per kind.
+   then `$P scripts/tagging_report.py --db $C --split dev --sample-folder
+   data/scratch/sample-dev4` prints the error rate of agreed tags per kind.
 5. Orchestrator: write the numbers into `docs/TAGGING.md` ("Fifth trial")
    and ask Sérgio D4 with the table below filled in.
 

@@ -811,3 +811,64 @@ a 9.5 GB download, not installed) has fewer effective parameters still, so
 it is not worth a trial as a tagger. If anywhere, a small model belongs in
 the narrow lexicon pass above (concepts written without the lexicon's exact
 words), where software and review filter its proposals.
+
+## Built, not yet measured (16–17 November 2026)
+
+A Claude Code session in the cloud built these on branch
+`fable/tagging-v4`, from the proposals above. It had no models and no
+database, so each has unit tests only. The measurement, with commands and
+the table to fill, is in `docs/ORCHESTRATION.md` (S5). Nothing here is
+adopted: tag-v3 stays the default prompt until Sérgio decides.
+
+**A. Actor rules (`actors/v1`, software, no model).** `tag.apply_actor_rules`
+rejects an actor type that needs no judgement, before the taggers are
+compared:
+
+- *name only*: the words given are only the speaker's own name or label.
+  A word counts against this when it is a role, profession, title or kind
+  of body (the lists of `archive/rules.py`), so "Exodus president" and
+  "Core Issues Trust" stay;
+- *another person*: the words hold the full name of another speaker of
+  the source, or of a person in the Entity Registry, or follow that name
+  directly ("Dr X, a psychologist"), and say nothing of this speaker.
+  First-person words are never about another;
+- *registry kind*: the Entity Registry knows the speaker as a person and
+  the type is for organisations, or the reverse. Speakers are matched by
+  name or variant, the whole label first, then the name before a comma.
+
+Each rejection is a recorded decision by `rule:actors/v1`, with the words
+and the reason, and the run can be undone (`review undo --run`). The rules
+run with tag-v4, with `tag --actor-rules`, or alone on stored tags with
+`tag --rules-only` (no model: measure them on the tag-v3 trial first).
+Actor-type packets now show the speaker's Entity Registry entry, as
+context. Not built: the rule that members speaking in a parliamentary
+record are politicians (proposal 2); it needs a reliable mark of which
+sources are parliamentary records.
+
+**B. Prompt tag-v4** (`prompts/tag-v4.md`; same lists as tag-v3, not
+longer). What changed: actor words are never the name alone and never
+about someone else; a practice needs a named or shown method, with
+examples of general mentions; a cluster for a ban needs words that report
+or answer the argument; Policy-Resistance needs a ban in view, and a law
+that funds or orders change efforts is not a ban; a function needs the
+words that do it; a testimony is first person; "a tag you are not sure of
+is left out".
+
+**C. The checker asks about practices and excerpts only** (`check.SCHEMES`).
+`check --schemes cluster practice` asks about clusters again, for trials.
+
+**D. New terms leave the review queue.** They go to
+`lexicon_candidates.json` in the queue folder (`review prepare` writes it;
+`review candidates` alone): the term, the clause it is in, the source, and
+which taggers proposed it, most widely found first.
+
+**E. A sample of agreed tags.** `review prepare --sample-agreed N` writes N
+packets (kind `tag_sample`) for random tags both taggers agree on, taken
+in turn from each kind. The packet does not say that the taggers agree.
+Rulings are applied like any other.
+
+**F. One measurement script.** `scripts/tagging_report.py --db COPY --split
+dev` prints agreement per kind (actor types also per speaker and type) and
+the queue by kind; with `--calibration DB --runs …` what became of each
+tag the calibration reviewers ruled on; with `--sample-folder` the error
+rate of agreed tags.
