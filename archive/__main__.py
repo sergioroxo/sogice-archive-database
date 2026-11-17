@@ -346,20 +346,24 @@ def cmd_tag(args: argparse.Namespace) -> int:
     first = cfg.role("tagging")
     second = dataclasses.replace(first, model=cfg.model_for("tagging_second"))
     prompt = read.load_prompt(args.prompt)
-    if args.dry_run:
-        with conn:
+    if args.dry_run:   # keeps no data: the lists are seeded inside a transaction that is rolled back
+        try:
             tag.seed_lists(conn)
-        vocab = tag.vocabulary(conn, prompt.version)
-        for requested in sources:
-            sid = read.keeper(conn, requested)
-            statements, runs = tag.statements_for(conn, sid, primary_model=cfg.model_for("reading"))
-            sections, unplaced = tag.sections_for(conn, sid, statements, tag.terms_in(conn, statements))
-            print(f"{sid}: {len(statements)} statements from {len(runs)} reading run(s), {len(sections)} sections"
-                  + (f", {unplaced} not in a section" if unplaced else ""))
-        if sources and sections:
-            messages = tag.build_messages(prompt, vocab, read.source_header(conn, sid), sections[0], (1, len(sections)))
-            print(f"\n--- system: {len(messages[0]['content'])} characters; first section of the last source ---\n"
-                  + messages[1]["content"][:3000])
+            vocab = tag.vocabulary(conn, prompt.version)
+            for requested in sources:
+                sid = read.keeper(conn, requested)
+                statements, runs = tag.statements_for(conn, sid, primary_model=cfg.model_for("reading"))
+                sections, unplaced = tag.sections_for(conn, sid, statements, tag.terms_in(conn, statements))
+                print(f"{sid}: {len(statements)} statements from {len(runs)} reading run(s), {len(sections)} sections"
+                      + (f", {unplaced} not in a section" if unplaced else ""))
+            if sources and sections:
+                messages = tag.build_messages(prompt, vocab, read.source_header(conn, sid), sections[0],
+                                              (1, len(sections)))
+                print(f"\n--- system: {len(messages[0]['content'])} characters; first section of the last source ---\n"
+                      + messages[1]["content"][:3000])
+        finally:
+            conn.rollback()
+            conn.close()
         return 0
     client = OllamaClient(cfg.base_url, cfg.timeout_seconds)
     log = lambda line: print(line, flush=True)
@@ -474,8 +478,11 @@ def cmd_review(args: argparse.Namespace) -> int:
                         for s in testset.entry_sources(e)]
         from .read import keeper
         sources = sorted({keeper(conn, s) for s in sources}) or None
+        if args.sample_only and not args.sample_agreed:
+            print("--sample-only needs --sample-agreed N", file=sys.stderr)
+            return 2
         print(json.dumps(review.prepare(conn, sources, base=base, sample_agreed=args.sample_agreed,
-                                        seed=args.seed), indent=1))
+                                        sample_only=args.sample_only, seed=args.seed), indent=1))
     elif args.action == "candidates":   # new terms the taggers proposed: a list for the lexicon, not packets
         found = review.write_candidates(conn, None, base=base)
         print(json.dumps({"lexicon_candidates": len(found), "file": str(review.folder(base) / review.CANDIDATES)}))
@@ -718,7 +725,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--batch", type=int, default=25, help="sources per batch (both taggers, then compare)")
     p.add_argument("--one", action="store_true", help="the first tagger only (trials)")
     p.add_argument("--actor-rules", action="store_true",
-                   help="apply the actor rules (actors/v1) before comparing; always on from tag-v4")
+                   help="apply the actor rules (actors/v2) before comparing; always on from tag-v4")
     p.add_argument("--rules-only", action="store_true",
                    help="no model: apply the actor rules to the stored tags, then compare again")
     p.add_argument("--dry-run", action="store_true", help="show what would be tagged and the first section")
@@ -750,6 +757,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--file", type=Path, default=paths.REPO_ROOT / "evaluation" / "testset_2026-11-10.json")
     p.add_argument("--sample-agreed", type=int, default=0, metavar="N",
                    help="with prepare: also N packets for random tags both taggers agree on (to measure their error rate)")
+    p.add_argument("--sample-only", action="store_true",
+                   help="with prepare and --sample-agreed: only the sample packets, in a folder of their own for blind "
+                        "reviewers (nothing else is written or dropped)")
     p.add_argument("--seed", type=int, default=0, help="with prepare: seed for the A/B order and the sample")
     p.add_argument("--reviewer", help="with apply: the reviewing model's name (default: review.model in the config)")
     p.add_argument("--run", help="with undo: the review run to reverse")

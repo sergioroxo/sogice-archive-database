@@ -800,17 +800,21 @@ def render(conn: sqlite3.Connection, issue: Issue) -> tuple[str, list[str], list
 
 
 def prepare(conn: sqlite3.Connection, source_ids: list[str] | None = None, *, base: Path | None = None,
-            seed: int = 0, sample_agreed: int = 0) -> dict:
+            seed: int = 0, sample_agreed: int = 0, sample_only: bool = False) -> dict:
     """Write packets for open issues; drop packets whose issue is gone. Idempotent.
 
     ``sample_agreed``: also write that many packets for random tags both taggers agree on (``sample_issues``).
     Sample packets already written are kept by later calls, whatever their arguments.
+    ``sample_only``: write the sample and nothing else, and drop nothing: for a folder of its own, so that blind
+    reviewers are given only the sample (with the queue beside it, the packets cannot be told apart).
     """
+    if sample_only and not sample_agreed:
+        raise ValueError("sample_only needs sample_agreed")
     root = folder(base)
-    issues = find_issues(conn, source_ids)
+    issues = [] if sample_only else find_issues(conn, source_ids)
     if sample_agreed:
         issues += sample_issues(conn, sample_agreed, source_ids, seed=seed)
-    candidates = write_candidates(conn, source_ids, base=root)
+    candidates = [] if sample_only else write_candidates(conn, source_ids, base=root)
     current = {i.id for i in issues}
     closed = {p.stem.split("-", 1)[1] for d in ("done", "researcher") for p in (root / d).glob("*.md")}
     existing = {p.stem.split("-", 1)[1]: p for p in (root / "open").glob("*.md")}
@@ -820,7 +824,7 @@ def prepare(conn: sqlite3.Connection, source_ids: list[str] | None = None, *, ba
         key_path = root / "keys" / f"{iid}.json"
         key = json.loads(key_path.read_text()) if key_path.exists() else {}
         in_scope = not scope or key.get("source_id") in scope
-        if key.get("kind") == "tag_sample":   # a drawn sample stays until it is ruled on
+        if key.get("kind") == "tag_sample" or sample_only:   # a drawn sample stays until it is ruled on
             continue
         if iid not in current and in_scope and not (root / "verdicts" / f"{iid}.json").exists():
             path.unlink()

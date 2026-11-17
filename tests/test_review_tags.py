@@ -1,6 +1,8 @@
 """Tags and excerpts in the review queue: everything two taggers did not settle is reviewed one by one."""
 import json
 
+import pytest
+
 from archive import check, db, review, tag
 from tests.test_check import CHECKER
 from tests.test_tag import FIRST, SECOND, SID, V1, FakeClient, conn, first_reply, second_reply  # noqa: F401
@@ -230,3 +232,19 @@ def test_a_sample_of_agreed_tags_is_asked_blind_and_ruled_on_like_any_packet(con
     assert result["counts"]["tag_sample:rejected"] == 1
     assert _state(conn, "tag", key["labels"]["A"]["id"])[0] == "rejected"
     assert review.sample_issues(conn, 5) == []                                   # ruled on: not drawn again
+
+
+def test_a_sample_only_folder_holds_the_sample_and_nothing_else(conn, tmp_path):
+    _tagged_and_checked(conn, healing="yes", testimony="yes")
+    queue = tmp_path / "review"
+    opened = review.prepare(conn, base=queue)["open"]
+    assert opened > 0
+    with pytest.raises(ValueError):
+        review.prepare(conn, base=tmp_path / "sample", sample_only=True)
+    sample = tmp_path / "sample"
+    result = review.prepare(conn, base=sample, sample_agreed=5, seed=3, sample_only=True)
+    assert result["written"] == {"tag_sample": 1} and result["open"] == 1       # the blind reviewers get only this
+    assert {k["kind"] for k in _keys(sample)} == {"tag_sample"} and not (sample / review.CANDIDATES).exists()
+    # in a folder that already holds the queue, a sample-only call adds the sample and drops nothing
+    again = review.prepare(conn, base=queue, sample_agreed=5, seed=3, sample_only=True)
+    assert again["dropped"] == 0 and again["open"] == opened + 1

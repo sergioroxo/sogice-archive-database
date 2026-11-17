@@ -75,7 +75,7 @@ def test_a_new_trial_is_compared_with_the_calibration_rulings_and_a_sample_is_sc
 
 def test_tag_v4_says_what_the_reviewers_found(conn):
     v4 = read.load_prompt("tag-v4").text
-    for phrase in ("never the name alone", "is not a ban", "first-person account",
+    for phrase in ("Copy those words, not the name", "is not a ban", "first-person account",
                    "A function needs the words that do it", "A general mention", "Never words about someone else"):
         assert phrase in v4
     assert len(v4) <= len(read.load_prompt("tag-v3").text)      # not longer: reading the input is half of a run

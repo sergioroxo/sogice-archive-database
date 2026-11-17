@@ -21,8 +21,8 @@ holds:
   is ("the oldest and largest Christian ministry"). At most two. Each with
   words: the words that state it, copied exactly (at most 12), from
   anywhere in this section.
-  * The words are never the name alone ("M. Paul Molac", "Exodus
-    International"): a name states no role. No such words: [].
+  * Copy those words, not the name; the name alone only for a member
+    speaking in a parliament's own debate. No such words: [].
   * Never words about someone else: a host who introduces a guest does not
     get the guest's role.
   * Never guess from a name, a title of address or what they say.

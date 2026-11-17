@@ -66,9 +66,11 @@ PROMPT_LISTS = {"tag-v1": ("tactic", "practice", "function"), "tag-v2": ("cluste
 PROMPT_FEATURES = {"tag-v2": frozenset({"actor_list"}), "tag-v3": frozenset({"actor_list"}),
                    "tag-v4": frozenset({"actor_list", "actor_rules"})}
 MAX_ACTORS = 2
-# Actor types software can refuse without a model (apply_actor_rules): the words are only the speaker's name,
-# they are a role line about someone else, or the Entity Registry says the speaker is the other kind.
-ACTOR_RULE = "actors/v1"
+# Actor types software can refuse without a model (apply_actor_rules): the words are a role line about someone
+# else, or the Entity Registry says the speaker is the other kind. actors/v1 also refused words that are only the
+# speaker's name; measured on the tag-v3 trial it dropped 115 types the calibration reviewers had ruled right
+# (deputies in a parliamentary record, organisations whose name says what they are), so actors/v2 only counts them.
+ACTOR_RULE = "actors/v2"
 ACTOR_RULE_ID = f"rule:{ACTOR_RULE}"
 FIRST_PERSON = {"i", "my", "me", "myself", "we", "our", "us", "je", "j", "moi", "mon", "ma", "mes", "nous", "notre",
                 "yo", "mi", "mis", "nosotros", "nuestro", "nuestra", "eu", "meu", "minha", "nos", "nosso", "nossa"}
@@ -523,41 +525,47 @@ def name_only(cue: str | None, speaker: str | None) -> bool:
 
 
 def names_another(cue: str | None, before: str, speaker: str | None, others: list[list[str]]) -> str | None:
-    """The words are a role line about someone else: they hold another person's full name, or follow it
-    directly ("Dr Jane Roe, a psychologist"), and say nothing of this speaker. Returns that name, or None.
+    """The words are a role line about someone else: they begin with another person's full name (after a title
+    of address: "Dr Jane Roe, a psychologist"), or follow that name directly in the text ("Jane Roe, | a
+    psychologist"), and say nothing of this speaker. Returns that name, or None.
 
-    ``others``: the folded name words (two or more) of the other speakers of the source and of the registry's
-    people. ``before``: the text just before the words. First-person words ("I am a …") are never about another.
+    A name further inside the words is not enough: in "started Strong Support" the name is what the speaker
+    started (actors/v1 matched anywhere in the words and refused such roles). ``others``: the folded name words
+    (two or more) of the other speakers of the source and of the registry's people. ``before``: the text just
+    before the words. First-person words ("I am a …") are never about another.
     """
-    from .rules import fold
+    from .rules import HONORIFICS, fold
     folded = fold(cue).split()
     own = set(_name_words(_head(speaker)))
     if not folded or FIRST_PERSON & set(folded) or own & set(folded):
         return None
+    lead = list(folded)
+    while lead and lead[0] in HONORIFICS:
+        lead = lead[1:]
     tail = fold(before).split()
     for name in others:
         if len(name) < 2 or own & set(name):
             continue   # the same person under another label
         n = len(name)
-        inside = any(folded[i:i + n] == name for i in range(len(folded) - n + 1))
-        if inside or (tail[-n:] == name and not own & set(tail[-(n + 6):])):
+        if lead[:n] == name or (tail[-n:] == name and not own & set(tail[-(n + 6):])):
             return " ".join(name)
     return None
 
 
 def apply_actor_rules(conn: sqlite3.Connection, source_ids: list[str], *, models: list[str]) -> dict:
-    """Reject actor types that need no judgement (rule ``actors/v1``), before the taggers are compared.
+    """Reject actor types that need no judgement (rule ``actors/v2``), before the taggers are compared.
 
     For each actor-type tag of the taggers' current runs, not ruled on by a reviewer:
 
-    - *name only*: the located words are only the speaker's own name or label;
-    - *another person*: the words name another speaker of the source or a person of the Entity Registry, or
-      follow that name directly, and say nothing of this speaker;
+    - *another person*: the words begin with the full name of another speaker of the source or of a person in
+      the Entity Registry, or follow that name directly, and say nothing of this speaker;
     - *registry kind*: the Entity Registry knows the speaker as a person and the type is one for organisations,
       or the reverse.
 
     Each is a recorded 'reject' decision by the rule, with the words and the reason; the run can be undone
-    (``review undo --run``). Returns the run id and counts (the function commits).
+    (``review undo --run``). Words that are only the speaker's own name are counted (``name_only_kept``), not
+    refused: the type is often right and stated elsewhere (docs/TAGGING.md, "Actor rules measured").
+    Returns the run id and counts (the function commits).
     """
     conn.row_factory = sqlite3.Row
     from .rules import fold
@@ -603,15 +611,13 @@ def apply_actor_rules(conn: sqlite3.Connection, source_ids: list[str], *, models
                     rule, reason = "registry_kind", (
                         f"The Entity Registry knows the speaker as a {entity['kind']} ({entity['label']}); "
                         f"'{t['pref_label']}' is a type for {wanted}s.")
-                elif t["cue"] and name_only(t["cue"], speaker):
-                    rule, reason = "name_only", (
-                        f"The words given for '{t['pref_label']}' are only the speaker's own name or label "
-                        f"({speaker}): a name states no role.")
                 elif other:
                     rule, reason = "another_person", (
                         f"The words given for '{t['pref_label']}' are about someone else ({other}), not about "
                         f"the speaker ({speaker}).")
                 else:
+                    if t["cue"] and name_only(t["cue"], speaker):
+                        counts["name_only_kept"] += 1
                     continue
                 conn.execute("UPDATE tag SET review_state = 'rejected' WHERE id = ?", (t["id"],))
                 record_decision(conn, actor_kind="model", actor_id=ACTOR_RULE_ID, run_id=run_id, action="reject",
